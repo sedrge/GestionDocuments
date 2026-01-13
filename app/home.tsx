@@ -1,14 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { decode } from 'base64-arraybuffer';
 import * as DocumentPicker from 'expo-document-picker';
-import { File } from 'expo-file-system';
-import * as FileSystem from 'expo-file-system/legacy';
+import * as FileSystem from 'expo-file-system';
+//import { File } from 'expo-file-system'; // Nouvelle API du SDK 54+
+import { File, Paths } from "expo-file-system";
 import * as ImagePicker from 'expo-image-picker';
 import * as LocalAuthentication from 'expo-local-authentication';
-import * as SecureStore from 'expo-secure-store'; // AJOUTÉ
+import { router } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
 import * as Sharing from 'expo-sharing';
 import * as WebBrowser from 'expo-web-browser';
-import React, { createContext, useContext, useEffect, useState } from 'react';
+
+import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -28,6 +31,28 @@ import { supabase } from '../lib/supabase';
 
 const { width } = Dimensions.get('window');
 
+// --- TYPES & INTERFACES ---
+interface Doc {
+  id: string;
+  titre: string;
+  file_url: string;
+  created_at: string;
+  categorie_id: string;
+  user_id: string;
+  autres?: {
+    size?: number;
+    type?: string;
+    path?: string;
+  };
+}
+
+interface Category {
+  id: string;
+  nom: string;
+  user_id: string;
+  documents: Doc[];
+}
+
 // --- 1. MOTEUR DE THÈME ---
 const Themes = {
   light: { bg: '#F5F5F7', card: '#FFFFFF', text: '#1C1C1E', subText: '#8E8E93', primary: '#007AFF', nav: '#E5E5EA', border: '#D1D1D6' },
@@ -36,7 +61,7 @@ const Themes = {
 
 const ThemeContext = createContext({ theme: Themes.dark, isDark: true, toggleTheme: () => {} });
 
-const ThemeProvider = ({ children }: any) => {
+const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const [isDark, setIsDark] = useState(true);
   const theme = isDark ? Themes.dark : Themes.light;
   const toggleTheme = () => setIsDark(!isDark);
@@ -49,43 +74,49 @@ const useTheme = () => useContext(ThemeContext);
 function HomeScreenContent() {
   const { theme, toggleTheme, isDark } = useTheme();
   
-  const [categories, setCategories] = useState<any[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<any>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   
   const [activeMenu, setActiveMenu] = useState<string | null>(null); 
-  const [viewMode, setViewMode] = useState<'list' | 'details' | 'grid' | 'content'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'details' | 'grid'>('list');
   
   const [isModalVisible, setIsModalVisible] = useState(false); 
   const [isAddDocModal, setIsAddDocModal] = useState(false); 
-  const [editingDoc, setEditingDoc] = useState<any>(null); 
+  const [editingDoc, setEditingDoc] = useState<Doc | null>(null); 
   const [isPinModalVisible, setIsPinModalVisible] = useState(false);
   
   const [newDocTitle, setNewDocTitle] = useState('');
   const [tempFile, setTempFile] = useState<any>(null);
   const [newCatName, setNewCatName] = useState('');
-
   const [newPin, setNewPin] = useState('');
-
 
   useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
     setLoading(true);
-    const { data } = await supabase.from('categories').select('*, documents(*)');
-    if (data) {
-      setCategories(data);
-      if (selectedCategory) {
-        const updated = data.find(c => c.id === selectedCategory.id);
-        setSelectedCategory(updated);
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (user) {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*, documents(*)')
+        .eq('user_id', user.id) // Filtrage multi-utilisateur
+        .order('nom');
+
+      if (data) {
+        setCategories(data as Category[]);
+        if (selectedCategory) {
+          const updated = (data as Category[]).find((c: Category) => c.id === selectedCategory.id);
+          if (updated) setSelectedCategory(updated);
+        }
       }
     }
     setLoading(false);
   };
 
-  // --- LOGIQUE CHANGEMENT LOGO (PARAMÈTRES) ---
   const handleUpdateLogo = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -94,71 +125,114 @@ function HomeScreenContent() {
       quality: 0.5,
     });
 
-    if (!result.canceled && result.assets && result.assets.length > 0) {
+    if (!result.canceled && result.assets) {
       const sourceUri = result.assets[0].uri;
       const fileName = `app_logo_${Date.now()}.png`;
-      const destinationUri = `${FileSystem.documentDirectory}${fileName}`;
-
+      const docUri = Paths.document.uri;
+      //const destinationUri = `${FileSystem.documentDirectory}${fileName}`;
+      const destinationUri = `${docUri}${fileName}`;
       try {
         await FileSystem.copyAsync({ from: sourceUri, to: destinationUri });
         await SecureStore.setItemAsync('APP_LOGO_URI', destinationUri);
-        Alert.alert('Succès', 'Le logo de l\'écran de verrouillage a été mis à jour.');
+        Alert.alert('Succès', 'Logo mis à jour.');
         setActiveMenu(null);
-      } catch (e) {
-        Alert.alert('Erreur', 'Impossible de sauvegarder le logo.');
-      }
+      } catch (e) { Alert.alert('Erreur', 'Impossible de sauvegarder.'); }
     }
   };
 
   const handleCreateCategory = async () => {
-    if (!newCatName.trim()) return;
-    const { error } = await supabase.from('categories').insert([{ nom: newCatName.trim() }]);
-    if (!error) { setNewCatName(''); setIsModalVisible(false); setActiveMenu(null); fetchData(); }
-  };
+  if (!newCatName.trim()) return;
+  
+  // On récupère l'ID de l'utilisateur connecté
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    Alert.alert("Erreur", "Session expirée, veuillez vous reconnecter.");
+    return;
+  }
+
+  const { error } = await supabase
+    .from('categories')
+    .insert([{ 
+      nom: newCatName.trim(), 
+      user_id: user.id  // <--- INDISPENSABLE
+    }]);
+
+  if (error) {
+    Alert.alert("Erreur Supabase", error.message);
+  } else {
+    setNewCatName('');
+    setIsModalVisible(false);
+    fetchData();
+  }
+};
 
   const handleUpdatePin = async () => {
-    const auth = await LocalAuthentication.authenticateAsync({ promptMessage: 'Confirmez votre identité' });
-    if (!auth.success) return Alert.alert("Erreur", "Authentification requise.");
-    if (newPin.length !== 4) return Alert.alert("Erreur", "Le PIN doit faire 4 chiffres.");
-    
+    const auth = await LocalAuthentication.authenticateAsync({ promptMessage: 'Authentification' });
+    if (!auth.success) return;
+    if (newPin.length !== 4) return Alert.alert("Erreur", "4 chiffres requis.");
     await SecureStore.setItemAsync('USER_PIN', newPin);
-    Alert.alert("Succès", "Code PIN modifié.");
-    setIsPinModalVisible(false);
-    setNewPin('');
+    Alert.alert("Succès", "PIN modifié.");
+    setIsPinModalVisible(false); setNewPin('');
   };
 
   const processUpload = async () => {
-    if (!newDocTitle.trim() || !tempFile) return Alert.alert("Erreur", "Veuillez donner un titre.");
-    setIsUploading(true);
-    setIsAddDocModal(false);
-    try {
-      const storagePath = `docs/${Date.now()}_${tempFile.name}`;
-      const fileRef = new File(tempFile.uri);
-      const base64 = await fileRef.base64();
-      const { error: upErr } = await supabase.storage.from('fichiers_documents').upload(storagePath, decode(base64), { 
-        contentType: tempFile.mimeType, upsert: true 
+  if (!newDocTitle.trim() || !tempFile || !selectedCategory) return;
+  setIsUploading(true);
+  
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Utilisateur non connecté");
+
+    const storagePath = `${user.id}/${Date.now()}_${tempFile.name}`;
+
+    // ✅ NOUVELLE MÉTHODE 2025 (SDK 54+)
+    // On crée une instance de la classe File à partir de l'URI
+    const fileToUpload = new File(tempFile.uri);
+    
+    // On récupère le contenu en base64 via la méthode de classe
+    const base64Data = await fileToUpload.base64();
+
+    // Envoi vers Supabase Storage
+    const { error: upErr } = await supabase.storage
+      .from('fichiers_documents')
+      .upload(storagePath, decode(base64Data), { 
+          contentType: tempFile.mimeType, 
+          upsert: true 
       });
-      if (upErr) throw upErr;
-      const { data: urlData } = supabase.storage.from('fichiers_documents').getPublicUrl(storagePath);
-      const { error: dbErr } = await supabase.from('documents').insert([{
-        titre: newDocTitle.trim(),
-        file_url: urlData.publicUrl,
-        categorie_id: selectedCategory.id,
-        autres: { size: tempFile.size, type: tempFile.mimeType, path: storagePath }
-      }]);
-      if (dbErr) throw dbErr;
-      fetchData();
-    } catch (e: any) { Alert.alert("Erreur", e.message); }
-    finally { setIsUploading(false); }
-  };
+
+    if (upErr) throw upErr;
+
+    const { data: urlData } = supabase.storage.from('fichiers_documents').getPublicUrl(storagePath);
+
+    const { error: dbErr } = await supabase.from('documents').insert([{
+      titre: newDocTitle.trim(),
+      file_url: urlData.publicUrl,
+      categorie_id: selectedCategory.id,
+      user_id: user.id,
+      autres: { size: tempFile.size, type: tempFile.mimeType, path: storagePath }
+    }]);
+
+    if (dbErr) throw dbErr;
+
+    fetchData();
+    setTempFile(null);
+    setIsAddDocModal(false);
+    Alert.alert("Succès", "Document ajouté !");
+  } catch (e: any) { 
+    Alert.alert("Erreur", e.message); 
+  } finally { 
+    setIsUploading(false); 
+  }
+};
+
 
   const handlePickDocument = async () => {
     const result = await DocumentPicker.getDocumentAsync({ type: '*/*' });
     if (result.canceled || !result.assets) return;
     setTempFile(result.assets[0]);
     setNewDocTitle(result.assets[0].name);
-    setIsAddDocModal(true);
-    setActiveMenu(null);
+    setIsAddDocModal(true); setActiveMenu(null);
   };
 
   const handleCapture = async (type: 'photo' | 'video') => {
@@ -170,42 +244,71 @@ function HomeScreenContent() {
     });
     if (result.canceled || !result.assets) return;
     const asset = result.assets[0];
-    setTempFile({ uri: asset.uri, name: `capture.${type === 'photo' ? 'jpg' : 'mp4'}`, mimeType: asset.mimeType, size: asset.fileSize });
-    setNewDocTitle(`Ma Capture ${new Date().toLocaleDateString()}`);
-    setIsAddDocModal(true);
-    setActiveMenu(null);
+    setTempFile({ uri: asset.uri, name: `cap.${type === 'photo' ? 'jpg' : 'mp4'}`, mimeType: asset.mimeType, size: asset.fileSize });
+    setNewDocTitle(`Capture ${new Date().toLocaleDateString()}`);
+    setIsAddDocModal(true); setActiveMenu(null);
   };
-
-  const handleOpenDoc = async (doc: any) => {
+/*
+  const handleOpenDoc = async (doc: Doc) => {
     try {
-      const ext = doc.file_url.split('.').pop().toLowerCase();
-      if (['jpg', 'jpeg', 'png', 'gif'].includes(ext)) {
+      const ext = doc.file_url.split('.').pop()?.toLowerCase();
+      if (['jpg', 'jpeg', 'png', 'gif'].includes(ext || '')) {
         await WebBrowser.openBrowserAsync(doc.file_url);
         return;
       }
-      const cleanName = doc.titre.replace(/[^a-zA-Z0-9.]/g, '_');
-      const fileUri = `${FileSystem.documentDirectory}${cleanName}`;
+      const fileUri = `${FileSystem.documentDirectory}${doc.titre.replace(/[^a-zA-Z0-9.]/g, '_')}`;
       const { exists } = await FileSystem.getInfoAsync(fileUri);
       if (!exists) {
-        Alert.alert("Patientez", "Téléchargement en cours...");
+        Alert.alert("Téléchargement", "Veuillez patienter...");
         await FileSystem.downloadAsync(doc.file_url, fileUri);
       }
       await Sharing.shareAsync(fileUri);
-    } catch (e) {
-      Alert.alert("Erreur", "Impossible d'ouvrir le document.");
-    }
+    } catch (e) { Alert.alert("Erreur", "Impossible d'ouvrir."); }
   };
+*/
+const handleOpenDoc = async (doc: Doc) => {
+  try {
+    const ext = doc.file_url.split('.').pop()?.toLowerCase();
 
+    if (['jpg', 'jpeg', 'png', 'gif'].includes(ext || '')) {
+      await WebBrowser.openBrowserAsync(doc.file_url);
+      return;
+    }
+
+    // base URI document
+    const baseUri = Paths.document.uri;
+    const safeName = doc.titre.replace(/[^a-zA-Z0-9.]/g, '_');
+
+    // créer une instance File dans Documents
+    const localFile = new File(Paths.document, safeName);
+
+    // vérifier s’il existe déjà
+    const exists = await localFile.exists;
+
+    if (!exists) {
+      Alert.alert("Téléchargement", "Veuillez patienter...");
+
+      // télécharger avec new API
+      await File.downloadFileAsync(doc.file_url, new File(Paths.document, safeName));
+    }
+
+    // partager
+    await Sharing.shareAsync(localFile.uri);
+
+  } catch (e) {
+    Alert.alert("Erreur", "Impossible d'ouvrir.");
+  }
+};
   const getFilteredDocs = () => {
     if (!selectedCategory?.documents) return [];
-    return selectedCategory.documents.filter((doc: any) => {
+    return selectedCategory.documents.filter((doc: Doc) => {
       const searchLower = search.toLowerCase();
-      return doc.titre.toLowerCase().includes(searchLower) || new Date(doc.created_at).toLocaleDateString().includes(searchLower);
+      return doc.titre.toLowerCase().includes(searchLower);
     });
   };
 
-  const handleDeleteDoc = async (doc: any) => {
-    Alert.alert("Supprimer", "Confirmer la suppression ?", [
+  const handleDeleteDoc = async (doc: Doc) => {
+    Alert.alert("Supprimer", "Confirmer ?", [
       { text: "Non" },
       { text: "Oui", style: 'destructive', onPress: async () => {
         if (doc.autres?.path) await supabase.storage.from('fichiers_documents').remove([doc.autres.path]);
@@ -215,8 +318,8 @@ function HomeScreenContent() {
     ]);
   };
 
-  const renderDocItem = ({ item }: any) => {
-    const getIcon = (url: string) => {
+  const renderDocItem = ({ item }: { item: Doc }) => {
+    const getIcon = (url: string): any => {
       const ext = url.split('.').pop()?.toLowerCase();
       if (ext === 'pdf') return 'document-text';
       if (['jpg','png','jpeg'].includes(ext!)) return 'image';
@@ -261,6 +364,12 @@ function HomeScreenContent() {
             </TouchableOpacity>
             <TouchableOpacity style={styles.navBtn} onPress={() => setActiveMenu(activeMenu === 'Paramètres' ? null : 'Paramètres')}>
               <Text style={{ color: theme.text }}>Paramètres</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.navBtn} onPress={async () => {
+                 await supabase.auth.signOut();
+                 router.replace('/');
+            }}>
+              <Text style={{ color: 'red' }}>Déconnexion</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.navBtn} onPress={toggleTheme}>
               <Ionicons name={isDark ? "sunny" : "moon"} size={16} color={theme.text} />
@@ -315,9 +424,9 @@ function HomeScreenContent() {
             </View>
           ) : (
             <FlatList 
-              data={categories.filter(c => c.nom.toLowerCase().includes(search.toLowerCase()))} 
+              data={categories.filter((c: Category) => c.nom.toLowerCase().includes(search.toLowerCase()))} 
               numColumns={2} 
-              renderItem={({ item }) => (
+              renderItem={({ item }: { item: Category }) => (
                 <TouchableOpacity style={[styles.folderCard, { backgroundColor: theme.card }]} onPress={() => setSelectedCategory(item)}>
                   <Ionicons name="folder" size={55} color="#FFCA28" />
                   <Text style={[styles.folderName, { color: theme.text }]} numberOfLines={1}>{item.nom}</Text>
@@ -333,21 +442,21 @@ function HomeScreenContent() {
           <View style={styles.overlay}>
             <View style={[styles.modal, { backgroundColor: theme.card }]}>
               <Text style={{ color: theme.text, fontWeight: 'bold', fontSize: 18 }}>Enregistrer</Text>
-              <TextInput style={[styles.input, { color: theme.text, borderColor: theme.border }]} value={newDocTitle} onChangeText={setNewDocTitle} placeholder="Nom du document..." placeholderTextColor={theme.subText} autoFocus />
+              <TextInput style={[styles.input, { color: theme.text, borderColor: theme.border }]} value={newDocTitle} onChangeText={setNewDocTitle} placeholder="Nom..." placeholderTextColor={theme.subText} autoFocus />
               <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
                 <TouchableOpacity onPress={() => {setIsAddDocModal(false); setTempFile(null);}}><Text style={{ color: 'red', marginRight: 20, paddingTop: 10 }}>Annuler</Text></TouchableOpacity>
-                <Button title="Enregistrer" onPress={processUpload} color={theme.primary} />
+                <Button title="Ok" onPress={processUpload} color={theme.primary} />
               </View>
             </View>
           </View>
         </Modal>
 
-        {/* Modale Changement PIN */}
+        {/* MODALE PIN */}
         <Modal visible={isPinModalVisible} transparent animationType="fade">
           <View style={styles.overlay}>
             <View style={[styles.modal, { backgroundColor: theme.card }]}>
-              <Text style={{ color: theme.text, fontWeight: 'bold' }}>Nouveau PIN (4 chiffres)</Text>
-              <TextInput style={[styles.input, { color: theme.text, borderColor: theme.border, textAlign:'center', fontSize:20 }]} value={newPin} onChangeText={setNewPin} maxLength={4} keyboardType="numeric" secureTextEntry />
+              <Text style={{ color: theme.text, fontWeight: 'bold' }}>Nouveau PIN</Text>
+              <TextInput style={[styles.input, { color: theme.text, borderColor: theme.border, textAlign:'center' }]} value={newPin} onChangeText={setNewPin} maxLength={4} keyboardType="numeric" secureTextEntry />
               <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
                 <TouchableOpacity onPress={() => setIsPinModalVisible(false)}><Text style={{ color: 'red', marginRight: 20 }}>Annuler</Text></TouchableOpacity>
                 <Button title="Valider" onPress={handleUpdatePin} />
@@ -361,7 +470,7 @@ function HomeScreenContent() {
           <View style={styles.overlay}>
             <View style={[styles.modal, { backgroundColor: theme.card }]}>
               <Text style={{ color: theme.text, fontWeight: 'bold' }}>Nouveau Dossier</Text>
-              <TextInput style={[styles.input, { color: theme.text, borderColor: theme.border }]} value={newCatName} onChangeText={setNewCatName} placeholder="Nom..." placeholderTextColor={theme.subText} />
+              <TextInput style={[styles.input, { color: theme.text, borderColor: theme.border }]} value={newCatName} onChangeText={setNewCatName} placeholder="Nom..." />
               <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
                 <TouchableOpacity onPress={() => setIsModalVisible(false)}><Text style={{ color: 'red', marginRight: 20 }}>Annuler</Text></TouchableOpacity>
                 <Button title="Créer" onPress={handleCreateCategory} />
@@ -375,12 +484,14 @@ function HomeScreenContent() {
           <View style={styles.overlay}>
             <View style={[styles.modal, { backgroundColor: theme.card }]}>
               <Text style={{ color: theme.text, fontWeight: 'bold' }}>Renommer</Text>
-              <TextInput style={[styles.input, { color: theme.text, borderColor: theme.border }]} value={editingDoc?.titre} onChangeText={(t) => setEditingDoc({...editingDoc, titre: t})} />
+              <TextInput style={[styles.input, { color: theme.text, borderColor: theme.border }]} value={editingDoc?.titre} onChangeText={(t) => editingDoc && setEditingDoc({...editingDoc, titre: t})} />
               <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
                 <TouchableOpacity onPress={() => setEditingDoc(null)}><Text style={{ color: 'red', marginRight: 20 }}>Annuler</Text></TouchableOpacity>
                 <Button title="Ok" onPress={async () => {
-                   await supabase.from('documents').update({ titre: editingDoc.titre }).eq('id', editingDoc.id);
-                   setEditingDoc(null); fetchData();
+                   if (editingDoc) {
+                     await supabase.from('documents').update({ titre: editingDoc.titre }).eq('id', editingDoc.id);
+                     setEditingDoc(null); fetchData();
+                   }
                 }} />
               </View>
             </View>
@@ -392,7 +503,7 @@ function HomeScreenContent() {
   );
 }
 
-const MenuOption = ({ icon, label, onPress }: any) => {
+const MenuOption = ({ icon, label, onPress }: { icon: any, label: string, onPress: () => void }) => {
   const { theme } = useTheme();
   return (
     <TouchableOpacity style={styles.dropItem} onPress={onPress}>

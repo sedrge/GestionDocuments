@@ -41,13 +41,16 @@
         }
       ],
       "expo-secure-store",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
     },
     "extra": {
+      "supabaseUrl": "https://cxjqzbyhilrimjbnqjjf.supabase.co",
+      "supabaseAnonKey": "sb_publishable_IrC8XntZO7hRlCsx8ldzQQ_36r5YMc-",
       "router": {},
       "eas": {
         "projectId": "9cf8bec5-40f6-42c8-ad79-6d2e50cba58d"
