@@ -384,6 +384,11 @@ const handleOpenDoc = async (doc: Doc) => {
             <MenuOption icon="document-attach-outline" label="Importer Fichier" onPress={handlePickDocument} />
             <MenuOption icon="camera-outline" label="Prendre Photo" onPress={() => handleCapture('photo')} />
             <MenuOption icon="videocam-outline" label="Filmer Vidéo" onPress={() => handleCapture('video')} />
+            {/* ← AJOUT DU REGISTRE */}
+            <MenuOption icon="clipboard-outline" label="Registre" onPress={() => {
+              setActiveMenu(null);
+              router.push('/annees_mois'); // navigation vers l’écran Registre
+            }} />
           </View>
         )}
 
