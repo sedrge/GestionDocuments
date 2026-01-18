@@ -1,0 +1,60 @@
+{
+  "expo": {
+    "name": "Choeur",
+    "slug": "Choeur",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/senApp.png",
+    "scheme": "choeur",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "icon": "./assets/images/senApp.png",
+      "bundleIdentifier": "com.anonymous.choeur"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#121212",
+        "foregroundImage": "./assets/images/senApp.png"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.choeur"
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/senApp.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/senApp.png",
+          "imageWidth": 250,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "backgroundColor": "#121212"
+          }
+        }
+      ],
+      "expo-secure-store",
+      "expo-web-browser",
+      "expo-sqlite"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "supabaseUrl": "https://arpvgluwznoisgpwndcb.supabase.co",
+      "supabaseAnonKey": "sb_publishable_Izl1Jf-QO2xAY9tVAymd3Q_utOtbT5f",
+      "router": {},
+      "eas": {
+        "projectId": "9cf8bec5-40f6-42c8-ad79-6d2e50cba58d"
+      }
+    }
+  }
+}

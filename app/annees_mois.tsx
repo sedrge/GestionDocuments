@@ -3,7 +3,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import { supabase } from '../lib/supabase';
 
 export default function AnneesMoisScreen() {
@@ -16,7 +23,7 @@ export default function AnneesMoisScreen() {
     const { data } = await supabase
       .from('annees_mois')
       .select('*')
-      .order('nom'); // Tri par nom
+      .order('nom'); // Tri par nom (ex: 2026_janvier)
     setDossiers(data || []);
     setLoading(false);
   };
@@ -41,6 +48,7 @@ export default function AnneesMoisScreen() {
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ title: "Dossiers Registres" }} />
+
       {loading ? (
         <ActivityIndicator style={{ marginTop: 50 }} size="large" />
       ) : (
@@ -52,6 +60,14 @@ export default function AnneesMoisScreen() {
           contentContainerStyle={{ padding: 15 }}
         />
       )}
+
+      {/* 👇 Bouton flottant pour ajouter un dossier */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => router.push('/annees_mois_new')} // écran de création
+      >
+        <Ionicons name="add" size={28} color="white" />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -72,5 +88,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
     textAlign: 'center'
+  },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 30,
+    backgroundColor: '#007AFF',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8
   }
 });

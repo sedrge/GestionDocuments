@@ -1,9 +1,9 @@
 // app/registre/[id].tsx
 
-import { Stack, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { Alert, Image, ScrollView, StyleSheet, Text } from 'react-native';
-import { supabase } from '../../lib/supabase';
+import { Stack, useLocalSearchParams } from "expo-router";
+import React, { useEffect, useState } from "react";
+import { Alert, Image, ScrollView, StyleSheet, Text } from "react-native";
+import { supabase } from "../../lib/supabase";
 
 export default function RegistreDetail() {
   const { id } = useLocalSearchParams();
@@ -11,13 +11,13 @@ export default function RegistreDetail() {
 
   const fetchRegistre = async () => {
     const { data, error } = await supabase
-      .from('registres')
-      .select('*')
-      .eq('id', id)
+      .from("registres")
+      .select("*")
+      .eq("id", id)
       .single();
 
     if (error) {
-      Alert.alert('Erreur', error.message);
+      Alert.alert("Erreur", error.message);
       return;
     }
     setRegistre(data);
@@ -48,6 +48,9 @@ export default function RegistreDetail() {
       <Text style={styles.label}>Provenance :</Text>
       <Text style={styles.value}>{registre.provenance}</Text>
 
+      <Text style={styles.label}>Nature :</Text>
+      <Text style={styles.value}>{registre.nature}</Text>
+
       <Text style={styles.label}>Nom du Signateur :</Text>
       <Text style={styles.value}>{registre.nom_signateur}</Text>
 
@@ -73,15 +76,15 @@ export default function RegistreDetail() {
 
 const styles = StyleSheet.create({
   container: { padding: 20 },
-  label: { fontWeight: 'bold', marginTop: 15, fontSize: 16 },
+  label: { fontWeight: "bold", marginTop: 15, fontSize: 16 },
   value: { marginTop: 5, fontSize: 16 },
   signatureImage: {
-    width: '100%',
+    width: "100%",
     height: 250,
     marginTop: 10,
     borderWidth: 1,
-    borderColor: '#ccc',
-    backgroundColor: '#fff'
+    borderColor: "#ccc",
+    backgroundColor: "#fff",
   },
-  noSignature: { marginTop: 10, fontStyle: 'italic', color: '#555' }
+  noSignature: { marginTop: 10, fontStyle: "italic", color: "#555" },
 });
