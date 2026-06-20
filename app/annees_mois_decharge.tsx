@@ -1,4 +1,4 @@
-// app/annees_mois.tsx
+// app/annees_mois_decharge.tsx
 
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { supabase } from '../lib/supabase';
 
-export default function AnneesMoisScreen() {
+export default function AnneesMoisDechargeScreen() {
   const router = useRouter();
   const [dossiers, setDossiers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,10 +25,13 @@ export default function AnneesMoisScreen() {
 
   const fetchDossiers = async () => {
     setLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setLoading(false); return; }
     const { data } = await supabase
-      .from('annees_mois')
-      .select('*, registres(id)')
-      .order('nom'); // Tri par nom (ex: 2026_janvier)
+      .from('annees_mois_decharge')
+      .select('*, decharges(id)')
+      .eq('user_id', user.id)
+      .order('nom');
     setDossiers(data || []);
     setLoading(false);
   };
@@ -38,14 +41,12 @@ export default function AnneesMoisScreen() {
   }, []);
 
   const handleDeleteDossier = async (dossier: any) => {
-    Alert.alert("Supprimer le dossier", `Supprimer "${dossier.nom}" et tous ses registres ?`, [
+    Alert.alert("Supprimer le dossier", `Supprimer "${dossier.nom}" et toutes ses décharges ?`, [
       { text: "Annuler" },
       {
         text: "Supprimer", style: "destructive", onPress: async () => {
-          // Supprimer les registres liés
-          await supabase.from('registres').delete().eq('annee_mois_id', dossier.id);
-          // Supprimer le dossier
-          const { error } = await supabase.from('annees_mois').delete().eq('id', dossier.id);
+          await supabase.from('decharges').delete().eq('annee_mois_id', dossier.id);
+          const { error } = await supabase.from('annees_mois_decharge').delete().eq('id', dossier.id);
           if (error) Alert.alert("Erreur", error.message);
           else fetchDossiers();
         }
@@ -57,7 +58,7 @@ export default function AnneesMoisScreen() {
     <TouchableOpacity
       style={styles.folderCard}
       onPress={() => router.push({
-        pathname: '/registres',
+        pathname: '/decharges',
         params: { dossierId: item.id, nom: item.nom }
       })}
       onLongPress={() =>
@@ -68,15 +69,15 @@ export default function AnneesMoisScreen() {
         ])
       }
     >
-      <Ionicons name="folder" size={50} color="#FFCA28" />
+      <Ionicons name="folder" size={50} color="#FF9500" />
       <Text style={styles.folderName} numberOfLines={1}>{item.nom}</Text>
-      <Text style={styles.folderCount}>{item.registres?.length || 0} registre{(item.registres?.length || 0) !== 1 ? 's' : ''}</Text>
+      <Text style={styles.folderCount}>{item.decharges?.length || 0} décharge{(item.decharges?.length || 0) !== 1 ? 's' : ''}</Text>
     </TouchableOpacity>
   );
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title: "Dossiers Registres" }} />
+      <Stack.Screen options={{ title: "Dossiers Décharges" }} />
 
       {loading ? (
         <ActivityIndicator style={{ marginTop: 50 }} size="large" />
@@ -85,20 +86,19 @@ export default function AnneesMoisScreen() {
           data={dossiers}
           renderItem={renderFolder}
           keyExtractor={(item) => item.id}
-          numColumns={2} // Affiche en grille 2 colonnes
+          numColumns={2}
           contentContainerStyle={{ padding: 15 }}
+          ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 30 }}>Aucun dossier</Text>}
         />
       )}
 
-      {/* Bouton flottant pour ajouter un dossier */}
       <TouchableOpacity
         style={styles.fab}
-        onPress={() => router.push('/annees_mois_new')}
+        onPress={() => router.push('/annees_mois_decharge_new')}
       >
         <Ionicons name="add" size={28} color="white" />
       </TouchableOpacity>
 
-      {/* Modale renommer dossier */}
       <Modal visible={!!editingDossier} transparent animationType="fade">
         <View style={styles.overlay}>
           <View style={styles.modal}>
@@ -115,7 +115,7 @@ export default function AnneesMoisScreen() {
               </TouchableOpacity>
               <Button title="Ok" onPress={async () => {
                 if (editingDossier && editingDossier.nom.trim()) {
-                  const { error } = await supabase.from('annees_mois').update({ nom: editingDossier.nom.trim() }).eq('id', editingDossier.id);
+                  const { error } = await supabase.from('annees_mois_decharge').update({ nom: editingDossier.nom.trim() }).eq('id', editingDossier.id);
                   if (error) Alert.alert("Erreur", error.message);
                   else { setEditingDossier(null); fetchDossiers(); }
                 }
@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 20,
     bottom: 30,
-    backgroundColor: '#007AFF',
+    backgroundColor: '#FF9500',
     width: 56,
     height: 56,
     borderRadius: 28,

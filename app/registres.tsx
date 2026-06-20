@@ -32,15 +32,9 @@ export default function RegistresList() {
       .eq('annee_mois_id', dossierId);
 
     if (searchQuery.trim()) {
-      const searchLower = searchQuery.toLowerCase();
+      const s = searchQuery.trim();
 
-      query = query.or(`
-        nom_prenom.ilike.%${searchLower}%,
-        telephone.ilike.%${searchLower}%,
-        numero_serie.ilike.%${searchLower}%,
-        immatriculation.ilike.%${searchLower}%,
-        provenance.ilike.%${searchLower}%
-      `);
+      query = query.or(`nom_prenom.ilike.%${s}%,telephone.ilike.%${s}%,numero_serie.ilike.%${s}%,immatriculation.ilike.%${s}%,provenance.ilike.%${s}%,nature.ilike.%${s}%,nom_signateur.ilike.%${s}%,date.ilike.%${s}%`);
     }
 
     const { data } = await query.order('created_at', { ascending: false });

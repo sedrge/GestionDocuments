@@ -20,7 +20,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.docvault"
+      "package": "com.anonymous.docvault",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "output": "static",
@@ -42,7 +43,17 @@
       ],
       "expo-secure-store",
       "expo-web-browser",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-notifications",
+        {
+          "color": "#5856D6"
+        }
+      ],
+      "expo-font",
+      "expo-image",
+      "expo-sharing",
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true,

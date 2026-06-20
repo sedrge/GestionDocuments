@@ -41,3 +41,8 @@ app-example
 # generated native folders
 /ios
 /android
+senmoto-a2f1e-firebase-adminsdk-fbsvc-26aeab3d76.json 
+google-services.json
+GoogleService-Info.plist
+*.keystore
+.env

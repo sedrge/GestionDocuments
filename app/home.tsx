@@ -10,8 +10,11 @@ import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import * as Sharing from 'expo-sharing';
 import * as WebBrowser from 'expo-web-browser';
+import { HamburgerMenu } from '../components/HamburgerMenu';
+import { useTheme } from '../context/ThemeContext';
 
-import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   ActivityIndicator,
   Alert,
@@ -19,8 +22,9 @@ import {
   Dimensions,
   FlatList,
   Modal,
+  Platform,
   SafeAreaView,
-  ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -28,6 +32,11 @@ import {
   View
 } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { useTenant } from '../context/TenantContext';
+import {
+  countUnreadNotifications,
+  ensureNotificationPermissions,
+} from '../lib/notifications';
 
 const { width } = Dimensions.get('window');
 
@@ -53,26 +62,10 @@ interface Category {
   documents: Doc[];
 }
 
-// --- 1. MOTEUR DE THÈME ---
-const Themes = {
-  light: { bg: '#F5F5F7', card: '#FFFFFF', text: '#1C1C1E', subText: '#8E8E93', primary: '#007AFF', nav: '#E5E5EA', border: '#D1D1D6' },
-  dark: { bg: '#121212', card: '#1E1E1E', text: '#FFFFFF', subText: '#A1A1A1', primary: '#0A84FF', nav: '#2C2C2E', border: '#38383A' }
-};
-
-const ThemeContext = createContext({ theme: Themes.dark, isDark: true, toggleTheme: () => {} });
-
-const ThemeProvider = ({ children }: { children: ReactNode }) => {
-  const [isDark, setIsDark] = useState(true);
-  const theme = isDark ? Themes.dark : Themes.light;
-  const toggleTheme = () => setIsDark(!isDark);
-  return <ThemeContext.Provider value={{ theme, isDark, toggleTheme }}>{children}</ThemeContext.Provider>;
-};
-
-const useTheme = () => useContext(ThemeContext);
-
 // --- 2. COMPOSANT PRINCIPAL ---
 function HomeScreenContent() {
   const { theme, toggleTheme, isDark } = useTheme();
+  const { tenant, isEnterpriseAdmin, isSuperAdmin } = useTenant();
   
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
@@ -80,12 +73,12 @@ function HomeScreenContent() {
   const [loading, setLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   
-  const [activeMenu, setActiveMenu] = useState<string | null>(null); 
   const [viewMode, setViewMode] = useState<'list' | 'details' | 'grid'>('list');
   
   const [isModalVisible, setIsModalVisible] = useState(false); 
   const [isAddDocModal, setIsAddDocModal] = useState(false); 
-  const [editingDoc, setEditingDoc] = useState<Doc | null>(null); 
+  const [editingDoc, setEditingDoc] = useState<Doc | null>(null);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [isPinModalVisible, setIsPinModalVisible] = useState(false);
   
   const [newDocTitle, setNewDocTitle] = useState('');
@@ -93,7 +86,19 @@ function HomeScreenContent() {
   const [newCatName, setNewCatName] = useState('');
   const [newPin, setNewPin] = useState('');
 
-  useEffect(() => { fetchData(); }, []);
+  const [unreadNotif, setUnreadNotif] = useState(0);
+
+  useEffect(() => { fetchData(); fetchUnread(); ensureNotificationPermissions(); }, []);
+
+  // Rafraîchit le compteur de notifications non lues à chaque retour sur l'écran
+  useFocusEffect(useCallback(() => { fetchUnread(); }, []));
+
+  const fetchUnread = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const n = await countUnreadNotifications(user.id);
+    setUnreadNotif(n);
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -135,7 +140,6 @@ function HomeScreenContent() {
         await FileSystem.copyAsync({ from: sourceUri, to: destinationUri });
         await SecureStore.setItemAsync('APP_LOGO_URI', destinationUri);
         Alert.alert('Succès', 'Logo mis à jour.');
-        setActiveMenu(null);
       } catch (e) { Alert.alert('Erreur', 'Impossible de sauvegarder.'); }
     }
   };
@@ -153,9 +157,10 @@ function HomeScreenContent() {
 
   const { error } = await supabase
     .from('categories')
-    .insert([{ 
-      nom: newCatName.trim(), 
-      user_id: user.id  // <--- INDISPENSABLE
+    .insert([{
+      nom: newCatName.trim(),
+      user_id: user.id,
+      enterprise_id: tenant?.enterprise_id || null,
     }]);
 
   if (error) {
@@ -166,6 +171,31 @@ function HomeScreenContent() {
     fetchData();
   }
 };
+
+  const handleDeleteCategory = async (cat: Category) => {
+    Alert.alert("Supprimer le dossier", `Supprimer "${cat.nom}" et tous ses documents ?`, [
+      { text: "Annuler" },
+      {
+        text: "Supprimer", style: "destructive", onPress: async () => {
+          // Supprimer les fichiers du storage pour chaque document
+          for (const doc of cat.documents || []) {
+            if (doc.autres?.path) {
+              await supabase.storage.from('fichiers_documents').remove([doc.autres.path]);
+            }
+          }
+          // Supprimer les documents de la catégorie
+          await supabase.from('documents').delete().eq('categorie_id', cat.id);
+          // Supprimer la catégorie
+          const { error } = await supabase.from('categories').delete().eq('id', cat.id);
+          if (error) Alert.alert("Erreur", error.message);
+          else {
+            if (selectedCategory?.id === cat.id) setSelectedCategory(null);
+            fetchData();
+          }
+        }
+      }
+    ]);
+  };
 
   const handleUpdatePin = async () => {
     const auth = await LocalAuthentication.authenticateAsync({ promptMessage: 'Authentification' });
@@ -210,6 +240,7 @@ function HomeScreenContent() {
       file_url: urlData.publicUrl,
       categorie_id: selectedCategory.id,
       user_id: user.id,
+      enterprise_id: tenant?.enterprise_id || null,
       autres: { size: tempFile.size, type: tempFile.mimeType, path: storagePath }
     }]);
 
@@ -232,7 +263,7 @@ function HomeScreenContent() {
     if (result.canceled || !result.assets) return;
     setTempFile(result.assets[0]);
     setNewDocTitle(result.assets[0].name);
-    setIsAddDocModal(true); setActiveMenu(null);
+    setIsAddDocModal(true);
   };
 
   const handleCapture = async (type: 'photo' | 'video') => {
@@ -246,7 +277,7 @@ function HomeScreenContent() {
     const asset = result.assets[0];
     setTempFile({ uri: asset.uri, name: `cap.${type === 'photo' ? 'jpg' : 'mp4'}`, mimeType: asset.mimeType, size: asset.fileSize });
     setNewDocTitle(`Capture ${new Date().toLocaleDateString()}`);
-    setIsAddDocModal(true); setActiveMenu(null);
+    setIsAddDocModal(true);
   };
 /*
   const handleOpenDoc = async (doc: Doc) => {
@@ -282,7 +313,7 @@ const handleOpenDoc = async (doc: Doc) => {
     // créer une instance File dans Documents
     const localFile = new File(Paths.document, safeName);
 
-    // vérifier s’il existe déjà
+    // vérifier s'il existe déjà
     const exists = await localFile.exists;
 
     if (!exists) {
@@ -350,63 +381,24 @@ const handleOpenDoc = async (doc: Doc) => {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.nav }]}>
-      <View style={[styles.container, { backgroundColor: theme.bg }]}>
-        
-        {/* NAVBAR */}
-        <View style={[styles.topNavbar, { backgroundColor: theme.nav, borderBottomColor: theme.border }]}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <TouchableOpacity style={styles.navBtn} onPress={() => setActiveMenu(activeMenu === 'Fichier' ? null : 'Fichier')}>
-              <Text style={{ color: theme.text }}>Fichier</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.navBtn} onPress={() => setActiveMenu(activeMenu === 'Affichage' ? null : 'Affichage')}>
-              <Text style={{ color: theme.text }}>Affichage</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.navBtn} onPress={() => setActiveMenu(activeMenu === 'Paramètres' ? null : 'Paramètres')}>
-              <Text style={{ color: theme.text }}>Paramètres</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.navBtn} onPress={async () => {
-                 await supabase.auth.signOut();
-                 router.replace('/');
-            }}>
-              <Text style={{ color: 'red' }}>Déconnexion</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.navBtn} onPress={toggleTheme}>
-              <Ionicons name={isDark ? "sunny" : "moon"} size={16} color={theme.text} />
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
-
-        {/* MENUS DÉROULANTS */}
-        {activeMenu === 'Fichier' && (
-          <View style={[styles.dropdown, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <MenuOption icon="folder-outline" label="Nouveau Dossier" onPress={() => { setIsModalVisible(true); setActiveMenu(null); }} />
-            <MenuOption icon="document-attach-outline" label="Importer Fichier" onPress={handlePickDocument} />
-            <MenuOption icon="camera-outline" label="Prendre Photo" onPress={() => handleCapture('photo')} />
-            <MenuOption icon="videocam-outline" label="Filmer Vidéo" onPress={() => handleCapture('video')} />
-            {/* ← AJOUT DU REGISTRE */}
-            <MenuOption icon="clipboard-outline" label="Registre" onPress={() => {
-              setActiveMenu(null);
-              router.push('/annees_mois'); // navigation vers l’écran Registre
-            }} />
-          </View>
-        )}
-
-        {activeMenu === 'Affichage' && (
-          <View style={[styles.dropdown, { backgroundColor: theme.card, borderColor: theme.border, left: 60 }]}>
-            {(['list', 'details', 'grid'] as const).map((mode) => (
-              <MenuOption key={mode} icon={viewMode === mode ? "checkmark-circle" : "ellipse-outline"} label={mode.toUpperCase()} onPress={() => { setViewMode(mode); setActiveMenu(null); }} />
-            ))}
-          </View>
-        )}
-
-        {activeMenu === 'Paramètres' && (
-          <View style={[styles.dropdown, { backgroundColor: theme.card, borderColor: theme.border, left: 150 }]}>
-            <MenuOption icon="image-outline" label="Changer le Logo" onPress={handleUpdateLogo} />
-            <MenuOption icon="keypad-outline" label="Changer le PIN" onPress={() => { setIsPinModalVisible(true); setActiveMenu(null); }} />
-          </View>
-        )}
-
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.card }]}>
+      <HamburgerMenu
+        isDark={isDark}
+        headerTitle={tenant?.enterprise_name || 'Gestion de Documents'}
+        onToggleTheme={toggleTheme}
+        onLogout={async () => { await supabase.auth.signOut(); router.replace('/'); }}
+        onOpenNewFolderModal={() => setIsModalVisible(true)}
+        onPickDocument={handlePickDocument}
+        onCapturePhoto={() => handleCapture('photo')}
+        onCaptureVideo={() => handleCapture('video')}
+        viewMode={viewMode}
+        onSetViewMode={setViewMode}
+        onChangePin={() => setIsPinModalVisible(true)}
+        onChangeLogo={handleUpdateLogo}
+        unreadNotif={unreadNotif}
+        isEnterpriseAdmin={isEnterpriseAdmin}
+        isSuper={isSuperAdmin}
+      >
         {/* RECHERCHE */}
         <View style={[styles.searchBox, { backgroundColor: theme.card }]}>
           <Ionicons name="search" size={18} color={theme.subText} />
@@ -414,33 +406,45 @@ const handleOpenDoc = async (doc: Doc) => {
         </View>
 
         {/* CONTENU */}
-        {loading || isUploading ? <ActivityIndicator style={{ marginTop: 50 }} color={theme.primary} /> : (
-          selectedCategory ? (
-            <View style={{ flex: 1, padding: 15 }}>
-              <TouchableOpacity onPress={() => setSelectedCategory(null)} style={styles.backBtn}>
-                <Ionicons name="chevron-back" size={24} color={theme.primary} />
-                <Text style={{ color: theme.primary, fontSize: 16 }}>Retour</Text>
-              </TouchableOpacity>
-              <Text style={[styles.title, { color: theme.text }]}>{selectedCategory.nom}</Text>
-              <FlatList key={viewMode === 'grid' ? 'G' : 'L'} data={getFilteredDocs()} numColumns={viewMode === 'grid' ? 3 : 1} renderItem={renderDocItem} keyExtractor={(item) => item.id} />
-              <TouchableOpacity style={[styles.fab, { backgroundColor: theme.primary }]} onPress={handlePickDocument}>
-                <Ionicons name="add" size={32} color="white" />
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <FlatList 
-              data={categories.filter((c: Category) => c.nom.toLowerCase().includes(search.toLowerCase()))} 
-              numColumns={2} 
-              renderItem={({ item }: { item: Category }) => (
-                <TouchableOpacity style={[styles.folderCard, { backgroundColor: theme.card }]} onPress={() => setSelectedCategory(item)}>
-                  <Ionicons name="folder" size={55} color="#FFCA28" />
-                  <Text style={[styles.folderName, { color: theme.text }]} numberOfLines={1}>{item.nom}</Text>
-                  <Text style={{ color: theme.subText, fontSize: 11 }}>{item.documents?.length || 0} éléments</Text>
+        <View style={{ flex: 1, backgroundColor: theme.bg }}>
+          {loading || isUploading ? <ActivityIndicator style={{ marginTop: 50 }} color={theme.primary} /> : (
+            selectedCategory ? (
+              <View style={{ flex: 1, padding: 15 }}>
+                <TouchableOpacity onPress={() => setSelectedCategory(null)} style={styles.backBtn}>
+                  <Ionicons name="chevron-back" size={24} color={theme.primary} />
+                  <Text style={{ color: theme.primary, fontSize: 16 }}>Retour</Text>
                 </TouchableOpacity>
-              )} 
-            />
-          )
-        )}
+                <Text style={[styles.title, { color: theme.text }]}>{selectedCategory.nom}</Text>
+                <FlatList key={viewMode === 'grid' ? 'G' : 'L'} data={getFilteredDocs()} numColumns={viewMode === 'grid' ? 3 : 1} renderItem={renderDocItem} keyExtractor={(item) => item.id} />
+                <TouchableOpacity style={[styles.fab, { backgroundColor: theme.primary }]} onPress={handlePickDocument}>
+                  <Ionicons name="add" size={32} color="white" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <FlatList
+                data={categories.filter((c: Category) => c.nom.toLowerCase().includes(search.toLowerCase()))}
+                numColumns={2}
+                renderItem={({ item }: { item: Category }) => (
+                  <TouchableOpacity
+                    style={[styles.folderCard, { backgroundColor: theme.card }]}
+                    onPress={() => setSelectedCategory(item)}
+                    onLongPress={() =>
+                      Alert.alert("Actions sur le dossier", item.nom, [
+                        { text: "Renommer", onPress: () => setEditingCategory({ ...item }) },
+                        { text: "Supprimer", style: "destructive", onPress: () => handleDeleteCategory(item) },
+                        { text: "Fermer", style: "cancel" }
+                      ])
+                    }
+                  >
+                    <Ionicons name="folder" size={55} color="#FFCA28" />
+                    <Text style={[styles.folderName, { color: theme.text }]} numberOfLines={1}>{item.nom}</Text>
+                    <Text style={{ color: theme.subText, fontSize: 11 }}>{item.documents?.length || 0} éléments</Text>
+                  </TouchableOpacity>
+                )}
+              />
+            )
+          )}
+        </View>
 
         {/* MODALE AJOUT DOC */}
         <Modal visible={isAddDocModal} transparent animationType="slide">
@@ -503,30 +507,33 @@ const handleOpenDoc = async (doc: Doc) => {
           </View>
         </Modal>
 
-      </View>
+        {/* MODALE RENOMMER CATÉGORIE */}
+        <Modal visible={!!editingCategory} transparent animationType="fade">
+          <View style={styles.overlay}>
+            <View style={[styles.modal, { backgroundColor: theme.card }]}>
+              <Text style={{ color: theme.text, fontWeight: 'bold' }}>Renommer le dossier</Text>
+              <TextInput style={[styles.input, { color: theme.text, borderColor: theme.border }]} value={editingCategory?.nom} onChangeText={(t) => editingCategory && setEditingCategory({...editingCategory, nom: t})} autoFocus />
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+                <TouchableOpacity onPress={() => setEditingCategory(null)}><Text style={{ color: 'red', marginRight: 20 }}>Annuler</Text></TouchableOpacity>
+                <Button title="Ok" onPress={async () => {
+                   if (editingCategory && editingCategory.nom.trim()) {
+                     await supabase.from('categories').update({ nom: editingCategory.nom.trim() }).eq('id', editingCategory.id);
+                     setEditingCategory(null); fetchData();
+                   }
+                }} />
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </HamburgerMenu>
     </SafeAreaView>
   );
 }
 
-const MenuOption = ({ icon, label, onPress }: { icon: any, label: string, onPress: () => void }) => {
-  const { theme } = useTheme();
-  return (
-    <TouchableOpacity style={styles.dropItem} onPress={onPress}>
-      <Ionicons name={icon} size={18} color={theme.text} />
-      <Text style={[styles.dropText, { color: theme.text }]}>{label}</Text>
-    </TouchableOpacity>
-  );
-};
-
-export default function HomeScreen() { return <ThemeProvider><HomeScreenContent /></ThemeProvider>; }
+export default function HomeScreen() { return <HomeScreenContent />; }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 }, container: { flex: 1 },
-  topNavbar: { flexDirection: 'row', paddingVertical: 10, borderBottomWidth: 0.5, zIndex: 10 },
-  navBtn: { paddingHorizontal: 15, justifyContent: 'center' },
-  dropdown: { position: 'absolute', top: 45, width: 220, borderRadius: 8, padding: 5, borderWidth: 1, zIndex: 100, elevation: 10 },
-  dropItem: { flexDirection: 'row', alignItems: 'center', padding: 12 },
-  dropText: { marginLeft: 10, fontSize: 14 },
+  safeArea: { flex: 1, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
   searchBox: { flexDirection: 'row', alignItems: 'center', margin: 15, padding: 10, borderRadius: 10 },
   folderCard: { width: width / 2 - 22, margin: 11, padding: 20, borderRadius: 15, alignItems: 'center', elevation: 2 },
   folderName: { marginTop: 10, fontWeight: '600' },
@@ -538,5 +545,5 @@ const styles = StyleSheet.create({
   fab: { position: 'absolute', bottom: 30, right: 20, width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 8 },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
   modal: { width: '85%', padding: 25, borderRadius: 20 },
-  input: { borderBottomWidth: 1, paddingVertical: 10, marginVertical: 20 }
+  input: { borderBottomWidth: 1, paddingVertical: 10, marginVertical: 20 },
 });
