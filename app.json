@@ -1,22 +1,22 @@
 {
   "expo": {
-    "name": "Gestion de Documents",
+    "name": "SenMoto",
     "slug": "docvault",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/senApp.png",
+    "icon": "./assets/images/SenMoto.png",
     "scheme": "docvault",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "icon": "./assets/images/senApp.png",
+      "icon": "./assets/images/SenMoto.png",
       "bundleIdentifier": "com.anonymous.docvault"
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#121212",
-        "foregroundImage": "./assets/images/senApp.png"
+        "foregroundImage": "./assets/images/SenMoto.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -25,14 +25,14 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/senApp.png"
+      "favicon": "./assets/images/SenMoto.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/senApp.png",
+          "image": "./assets/images/SenMoto.png",
           "imageWidth": 250,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
