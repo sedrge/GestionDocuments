@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "238446557341",
+    "project_id": "senmoto-a2f1e",
+    "storage_bucket": "senmoto-a2f1e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:238446557341:android:1c462ee803643579183c74",
+        "android_client_info": {
+          "package_name": "com.anonymous.docvault"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBkSrx0OICBaMyg8fzjPqEOK3NshOpUoi0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
