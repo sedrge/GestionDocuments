@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -26,16 +27,18 @@ type Moto = {
   statut: string | null;
   date_vente: string | null;
   nom_acheteur: string | null;
+  like_count: number | null;
   created_at: string;
 };
 
-type Period = "mois" | "trimestre" | "annee" | "tout";
+type Period = "mois" | "trimestre" | "annee" | "tout" | "custom";
 
 const PERIODS: { key: Period; label: string }[] = [
   { key: "mois", label: "Ce mois" },
   { key: "trimestre", label: "3 mois" },
   { key: "annee", label: "Cette année" },
   { key: "tout", label: "Tout" },
+  { key: "custom", label: "Personnalisé" },
 ];
 
 // ─── Sous-composants ──────────────────────────────────────────────────────────
@@ -149,16 +152,32 @@ const formatDate = (s: string | null): string => {
   });
 };
 
-const getPeriodStart = (period: Period): Date | null => {
+const parseDMY = (s: string): Date | null => {
+  const p = s.split("/");
+  if (p.length !== 3) return null;
+  const d = new Date(Number(p[2]), Number(p[1]) - 1, Number(p[0]));
+  return isNaN(d.getTime()) ? null : d;
+};
+
+const getDateRange = (
+  p: Period,
+  customFrom?: string,
+  customTo?: string
+): { start: Date | null; end: Date | null } => {
   const now = new Date();
-  if (period === "mois") return new Date(now.getFullYear(), now.getMonth(), 1);
-  if (period === "trimestre") {
+  if (p === "mois") return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: null };
+  if (p === "trimestre") {
     const d = new Date(now);
     d.setMonth(d.getMonth() - 3);
-    return d;
+    return { start: d, end: null };
   }
-  if (period === "annee") return new Date(now.getFullYear(), 0, 1);
-  return null;
+  if (p === "annee") return { start: new Date(now.getFullYear(), 0, 1), end: null };
+  if (p === "custom") {
+    const end = customTo ? parseDMY(customTo) : null;
+    if (end) end.setHours(23, 59, 59, 999);
+    return { start: customFrom ? parseDMY(customFrom) : null, end };
+  }
+  return { start: null, end: null };
 };
 
 // ─── Écran principal ──────────────────────────────────────────────────────────
@@ -170,6 +189,8 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [period, setPeriod] = useState<Period>("mois");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
 
   const fetchData = async () => {
     if (!tenant?.enterprise_id) {
@@ -179,7 +200,7 @@ export default function AdminDashboard() {
     const { data, error } = await supabase
       .from("motos")
       .select(
-        "id,marque,modele,type,prix_achat,prix_vente,statut,date_vente,nom_acheteur,created_at"
+        "id,marque,modele,type,prix_achat,prix_vente,statut,date_vente,nom_acheteur,like_count,created_at"
       )
       .eq("enterprise_id", tenant.enterprise_id)
       .order("created_at", { ascending: false });
@@ -202,7 +223,7 @@ export default function AdminDashboard() {
 
   // ── Calculs ──────────────────────────────────────────────────────────────────
 
-  const periodStart = getPeriodStart(period);
+  const { start: periodStart, end: periodEnd } = getDateRange(period, customFrom, customTo);
 
   const disponibles = motos.filter(
     (m) => !m.statut || m.statut === "disponible" || m.statut === "réservé"
@@ -211,9 +232,10 @@ export default function AdminDashboard() {
   const vendues = motos.filter((m) => m.statut === "vendu");
 
   const vendusPeriod = vendues.filter((m) => {
-    if (!periodStart) return true;
+    if (!periodStart && !periodEnd) return true;
     if (!m.date_vente) return false;
-    return new Date(m.date_vente) >= periodStart;
+    const d = new Date(m.date_vente);
+    return (!periodStart || d >= periodStart) && (!periodEnd || d <= periodEnd);
   });
 
   const ca = vendusPeriod.reduce((s, m) => s + (m.prix_vente || 0), 0);
@@ -251,7 +273,90 @@ export default function AdminDashboard() {
     )
     .slice(0, 5);
 
-  const periodeLabel = PERIODS.find((p) => p.key === period)?.label ?? "";
+  const periodeLabel = period === "custom"
+    ? customFrom && customTo
+      ? `Du ${customFrom} au ${customTo}`
+      : customFrom
+      ? `À partir du ${customFrom}`
+      : customTo
+      ? `Jusqu'au ${customTo}`
+      : "Dates personnalisées"
+    : PERIODS.find((p) => p.key === period)?.label ?? "";
+
+  // ─ Analyse saisonnière : ventes par mois (année en cours) ────────────────────
+  const MOIS = ["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"];
+  const currentYear = new Date().getFullYear();
+  const salesByMonth = Array(12).fill(0) as number[];
+  vendues.forEach(m => {
+    if (!m.date_vente) return;
+    const d = new Date(m.date_vente);
+    if (d.getFullYear() === currentYear) salesByMonth[d.getMonth()]++;
+  });
+  const peakMonthIdx = salesByMonth.indexOf(Math.max(...salesByMonth));
+  const maxMonthSales = Math.max(...salesByMonth, 1);
+
+  // ─ Motos les plus likées (top 5) ─────────────────────────────────────────────
+  const topLiked = [...motos]
+    .filter(m => (m.like_count ?? 0) > 0)
+    .sort((a, b) => (b.like_count ?? 0) - (a.like_count ?? 0))
+    .slice(0, 5);
+
+  // ─ Recommandations intelligentes ─────────────────────────────────────────────
+  type Rec = { type: "urgent" | "warning" | "success" | "info"; icon: string; title: string; desc: string };
+  const recommendations: Rec[] = [];
+
+  // Stock critique pour les marques très vendues
+  topVentes.forEach(([brand, salesCount]) => {
+    const stockCount = stockParMarque[brand] ?? 0;
+    if (salesCount >= 2 && stockCount <= 2) {
+      recommendations.push({
+        type: "urgent",
+        icon: "warning",
+        title: `Réapprovisionner ${brand}`,
+        desc: `${salesCount} ventes mais seulement ${stockCount} en stock`,
+      });
+    }
+  });
+
+  // Motos très likées mais pas en stock (opportunité)
+  const likedBrands: Record<string, number> = {};
+  motos.forEach(m => {
+    const k = m.marque ?? "Inconnu";
+    likedBrands[k] = (likedBrands[k] ?? 0) + (m.like_count ?? 0);
+  });
+  Object.entries(likedBrands)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .forEach(([brand, likes]) => {
+      if (likes > 0 && (stockParMarque[brand] ?? 0) === 0) {
+        recommendations.push({
+          type: "warning",
+          icon: "heart",
+          title: `${brand} très demandée`,
+          desc: `${likes} like(s) mais aucune en stock — commandez-en !`,
+        });
+      }
+    });
+
+  // Pic de ventes saisonnier
+  if (Math.max(...salesByMonth) > 0) {
+    recommendations.push({
+      type: "info",
+      icon: "calendar",
+      title: `Pic de ventes : ${MOIS[peakMonthIdx]}`,
+      desc: `Constituez votre stock avant cette période pour maximiser les ventes`,
+    });
+  }
+
+  // Bonne performance
+  if (benefice > 0 && tauxVente >= 40) {
+    recommendations.push({
+      type: "success",
+      icon: "trending-up",
+      title: "Bonne performance !",
+      desc: `Taux de vente ${tauxVente}% · Continuez sur cette lancée`,
+    });
+  }
 
   // ─ Taux de vente ─────────────────────────────────────────────────────────────
   const totalMotosSaisies = motos.length;
@@ -338,6 +443,46 @@ export default function AdminDashboard() {
         ))}
       </ScrollView>
 
+      {/* ── Dates personnalisées ─────────────────────────────────────────────── */}
+      {period === "custom" && (
+        <View style={styles.customDateContainer}>
+          <View style={styles.customDateRow}>
+            <View style={styles.customDateField}>
+              <Text style={styles.customDateLabel}>Du (JJ/MM/AAAA)</Text>
+              <TextInput
+                style={styles.customDateInput}
+                value={customFrom}
+                onChangeText={(t) => {
+                  let v = t.replace(/[^0-9]/g, "");
+                  if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2);
+                  if (v.length > 5) v = v.slice(0, 5) + "/" + v.slice(5);
+                  setCustomFrom(v.slice(0, 10));
+                }}
+                placeholder="01/01/2025"
+                keyboardType="numeric"
+                maxLength={10}
+              />
+            </View>
+            <View style={styles.customDateField}>
+              <Text style={styles.customDateLabel}>Au (JJ/MM/AAAA)</Text>
+              <TextInput
+                style={styles.customDateInput}
+                value={customTo}
+                onChangeText={(t) => {
+                  let v = t.replace(/[^0-9]/g, "");
+                  if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2);
+                  if (v.length > 5) v = v.slice(0, 5) + "/" + v.slice(5);
+                  setCustomTo(v.slice(0, 10));
+                }}
+                placeholder="31/12/2025"
+                keyboardType="numeric"
+                maxLength={10}
+              />
+            </View>
+          </View>
+        </View>
+      )}
+
       {/* ── KPI Cards ────────────────────────────────────────────────────────── */}
       <View style={styles.kpiGrid}>
         <KpiCard
@@ -407,6 +552,12 @@ export default function AdminDashboard() {
             label="Équipe"
             onPress={() => router.push("/admin/users" as any)}
             color="#5856D6"
+          />
+          <ActionBtn
+            icon="bulb-outline"
+            label="Assistant"
+            onPress={() => router.push("/admin/assistant" as any)}
+            color="#FF2D55"
           />
         </ScrollView>
       </View>
@@ -478,6 +629,103 @@ export default function AdminDashboard() {
           ))
         )}
       </View>
+
+      {/* ── Recommandations de l'assistant ──────────────────────────────────── */}
+      {recommendations.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.secHeader}>
+            <View>
+              <Text style={styles.secTitle}>Recommandations</Text>
+              <Text style={styles.secSub}>Aide à la décision</Text>
+            </View>
+            <TouchableOpacity onPress={() => router.push("/admin/assistant" as any)} activeOpacity={0.7}>
+              <Text style={styles.link}>Tout voir →</Text>
+            </TouchableOpacity>
+          </View>
+          {recommendations.slice(0, 3).map((rec, i) => {
+            const recColor = rec.type === "urgent" ? "#FF3B30" : rec.type === "warning" ? "#FF9500" : rec.type === "success" ? "#34C759" : "#007AFF";
+            return (
+              <View key={i} style={[styles.recRow, { borderLeftColor: recColor }]}>
+                <View style={[styles.recIconWrap, { backgroundColor: recColor + "22" }]}>
+                  <Ionicons name={rec.icon as any} size={20} color={recColor} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.recTitle}>{rec.title}</Text>
+                  <Text style={styles.recDesc}>{rec.desc}</Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      )}
+
+      {/* ── Motos les plus populaires (likes) ───────────────────────────────── */}
+      {topLiked.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.secHeader}>
+            <View>
+              <Text style={styles.secTitle}>Motos populaires</Text>
+              <Text style={styles.secSub}>Classement par likes publics</Text>
+            </View>
+          </View>
+          {topLiked.map((m, i) => (
+            <View key={m.id} style={styles.venteRow}>
+              <View style={[styles.venteAvatar, { backgroundColor: "#FFE5E5" }]}>
+                <Ionicons name="heart" size={18} color="#FF3B30" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.venteTitle} numberOfLines={1}>
+                  {[m.marque, m.modele, m.type].filter(Boolean).join(" ") || "Moto"}
+                </Text>
+                <Text style={styles.venteSub}>
+                  {m.statut === "vendu" ? "Vendue" : m.statut === "réservé" ? "Réservée" : "En stock"}
+                </Text>
+              </View>
+              <View style={{ alignItems: "flex-end" }}>
+                <Text style={[styles.ventePrice, { color: "#FF3B30" }]}>
+                  {m.like_count} like{(m.like_count ?? 0) > 1 ? "s" : ""}
+                </Text>
+                <Text style={[styles.venteBenef, { color: "#8E8E93" }]}>
+                  #{i + 1}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* ── Analyse saisonnière ──────────────────────────────────────────────── */}
+      {Math.max(...salesByMonth) > 0 && (
+        <View style={styles.section}>
+          <View style={styles.secHeader}>
+            <View>
+              <Text style={styles.secTitle}>Ventes par mois</Text>
+              <Text style={styles.secSub}>Analyse saisonnière {currentYear}</Text>
+            </View>
+          </View>
+          <View style={{ gap: 8 }}>
+            {MOIS.map((mois, idx) => {
+              const val = salesByMonth[idx];
+              if (val === 0) return null;
+              const isPeak = idx === peakMonthIdx;
+              return (
+                <View key={idx} style={styles.barRow}>
+                  <View style={styles.barLabelRow}>
+                    <View style={{ flexDirection: "row", alignItems: "center", flex: 1, gap: 6 }}>
+                      {isPeak && <Ionicons name="star" size={12} color="#FF9500" />}
+                      <Text style={[styles.barLabel, isPeak && { fontWeight: "700", color: "#FF9500" }]}>{mois}</Text>
+                    </View>
+                    <Text style={[styles.barValueText, { color: isPeak ? "#FF9500" : "#34C759" }]}>{val} vente{val > 1 ? "s" : ""}</Text>
+                  </View>
+                  <View style={styles.barTrack}>
+                    <View style={[styles.barFill, { width: Math.max(((width - 80) * val) / maxMonthSales, 8), backgroundColor: isPeak ? "#FF9500" : "#34C759" }]} />
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      )}
 
       {/* ── Dernières ventes ─────────────────────────────────────────────────── */}
       <View style={styles.section}>
@@ -574,6 +822,20 @@ const styles = StyleSheet.create({
   quickStatDivider: { width: StyleSheet.hairlineWidth, backgroundColor: "#e5e5ea" },
 
   periodRow: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
+  customDateContainer: { paddingHorizontal: 16, paddingBottom: 8 },
+  customDateRow: { flexDirection: "row", gap: 10 },
+  customDateField: { flex: 1 },
+  customDateLabel: { fontSize: 11, color: "#8E8E93", fontWeight: "600", marginBottom: 4 },
+  customDateInput: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#e5e5ea",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+    color: "#1C1C1E",
+  },
   chip: {
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -682,6 +944,24 @@ const styles = StyleSheet.create({
 
   emptyBox: { alignItems: "center", paddingVertical: 24, gap: 8 },
   emptyText: { fontSize: 13, color: "#aaa" },
+
+  recRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#f0f0f0",
+    borderLeftWidth: 4,
+    paddingLeft: 12,
+    marginBottom: 4,
+    backgroundColor: "#FAFAFA",
+    borderRadius: 8,
+    marginHorizontal: -4,
+  },
+  recIconWrap: { width: 36, height: 36, borderRadius: 10, justifyContent: "center", alignItems: "center" },
+  recTitle: { fontSize: 13, fontWeight: "700", color: "#1C1C1E" },
+  recDesc: { fontSize: 12, color: "#8E8E93", marginTop: 2, lineHeight: 17 },
 
   venteRow: {
     flexDirection: "row",

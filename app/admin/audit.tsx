@@ -7,6 +7,7 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -54,6 +55,13 @@ const theme = {
   border:  '#E5E5EA',
 };
 
+function parseDMY(s: string): Date | null {
+  const p = s.split('/');
+  if (p.length !== 3) return null;
+  const d = new Date(Number(p[2]), Number(p[1]) - 1, Number(p[0]));
+  return isNaN(d.getTime()) ? null : d;
+}
+
 function formatDate(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleString('fr-FR', {
@@ -81,6 +89,8 @@ export default function AuditScreen() {
   const [filter, setFilter] = useState<FilterAction>('ALL');
   const [uniqueUsers, setUniqueUsers] = useState<{ id: string; name: string }[]>([]);
   const [selectedUser, setSelectedUser] = useState<string | 'ALL'>('ALL');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   const fetchLogs = useCallback(async () => {
     if (!tenant?.enterprise_id || !isEnterpriseAdmin) return;
@@ -90,10 +100,15 @@ export default function AuditScreen() {
       .select('*')
       .eq('enterprise_id', tenant.enterprise_id)
       .order('created_at', { ascending: false })
-      .limit(200);
+      .limit(500);
 
     if (filter !== 'ALL') query = query.eq('action', filter);
     if (selectedUser !== 'ALL') query = query.eq('user_id', selectedUser);
+
+    const fromDate = parseDMY(dateFrom);
+    if (fromDate) query = query.gte('created_at', fromDate.toISOString());
+    const toDate = parseDMY(dateTo);
+    if (toDate) { toDate.setHours(23, 59, 59, 999); query = query.lte('created_at', toDate.toISOString()); }
 
     const { data } = await query;
     if (data) {
@@ -108,7 +123,7 @@ export default function AuditScreen() {
     }
     setLoading(false);
     setRefreshing(false);
-  }, [tenant?.enterprise_id, isEnterpriseAdmin, filter, selectedUser]);
+  }, [tenant?.enterprise_id, isEnterpriseAdmin, filter, selectedUser, dateFrom, dateTo]);
 
   useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
@@ -196,6 +211,55 @@ export default function AuditScreen() {
           )}
         />
       )}
+
+      {/* ── Filtre par plage de dates ──────────────────────────────────── */}
+      <View style={styles.customDateContainer}>
+        <View style={styles.customDateRow}>
+          <View style={styles.customDateField}>
+            <Text style={styles.customDateLabel}>Du (JJ/MM/AAAA)</Text>
+            <TextInput
+              style={[styles.customDateInput, dateFrom && !parseDMY(dateFrom) && styles.customDateInputError]}
+              value={dateFrom}
+              onChangeText={(t) => {
+                let v = t.replace(/[^0-9]/g, '');
+                if (v.length > 2) v = v.slice(0, 2) + '/' + v.slice(2);
+                if (v.length > 5) v = v.slice(0, 5) + '/' + v.slice(5);
+                setDateFrom(v.slice(0, 10));
+              }}
+              placeholder="01/01/2025"
+              keyboardType="numeric"
+              maxLength={10}
+              placeholderTextColor="#bbb"
+            />
+          </View>
+          <View style={styles.customDateField}>
+            <Text style={styles.customDateLabel}>Au (JJ/MM/AAAA)</Text>
+            <TextInput
+              style={[styles.customDateInput, dateTo && !parseDMY(dateTo) && styles.customDateInputError]}
+              value={dateTo}
+              onChangeText={(t) => {
+                let v = t.replace(/[^0-9]/g, '');
+                if (v.length > 2) v = v.slice(0, 2) + '/' + v.slice(2);
+                if (v.length > 5) v = v.slice(0, 5) + '/' + v.slice(5);
+                setDateTo(v.slice(0, 10));
+              }}
+              placeholder="31/12/2025"
+              keyboardType="numeric"
+              maxLength={10}
+              placeholderTextColor="#bbb"
+            />
+          </View>
+          {(dateFrom || dateTo) && (
+            <TouchableOpacity
+              style={styles.clearDateBtn}
+              onPress={() => { setDateFrom(''); setDateTo(''); }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.clearDateText}>Effacer</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
 
       {/* ── Liste ──────────────────────────────────────────────────────── */}
       {loading ? (
@@ -369,4 +433,28 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   logEntityType: { fontSize: 11, color: '#8E8E93' },
+
+  customDateContainer: { paddingHorizontal: 14, paddingBottom: 10 },
+  customDateRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  customDateField: { flex: 1 },
+  customDateLabel: { fontSize: 11, color: '#8E8E93', fontWeight: '600', marginBottom: 4 },
+  customDateInput: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+    color: '#1C1C1E',
+  },
+  customDateInputError: { borderColor: '#FF3B30' },
+  clearDateBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#f0f0f0',
+    marginBottom: 0,
+  },
+  clearDateText: { fontSize: 12, fontWeight: '600', color: '#666' },
 });

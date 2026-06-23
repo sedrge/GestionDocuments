@@ -465,15 +465,14 @@ export async function createUserInEnterprise(params: {
       });
     }
 
-    // Ajouter l'utilisateur à l'entreprise comme actif directement
-    const { error: insertError } = await supabase
-      .from("enterprise_users")
-      .insert({
-        enterprise_id: params.enterpriseId,
-        user_id: newUserId,
-        role: "user",
-        is_active: true,
-      });
+    // Ajouter l'utilisateur à l'entreprise via RPC SECURITY DEFINER
+    // (contourne le RLS qui bloquerait un INSERT direct quand auth.uid() != user_id)
+    const { error: insertError } = await supabase.rpc("add_user_to_enterprise", {
+      p_enterprise_id: params.enterpriseId,
+      p_user_id: newUserId,
+      p_role: "user",
+      p_is_active: true,
+    });
 
     if (insertError) throw new Error(insertError.message);
 

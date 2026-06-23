@@ -82,6 +82,7 @@ type FeedMoto = {
   numero_chassis: string | null;
   immatriculation: string | null;
   description?: string | null;
+  like_count?: number;
   moto_images: { image_uri: string; is_principal: boolean; position: number }[];
   enterprises?: { name: string; logo_url: string | null; phone: string | null; is_active: boolean } | null;
 };
@@ -104,6 +105,7 @@ type FeedPub = {
   texte: string | null;
   images: string[];
   created_at: string;
+  like_count?: number;
   enterprises?: { name: string; logo_url: string | null; is_active: boolean } | null;
 };
 
@@ -117,10 +119,13 @@ const PUB_PAGE_SIZE  = 6;
 
 const MOTO_SELECT = `
   id, marque, modele, type, couleur, prix_vente, etat, created_at, enterprise_id,
-  cylindree, annee_fabrication, numero_chassis, immatriculation,
+  cylindree, annee_fabrication, numero_chassis, immatriculation, like_count,
   moto_images(image_uri, is_principal, position),
   enterprises(name, logo_url, phone, is_active)
 `;
+
+const LIKED_MOTOS_KEY = 'LIKED_MOTOS_V1';
+const LIKED_PUBS_KEY  = 'LIKED_PUBS_V1';
 
 // ─── UTILITAIRES ────────────────────────────────────────────────────────────
 function formatPrice(p: number | null): string {
@@ -163,7 +168,13 @@ function EnterpriseAvatar({ name, logoUrl, size = 38 }: { name: string; logoUrl?
 }
 
 // ─── CARTE MOTO ─────────────────────────────────────────────────────────────
-function MotoCard({ item, onPress, onContact }: { item: FeedMoto; onPress?: () => void; onContact?: () => void }) {
+function MotoCard({ item, onPress, onContact, isLiked, onLike }: {
+  item: FeedMoto;
+  onPress?: () => void;
+  onContact?: () => void;
+  isLiked: boolean;
+  onLike: () => void;
+}) {
   const { C } = useColors();
   const principalImg = item.moto_images?.find(i => i.is_principal) ?? item.moto_images?.[0];
   const imgUri = principalImg?.image_uri;
@@ -245,9 +256,11 @@ function MotoCard({ item, onPress, onContact }: { item: FeedMoto; onPress?: () =
 
         {/* Actions */}
         <View style={[styles.cardActions, { borderTopColor: C.cardBorder }]}>
-          <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
-            <Ionicons name="heart-outline" size={19} color={C.subText} />
-            <Text style={[styles.actionText, { color: C.subText }]}>J'aime</Text>
+          <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7} onPress={onLike}>
+            <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={19} color={isLiked ? '#FF3B30' : C.subText} />
+            <Text style={[styles.actionText, { color: isLiked ? '#FF3B30' : C.subText }]}>
+              {(item.like_count ?? 0) > 0 ? String(item.like_count) : "J'aime"}
+            </Text>
           </TouchableOpacity>
           <View style={[styles.actionDivider, { backgroundColor: C.cardBorder }]} />
           <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
@@ -262,6 +275,65 @@ function MotoCard({ item, onPress, onContact }: { item: FeedMoto; onPress?: () =
         </View>
       </TouchableOpacity>
     </Animated.View>
+  );
+}
+
+// ─── SECTION TENDANCES ────────────────────────────────────────────────────────
+function TrendingSection({
+  motos,
+  likedMotos,
+  onPress,
+}: {
+  motos: FeedMoto[];
+  likedMotos: Set<string>;
+  onPress: (moto: FeedMoto) => void;
+}) {
+  const { C } = useColors();
+  const trending = [...motos]
+    .filter(m => (m.like_count ?? 0) > 0)
+    .sort((a, b) => (b.like_count ?? 0) - (a.like_count ?? 0))
+    .slice(0, 6);
+
+  if (trending.length === 0) return null;
+
+  return (
+    <View style={{ marginBottom: 4, backgroundColor: C.card, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.cardBorder }}>
+      <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <Ionicons name="flame" size={16} color="#FF3B30" />
+        <Text style={{ fontSize: 14, fontWeight: '700', color: C.text }}>En tendance</Text>
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 10, gap: 10 }}>
+        {trending.map(moto => {
+          const principalImg = moto.moto_images?.find(i => i.is_principal) ?? moto.moto_images?.[0];
+          const imgUri = principalImg?.image_uri;
+          const isLiked = likedMotos.has(moto.id);
+          return (
+            <TouchableOpacity
+              key={moto.id}
+              style={{ width: 130, backgroundColor: C.bg, borderRadius: 12, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, borderColor: C.cardBorder }}
+              onPress={() => onPress(moto)}
+              activeOpacity={0.85}
+            >
+              {imgUri ? (
+                <Image source={{ uri: imgUri }} style={{ width: 130, height: 90 }} resizeMode="cover" />
+              ) : (
+                <View style={{ width: 130, height: 90, backgroundColor: C.separator, justifyContent: 'center', alignItems: 'center' }}>
+                  <Ionicons name="bicycle" size={32} color={C.cardBorder} />
+                </View>
+              )}
+              <View style={{ padding: 7 }}>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: C.text }} numberOfLines={1}>{moto.marque} {moto.modele}</Text>
+                <Text style={{ fontSize: 11, color: C.price, fontWeight: '600', marginTop: 2 }}>{formatPrice(moto.prix_vente)}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 4 }}>
+                  <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={11} color={isLiked ? '#FF3B30' : C.subText} />
+                  <Text style={{ fontSize: 11, color: C.subText }}>{moto.like_count ?? 0} like{(moto.like_count ?? 0) > 1 ? 's' : ''}</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+    </View>
   );
 }
 
@@ -587,9 +659,13 @@ function ImageGalleryModal({
 function PublicationCard({
   item,
   onContact,
+  isLiked,
+  onLike,
 }: {
   item: FeedPub;
   onContact: () => void;
+  isLiked: boolean;
+  onLike: () => void;
 }) {
   const { C } = useColors();
   const [expanded, setExpanded] = useState(false);
@@ -658,9 +734,11 @@ function PublicationCard({
 
       {/* Actions */}
       <View style={[styles.cardActions, { borderTopColor: C.cardBorder }]}>
-        <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
-          <Ionicons name="heart-outline" size={19} color={C.subText} />
-          <Text style={[styles.actionText, { color: C.subText }]}>J'aime</Text>
+        <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7} onPress={onLike}>
+          <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={19} color={isLiked ? '#FF3B30' : C.subText} />
+          <Text style={[styles.actionText, { color: isLiked ? '#FF3B30' : C.subText }]}>
+            {(item.like_count ?? 0) > 0 ? String(item.like_count) : "J'aime"}
+          </Text>
         </TouchableOpacity>
         <View style={[styles.actionDivider, { backgroundColor: C.cardBorder }]} />
         <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
@@ -906,8 +984,20 @@ export default function FeedScreen() {
 
   const [showPin, setShowPin] = useState(false);
   const [storedPin, setStoredPin] = useState<string | null>(null);
+  const [likedMotos, setLikedMotos] = useState<Set<string>>(new Set());
+  const [likedPubs, setLikedPubs]   = useState<Set<string>>(new Set());
 
   useEffect(() => { fetchFeed(); }, []);
+
+  useEffect(() => {
+    Promise.all([
+      SecureStore.getItemAsync(LIKED_MOTOS_KEY),
+      SecureStore.getItemAsync(LIKED_PUBS_KEY),
+    ]).then(([ms, ps]) => {
+      if (ms) setLikedMotos(new Set(JSON.parse(ms)));
+      if (ps) setLikedPubs(new Set(JSON.parse(ps)));
+    });
+  }, []);
 
   useEffect(() => {
     if (authLoading || !isAuthenticated) return;
@@ -1083,6 +1173,32 @@ export default function FeedScreen() {
     }
   };
 
+  const handleMotoLike = async (moto: FeedMoto) => {
+    const isNowLiked = !likedMotos.has(moto.id);
+    const next = new Set(likedMotos);
+    isNowLiked ? next.add(moto.id) : next.delete(moto.id);
+    setLikedMotos(next);
+    SecureStore.setItemAsync(LIKED_MOTOS_KEY, JSON.stringify([...next]));
+    const delta = isNowLiked ? 1 : -1;
+    setMotos(prev => prev.map(m =>
+      m.id === moto.id ? { ...m, like_count: Math.max(0, (m.like_count ?? 0) + delta) } : m
+    ));
+    supabase.rpc('toggle_moto_like', { p_moto_id: moto.id, p_increment: isNowLiked });
+  };
+
+  const handlePubLike = async (pub: FeedPub) => {
+    const isNowLiked = !likedPubs.has(pub.id);
+    const next = new Set(likedPubs);
+    isNowLiked ? next.add(pub.id) : next.delete(pub.id);
+    setLikedPubs(next);
+    SecureStore.setItemAsync(LIKED_PUBS_KEY, JSON.stringify([...next]));
+    const delta = isNowLiked ? 1 : -1;
+    setPublications(prev => prev.map(p =>
+      p.id === pub.id ? { ...p, like_count: Math.max(0, (p.like_count ?? 0) + delta) } : p
+    ));
+    supabase.rpc('toggle_pub_like', { p_pub_id: pub.id, p_increment: isNowLiked });
+  };
+
   const handleSwitchUser = async () => {
     await supabase.auth.signOut();
     await SecureStore.deleteItemAsync('LAST_USER_ID');
@@ -1145,6 +1261,13 @@ export default function FeedScreen() {
         <FlatList
           data={feedItems}
           keyExtractor={item => item.kind + '_' + item.data.id}
+          ListHeaderComponent={
+            <TrendingSection
+              motos={motos}
+              likedMotos={likedMotos}
+              onPress={(moto) => setDetailMoto(moto)}
+            />
+          }
           renderItem={({ item }) => {
             if (item.kind === 'moto') {
               return (
@@ -1152,6 +1275,8 @@ export default function FeedScreen() {
                   item={item.data}
                   onPress={() => setDetailMoto(item.data)}
                   onContact={() => setContactMoto(item.data)}
+                  isLiked={likedMotos.has(item.data.id)}
+                  onLike={() => handleMotoLike(item.data)}
                 />
               );
             }
@@ -1159,6 +1284,8 @@ export default function FeedScreen() {
               <PublicationCard
                 item={item.data}
                 onContact={() => setPubContact(item.data)}
+                isLiked={likedPubs.has(item.data.id)}
+                onLike={() => handlePubLike(item.data)}
               />
             );
           }}

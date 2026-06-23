@@ -35,23 +35,40 @@ type Vente = {
   moto_images?: { image_uri: string; is_principal: boolean }[];
 };
 
-type Period = "mois" | "trimestre" | "annee" | "tout";
+type Period = "mois" | "trimestre" | "annee" | "tout" | "custom";
 
 const PERIODS: { key: Period; label: string }[] = [
   { key: "mois", label: "Ce mois" },
   { key: "trimestre", label: "3 mois" },
   { key: "annee", label: "Cette année" },
   { key: "tout", label: "Tout" },
+  { key: "custom", label: "Personnalisé" },
 ];
 
-const getPeriodStart = (period: Period): Date | null => {
+const parseDMY = (s: string): Date | null => {
+  const p = s.split("/");
+  if (p.length !== 3) return null;
+  const d = new Date(Number(p[2]), Number(p[1]) - 1, Number(p[0]));
+  return isNaN(d.getTime()) ? null : d;
+};
+
+const getDateRange = (
+  p: Period,
+  customFrom?: string,
+  customTo?: string
+): { start: Date | null; end: Date | null } => {
   const now = new Date();
-  if (period === "mois") return new Date(now.getFullYear(), now.getMonth(), 1);
-  if (period === "trimestre") {
-    const d = new Date(now); d.setMonth(d.getMonth() - 3); return d;
+  if (p === "mois") return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: null };
+  if (p === "trimestre") {
+    const d = new Date(now); d.setMonth(d.getMonth() - 3); return { start: d, end: null };
   }
-  if (period === "annee") return new Date(now.getFullYear(), 0, 1);
-  return null;
+  if (p === "annee") return { start: new Date(now.getFullYear(), 0, 1), end: null };
+  if (p === "custom") {
+    const end = customTo ? parseDMY(customTo) : null;
+    if (end) end.setHours(23, 59, 59, 999);
+    return { start: customFrom ? parseDMY(customFrom) : null, end };
+  }
+  return { start: null, end: null };
 };
 
 const formatDate = (s: string | null): string => {
@@ -240,6 +257,8 @@ export default function VentesScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [period, setPeriod] = useState<Period>("mois");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const [search, setSearch] = useState("");
   const [marqueFilter, setMarqueFilter] = useState<string>("Tous");
   const [selectedVente, setSelectedVente] = useState<Vente | null>(null);
@@ -288,9 +307,13 @@ export default function VentesScreen() {
   };
 
   // Filtres
-  const periodStart = getPeriodStart(period);
+  const { start: periodStart, end: periodEnd } = getDateRange(period, customFrom, customTo);
   const ventesFiltrees = ventes.filter((v) => {
-    const inPeriod = !periodStart || (v.date_vente && new Date(v.date_vente) >= periodStart);
+    const inPeriod = !periodStart && !periodEnd
+      ? true
+      : v.date_vente
+      ? ((!periodStart || new Date(v.date_vente) >= periodStart) && (!periodEnd || new Date(v.date_vente) <= periodEnd))
+      : false;
     const inMarque = marqueFilter === "Tous" || v.marque === marqueFilter;
     const inSearch = !search.trim() || [v.marque, v.modele, v.type, v.nom_acheteur, v.telephone_acheteur]
       .filter(Boolean).some((s) => s!.toLowerCase().includes(search.toLowerCase()));
@@ -305,7 +328,15 @@ export default function VentesScreen() {
   // Marques distinctes
   const marques = ["Tous", ...Array.from(new Set(ventes.map((v) => v.marque).filter(Boolean))) as string[]];
 
-  const periodeLabel = PERIODS.find((p) => p.key === period)?.label ?? "";
+  const periodeLabel = period === "custom"
+    ? customFrom && customTo
+      ? `Du ${customFrom} au ${customTo}`
+      : customFrom
+      ? `À partir du ${customFrom}`
+      : customTo
+      ? `Jusqu'au ${customTo}`
+      : "Dates personnalisées"
+    : PERIODS.find((p) => p.key === period)?.label ?? "";
 
   if (loading) {
     return (
@@ -342,6 +373,46 @@ export default function VentesScreen() {
             </TouchableOpacity>
           ))}
         </ScrollView>
+
+        {/* Dates personnalisées */}
+        {period === "custom" && (
+          <View style={styles.customDateContainer}>
+            <View style={styles.customDateRow}>
+              <View style={styles.customDateField}>
+                <Text style={styles.customDateLabel}>Du (JJ/MM/AAAA)</Text>
+                <TextInput
+                  style={styles.customDateInput}
+                  value={customFrom}
+                  onChangeText={(t) => {
+                    let v = t.replace(/[^0-9]/g, "");
+                    if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2);
+                    if (v.length > 5) v = v.slice(0, 5) + "/" + v.slice(5);
+                    setCustomFrom(v.slice(0, 10));
+                  }}
+                  placeholder="01/01/2025"
+                  keyboardType="numeric"
+                  maxLength={10}
+                />
+              </View>
+              <View style={styles.customDateField}>
+                <Text style={styles.customDateLabel}>Au (JJ/MM/AAAA)</Text>
+                <TextInput
+                  style={styles.customDateInput}
+                  value={customTo}
+                  onChangeText={(t) => {
+                    let v = t.replace(/[^0-9]/g, "");
+                    if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2);
+                    if (v.length > 5) v = v.slice(0, 5) + "/" + v.slice(5);
+                    setCustomTo(v.slice(0, 10));
+                  }}
+                  placeholder="31/12/2025"
+                  keyboardType="numeric"
+                  maxLength={10}
+                />
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Cartes stats */}
         <View style={styles.statsGrid}>
@@ -458,6 +529,20 @@ const styles = StyleSheet.create({
   headerContent: { paddingBottom: 40 },
 
   periodRow: { paddingHorizontal: 12, paddingVertical: 12, gap: 8 },
+  customDateContainer: { paddingHorizontal: 12, paddingBottom: 8 },
+  customDateRow: { flexDirection: "row", gap: 10 },
+  customDateField: { flex: 1 },
+  customDateLabel: { fontSize: 11, color: "#8E8E93", fontWeight: "600", marginBottom: 4 },
+  customDateInput: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#e5e5ea",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+    color: "#1C1C1E",
+  },
   chip: {
     paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
     backgroundColor: "#fff", borderWidth: 1, borderColor: "#e5e5ea",
