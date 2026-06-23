@@ -98,6 +98,30 @@ type EnterpriseContact = {
 const FILTERS = ['Tout', 'Neuf', 'Occasion'] as const;
 type Filter = typeof FILTERS[number];
 
+type FeedPub = {
+  id: string;
+  enterprise_id: string;
+  texte: string | null;
+  images: string[];
+  created_at: string;
+  enterprises?: { name: string; logo_url: string | null; is_active: boolean } | null;
+};
+
+type FeedItem =
+  | { kind: 'moto'; data: FeedMoto }
+  | { kind: 'pub';  data: FeedPub  };
+
+// ─── PAGINATION ─────────────────────────────────────────────────────────────
+const MOTO_PAGE_SIZE = 12;
+const PUB_PAGE_SIZE  = 6;
+
+const MOTO_SELECT = `
+  id, marque, modele, type, couleur, prix_vente, etat, created_at, enterprise_id,
+  cylindree, annee_fabrication, numero_chassis, immatriculation,
+  moto_images(image_uri, is_principal, position),
+  enterprises(name, logo_url, phone, is_active)
+`;
+
 // ─── UTILITAIRES ────────────────────────────────────────────────────────────
 function formatPrice(p: number | null): string {
   if (!p) return 'Prix sur demande';
@@ -360,19 +384,525 @@ function PinScreen({
   );
 }
 
+// ─── IMAGE GRID (style Facebook) ─────────────────────────────────────────────
+function ImageGrid({
+  images,
+  onPressImage,
+}: {
+  images: string[];
+  onPressImage: (index: number) => void;
+}) {
+  const { C } = useColors();
+  const n = images.length;
+  if (n === 0) return null;
+
+  const GAP = 2;
+  const W = width - 20; // largeur de la carte sans marges
+
+  const imgStyle = (w: number, h: number) => ({
+    width: w,
+    height: h,
+    backgroundColor: C.pill,
+  });
+
+  if (n === 1) {
+    return (
+      <TouchableOpacity onPress={() => onPressImage(0)} activeOpacity={0.9}>
+        <Image source={{ uri: images[0] }} style={imgStyle(W, 260)} resizeMode="cover" />
+      </TouchableOpacity>
+    );
+  }
+
+  if (n === 2) {
+    const iw = (W - GAP) / 2;
+    return (
+      <View style={{ flexDirection: 'row', gap: GAP }}>
+        {images.map((img, i) => (
+          <TouchableOpacity key={i} onPress={() => onPressImage(i)} activeOpacity={0.9}>
+            <Image source={{ uri: img }} style={imgStyle(iw, 210)} resizeMode="cover" />
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
+  }
+
+  if (n === 3) {
+    const leftW = (W - GAP) * 0.56;
+    const rightW = W - GAP - leftW;
+    const rowH = 230;
+    return (
+      <View style={{ flexDirection: 'row', gap: GAP }}>
+        <TouchableOpacity onPress={() => onPressImage(0)} activeOpacity={0.9}>
+          <Image source={{ uri: images[0] }} style={imgStyle(leftW, rowH)} resizeMode="cover" />
+        </TouchableOpacity>
+        <View style={{ gap: GAP }}>
+          {images.slice(1).map((img, i) => (
+            <TouchableOpacity key={i} onPress={() => onPressImage(i + 1)} activeOpacity={0.9}>
+              <Image
+                source={{ uri: img }}
+                style={imgStyle(rightW, (rowH - GAP) / 2)}
+                resizeMode="cover"
+              />
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+    );
+  }
+
+  if (n === 4) {
+    const iw = (W - GAP) / 2;
+    return (
+      <View style={{ gap: GAP }}>
+        <View style={{ flexDirection: 'row', gap: GAP }}>
+          {images.slice(0, 2).map((img, i) => (
+            <TouchableOpacity key={i} onPress={() => onPressImage(i)} activeOpacity={0.9}>
+              <Image source={{ uri: img }} style={imgStyle(iw, 175)} resizeMode="cover" />
+            </TouchableOpacity>
+          ))}
+        </View>
+        <View style={{ flexDirection: 'row', gap: GAP }}>
+          {images.slice(2, 4).map((img, i) => (
+            <TouchableOpacity key={i} onPress={() => onPressImage(i + 2)} activeOpacity={0.9}>
+              <Image source={{ uri: img }} style={imgStyle(iw, 175)} resizeMode="cover" />
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+    );
+  }
+
+  // n ≥ 5 : 2 grandes + 3 petites, la dernière visible porte le compteur
+  const topW = (W - GAP) / 2;
+  const botW = (W - 2 * GAP) / 3;
+  const shown = images.slice(0, 5);
+  const remaining = n - 5; // images cachées
+
+  return (
+    <View style={{ gap: GAP }}>
+      <View style={{ flexDirection: 'row', gap: GAP }}>
+        {shown.slice(0, 2).map((img, i) => (
+          <TouchableOpacity key={i} onPress={() => onPressImage(i)} activeOpacity={0.9}>
+            <Image source={{ uri: img }} style={imgStyle(topW, 195)} resizeMode="cover" />
+          </TouchableOpacity>
+        ))}
+      </View>
+      <View style={{ flexDirection: 'row', gap: GAP }}>
+        {shown.slice(2).map((img, i) => (
+          <TouchableOpacity
+            key={i}
+            onPress={() => onPressImage(i + 2)}
+            activeOpacity={0.9}
+            style={{ position: 'relative' }}
+          >
+            <Image source={{ uri: img }} style={imgStyle(botW, 128)} resizeMode="cover" />
+            {i === 2 && remaining > 0 && (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 0, left: 0, right: 0, bottom: 0,
+                  backgroundColor: 'rgba(0,0,0,0.52)',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: '#fff', fontSize: 24, fontWeight: '800' }}>
+                  +{remaining}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// ─── GALERIE PLEIN ÉCRAN ──────────────────────────────────────────────────────
+function ImageGalleryModal({
+  images,
+  startIndex,
+  onClose,
+}: {
+  images: string[];
+  startIndex: number;
+  onClose: () => void;
+}) {
+  const [currentIndex, setCurrentIndex] = useState(startIndex);
+
+  return (
+    <Modal visible animationType="fade" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: '#000' }}>
+        {/* Fermer */}
+        <TouchableOpacity
+          onPress={onClose}
+          style={{ position: 'absolute', top: 50, right: 16, zIndex: 10, padding: 8 }}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="close" size={30} color="#fff" />
+        </TouchableOpacity>
+
+        {/* Compteur */}
+        <View
+          style={{
+            position: 'absolute',
+            top: 54,
+            left: 0,
+            right: 0,
+            alignItems: 'center',
+            zIndex: 10,
+          }}
+        >
+          <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 14, fontWeight: '600' }}>
+            {currentIndex + 1} / {images.length}
+          </Text>
+        </View>
+
+        <FlatList
+          data={images}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          initialScrollIndex={startIndex}
+          keyExtractor={(_, i) => String(i)}
+          getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
+          onMomentumScrollEnd={(e) => {
+            const idx = Math.round(e.nativeEvent.contentOffset.x / width);
+            setCurrentIndex(idx);
+          }}
+          renderItem={({ item }) => (
+            <Image
+              source={{ uri: item }}
+              style={{ width, height: '100%' }}
+              resizeMode="contain"
+            />
+          )}
+        />
+      </View>
+    </Modal>
+  );
+}
+
+// ─── CARTE PUBLICATION (style Facebook) ──────────────────────────────────────
+function PublicationCard({
+  item,
+  onContact,
+}: {
+  item: FeedPub;
+  onContact: () => void;
+}) {
+  const { C } = useColors();
+  const [expanded, setExpanded] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [galleryIndex, setGalleryIndex] = useState(0);
+
+  const enterpriseName = item.enterprises?.name ?? 'Entreprise';
+  const TEXT_LIMIT = 120;
+  const isLong = (item.texte?.length ?? 0) > TEXT_LIMIT;
+
+  const openGallery = (i: number) => {
+    setGalleryIndex(i);
+    setGalleryOpen(true);
+  };
+
+  return (
+    <View style={[styles.card, { backgroundColor: C.card, borderColor: C.cardBorder }]}>
+      {/* En-tête */}
+      <View style={styles.cardHeader}>
+        <EnterpriseAvatar name={enterpriseName} logoUrl={item.enterprises?.logo_url} />
+        <View style={styles.cardHeaderText}>
+          <Text style={[styles.enterpriseName, { color: C.text }]} numberOfLines={1}>
+            {enterpriseName}
+          </Text>
+          <View style={styles.cardMeta}>
+            <Ionicons name="globe-outline" size={11} color={C.subText} />
+            <Text style={[styles.cardTime, { color: C.subText }]}>{timeAgo(item.created_at)}</Text>
+          </View>
+        </View>
+        <View style={[styles.etatBadge, { borderColor: C.primary }]}>
+          <Text style={[styles.etatBadgeText, { color: C.primary }]}>OFFRE</Text>
+        </View>
+      </View>
+
+      {/* Texte */}
+      {item.texte ? (
+        <TouchableOpacity
+          style={{ paddingHorizontal: 13, paddingBottom: 10 }}
+          activeOpacity={0.7}
+          onPress={() => setExpanded(!expanded)}
+        >
+          <Text
+            style={{ color: C.text, fontSize: 14, lineHeight: 21 }}
+            numberOfLines={expanded ? undefined : 3}
+          >
+            {item.texte}
+          </Text>
+          {!expanded && isLong ? (
+            <Text style={{ color: C.primary, fontSize: 13, fontWeight: '600', marginTop: 4 }}>
+              Voir plus
+            </Text>
+          ) : expanded ? (
+            <Text style={{ color: C.primary, fontSize: 13, fontWeight: '600', marginTop: 4 }}>
+              Voir moins
+            </Text>
+          ) : null}
+        </TouchableOpacity>
+      ) : null}
+
+      {/* Grille d'images */}
+      {item.images && item.images.length > 0 ? (
+        <View style={{ overflow: 'hidden' }}>
+          <ImageGrid images={item.images} onPressImage={openGallery} />
+        </View>
+      ) : null}
+
+      {/* Actions */}
+      <View style={[styles.cardActions, { borderTopColor: C.cardBorder }]}>
+        <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
+          <Ionicons name="heart-outline" size={19} color={C.subText} />
+          <Text style={[styles.actionText, { color: C.subText }]}>J'aime</Text>
+        </TouchableOpacity>
+        <View style={[styles.actionDivider, { backgroundColor: C.cardBorder }]} />
+        <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
+          <Ionicons name="share-social-outline" size={19} color={C.subText} />
+          <Text style={[styles.actionText, { color: C.subText }]}>Partager</Text>
+        </TouchableOpacity>
+        <View style={[styles.actionDivider, { backgroundColor: C.cardBorder }]} />
+        <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7} onPress={onContact}>
+          <Ionicons name="call-outline" size={19} color={C.primary} />
+          <Text style={[styles.actionText, { color: C.primary }]}>Contacter</Text>
+        </TouchableOpacity>
+      </View>
+
+      {galleryOpen && (
+        <ImageGalleryModal
+          images={item.images}
+          startIndex={galleryIndex}
+          onClose={() => setGalleryOpen(false)}
+        />
+      )}
+    </View>
+  );
+}
+
+// ─── MODAL CONTACT (publication) ─────────────────────────────────────────────
+function PubContactModal({
+  pub,
+  onClose,
+}: {
+  pub: FeedPub;
+  onClose: () => void;
+}) {
+  const { C } = useColors();
+  const { height: screenHeight } = Dimensions.get('window');
+  const enterpriseName = pub.enterprises?.name ?? "l'entreprise";
+
+  const [contactInfo, setContactInfo] = useState<EnterpriseContact | null>(null);
+  const [contactLoading, setContactLoading] = useState(true);
+
+  useEffect(() => {
+    if (!pub.enterprise_id) { setContactLoading(false); return; }
+    supabase
+      .from('enterprise_contacts')
+      .select('whatsapp, phone1, phone2, localisation, email, description')
+      .eq('enterprise_id', pub.enterprise_id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setContactInfo(data ?? null);
+        setContactLoading(false);
+      });
+  }, [pub.enterprise_id]);
+
+  const waNumber  = contactInfo?.whatsapp ?? null;
+  const callNumber = contactInfo?.phone1  ?? null;
+  const phone2    = contactInfo?.phone2   ?? null;
+  const gpsLoc    = contactInfo?.localisation ?? null;
+
+  const openWhatsApp = () => {
+    if (!waNumber)
+      return Alert.alert('Indisponible', 'WhatsApp non renseigné pour cette entreprise.');
+    const phone = waNumber.replace(/\D/g, '');
+    const text  = `Bonjour, j'ai vu votre publication et je souhaite plus d'informations.`;
+    Linking.openURL(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`);
+  };
+
+  const openCall = (num: string) => Linking.openURL(`tel:${num}`);
+
+  const openGPS = async () => {
+    if (!gpsLoc)
+      return Alert.alert('Indisponible', "Cet établissement n'a pas renseigné sa position GPS.");
+    const parts = gpsLoc.split(',').map(Number);
+    if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1]))
+      return Alert.alert('Erreur', 'Coordonnées GPS invalides.');
+    const [lat, lng] = parts;
+    const mapsUrl =
+      Platform.OS === 'ios'
+        ? `maps://maps.apple.com/?daddr=${lat},${lng}`
+        : `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+    const canOpen = await Linking.canOpenURL(mapsUrl);
+    Linking.openURL(
+      canOpen ? mapsUrl : `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
+    );
+  };
+
+  return (
+    <Modal visible animationType="slide" transparent onRequestClose={onClose}>
+      <View style={styles.contactOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ width: '100%', maxHeight: screenHeight * 0.92 }}
+        >
+          <View style={[styles.contactSheet, { backgroundColor: C.card }]}>
+            {/* Header */}
+            <View style={[styles.contactSheetHeader, { borderBottomColor: C.cardBorder }]}>
+              <View style={[styles.contactSheetDrag, { backgroundColor: C.cardBorder }]} />
+              <Text style={[styles.contactSheetTitle, { color: C.text }]}>
+                {`Contacter ${enterpriseName}`}
+              </Text>
+              <TouchableOpacity onPress={onClose} style={styles.contactSheetClose}>
+                <Ionicons name="close" size={22} color={C.text} />
+              </TouchableOpacity>
+            </View>
+
+            {contactLoading ? (
+              <View style={{ padding: 40, alignItems: 'center' }}>
+                <ActivityIndicator color={C.primary} />
+              </View>
+            ) : (
+              <View style={styles.contactOptionsList}>
+                {/* WhatsApp */}
+                <TouchableOpacity
+                  style={[styles.contactOptionRow, { borderBottomColor: C.cardBorder }]}
+                  onPress={openWhatsApp}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.contactOptionIcon, { backgroundColor: '#25D366' }]}>
+                    <Ionicons name="logo-whatsapp" size={24} color="#fff" />
+                  </View>
+                  <View style={styles.contactOptionText}>
+                    <Text style={[styles.contactOptionLabel, { color: C.text }]}>WhatsApp</Text>
+                    <Text style={[styles.contactOptionSub, { color: C.subText }]}>
+                      {waNumber ?? 'Non disponible'}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={C.subText} />
+                </TouchableOpacity>
+
+                {/* Appel principal */}
+                <TouchableOpacity
+                  style={[styles.contactOptionRow, { borderBottomColor: C.cardBorder }]}
+                  onPress={() =>
+                    callNumber
+                      ? openCall(callNumber)
+                      : Alert.alert('Indisponible', 'Numéro non renseigné.')
+                  }
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.contactOptionIcon, { backgroundColor: C.price }]}>
+                    <Ionicons name="call" size={24} color="#fff" />
+                  </View>
+                  <View style={styles.contactOptionText}>
+                    <Text style={[styles.contactOptionLabel, { color: C.text }]}>Appel / SMS</Text>
+                    <Text style={[styles.contactOptionSub, { color: C.subText }]}>
+                      {callNumber ?? 'Non disponible'}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={C.subText} />
+                </TouchableOpacity>
+
+                {/* Téléphone 2 */}
+                {phone2 ? (
+                  <TouchableOpacity
+                    style={[styles.contactOptionRow, { borderBottomColor: C.cardBorder }]}
+                    onPress={() => openCall(phone2)}
+                    activeOpacity={0.75}
+                  >
+                    <View style={[styles.contactOptionIcon, { backgroundColor: C.price }]}>
+                      <Ionicons name="call-outline" size={24} color="#fff" />
+                    </View>
+                    <View style={styles.contactOptionText}>
+                      <Text style={[styles.contactOptionLabel, { color: C.text }]}>Téléphone 2</Text>
+                      <Text style={[styles.contactOptionSub, { color: C.subText }]}>{phone2}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={C.subText} />
+                  </TouchableOpacity>
+                ) : null}
+
+                {/* Chat */}
+                <TouchableOpacity
+                  style={[styles.contactOptionRow, { borderBottomColor: C.cardBorder }]}
+                  onPress={() => {
+                    if (!pub.enterprise_id) return;
+                    onClose();
+                    router.push({
+                      pathname: '/chat',
+                      params: {
+                        enterprise_id: pub.enterprise_id,
+                        enterprise_name: pub.enterprises?.name ?? 'Entreprise',
+                      },
+                    } as any);
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.contactOptionIcon, { backgroundColor: C.primary }]}>
+                    <Ionicons name="chatbubble-ellipses" size={24} color="#fff" />
+                  </View>
+                  <View style={styles.contactOptionText}>
+                    <Text style={[styles.contactOptionLabel, { color: C.text }]}>Chat en temps réel</Text>
+                    <Text style={[styles.contactOptionSub, { color: C.subText }]}>Messagerie directe</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={C.subText} />
+                </TouchableOpacity>
+
+                {/* GPS */}
+                <TouchableOpacity
+                  style={[styles.contactOptionRow, { borderBottomWidth: 0 }]}
+                  onPress={openGPS}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.contactOptionIcon, { backgroundColor: C.accent }]}>
+                    <Ionicons name="navigate" size={24} color="#fff" />
+                  </View>
+                  <View style={styles.contactOptionText}>
+                    <Text style={[styles.contactOptionLabel, { color: C.text }]}>Itinéraire / GPS</Text>
+                    <Text style={[styles.contactOptionSub, { color: C.subText }]}>
+                      {gpsLoc ? 'Ouvrir dans Maps' : 'Position non renseignée'}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={C.subText} />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </KeyboardAvoidingView>
+      </View>
+    </Modal>
+  );
+}
+
 // ─── COMPOSANT PRINCIPAL ─────────────────────────────────────────────────────
 export default function FeedScreen() {
   const { C } = useColors();
   const { tenant, loading: authLoading, isAuthenticated, pendingState, isSuperAdmin } = useTenant();
 
   const [motos, setMotos] = useState<FeedMoto[]>([]);
+  const [publications, setPublications] = useState<FeedPub[]>([]);
   const [filtered, setFiltered] = useState<FeedMoto[]>([]);
+  const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
   const [feedLoading, setFeedLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [motosOffset, setMotosOffset] = useState(0);
+  const [pubsOffset, setPubsOffset] = useState(0);
+  const [hasMoreMotos, setHasMoreMotos] = useState(true);
+  const [hasMorePubs, setHasMorePubs] = useState(true);
+  const loadingMoreRef = useRef(false);
+
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<Filter>('Tout');
   const [detailMoto, setDetailMoto] = useState<FeedMoto | null>(null);
   const [contactMoto, setContactMoto] = useState<FeedMoto | null>(null);
+  const [pubContact, setPubContact] = useState<FeedPub | null>(null);
 
   const [showPin, setShowPin] = useState(false);
   const [storedPin, setStoredPin] = useState<string | null>(null);
@@ -403,30 +933,123 @@ export default function FeedScreen() {
     setFiltered(data);
   }, [motos, activeFilter, search]);
 
+  // ── Fusionner motos et publications dans un seul fil chronologique ──────────
+  useEffect(() => {
+    const motoItems: FeedItem[] = filtered.map(m => ({ kind: 'moto', data: m }));
+
+    let pubItems: FeedItem[] = [];
+    if (activeFilter === 'Tout') {
+      let pubs = publications;
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        pubs = pubs.filter(
+          p =>
+            p.texte?.toLowerCase().includes(q) ||
+            p.enterprises?.name?.toLowerCase().includes(q),
+        );
+      }
+      pubItems = pubs.map(p => ({ kind: 'pub', data: p }));
+    }
+
+    const merged = [...motoItems, ...pubItems].sort(
+      (a, b) =>
+        new Date(b.data.created_at).getTime() -
+        new Date(a.data.created_at).getTime(),
+    );
+    setFeedItems(merged);
+  }, [filtered, publications, activeFilter, search]);
+
   const fetchFeed = async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setFeedLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('motos')
-        .select(`
-          id, marque, modele, type, couleur, prix_vente, etat, created_at, enterprise_id,
-          cylindree, annee_fabrication, numero_chassis, immatriculation,
-          moto_images(image_uri, is_principal, position),
-          enterprises(name, logo_url, phone, is_active)
-        `)
-        .order('created_at', { ascending: false })
-        .limit(50);
-      if (error) console.error('Erreur fetchFeed:', error.message);
+    if (isRefresh) {
+      setRefreshing(true);
+      setMotosOffset(0);
+      setPubsOffset(0);
+      setHasMoreMotos(true);
+      setHasMorePubs(true);
+    } else {
+      setFeedLoading(true);
+    }
+
+    // Lance les deux fetchs EN PARALLÈLE — on n'attend plus l'un pour lancer l'autre
+    const motoFetch = supabase
+      .from('motos')
+      .select(MOTO_SELECT)
+      .order('created_at', { ascending: false })
+      .range(0, MOTO_PAGE_SIZE - 1);
+
+    const pubFetch = supabase
+      .from('enterprise_publications')
+      .select('*, enterprises(name, logo_url, is_active)')
+      .order('created_at', { ascending: false })
+      .range(0, PUB_PAGE_SIZE - 1);
+
+    // Dès que les motos arrivent → on enlève le spinner et on affiche
+    const processMotos = motoFetch.then(({ data, error }) => {
+      if (error) console.error('Erreur fetchMotos:', error.message);
       if (data) {
         const active = (data as any[]).filter(m => m.enterprises?.is_active !== false);
         setMotos(active as unknown as FeedMoto[]);
+        setHasMoreMotos(data.length === MOTO_PAGE_SIZE);
+        setMotosOffset(MOTO_PAGE_SIZE);
       }
+      setFeedLoading(false); // Affiche les motos sans attendre les pubs
+    });
+
+    // Les pubs s'insèrent dans le fil quand elles arrivent (en arrière-plan)
+    const processPubs = pubFetch.then(({ data }) => {
+      if (data) {
+        const activePubs = (data as any[]).filter(p => p.enterprises?.is_active !== false);
+        setPublications(activePubs as FeedPub[]);
+        setHasMorePubs(data.length === PUB_PAGE_SIZE);
+        setPubsOffset(PUB_PAGE_SIZE);
+      }
+    });
+
+    await Promise.all([processMotos, processPubs]);
+    setRefreshing(false);
+  };
+
+  const loadMore = async () => {
+    if (loadingMoreRef.current || (!hasMoreMotos && !hasMorePubs)) return;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+
+    try {
+      await Promise.all([
+        hasMoreMotos
+          ? supabase
+              .from('motos')
+              .select(MOTO_SELECT)
+              .order('created_at', { ascending: false })
+              .range(motosOffset, motosOffset + MOTO_PAGE_SIZE - 1)
+              .then(({ data }) => {
+                if (!data) return;
+                const active = (data as any[]).filter(m => m.enterprises?.is_active !== false);
+                setMotos(prev => [...prev, ...active as unknown as FeedMoto[]]);
+                setHasMoreMotos(data.length === MOTO_PAGE_SIZE);
+                setMotosOffset(prev => prev + MOTO_PAGE_SIZE);
+              })
+          : Promise.resolve(),
+        hasMorePubs
+          ? supabase
+              .from('enterprise_publications')
+              .select('*, enterprises(name, logo_url, is_active)')
+              .order('created_at', { ascending: false })
+              .range(pubsOffset, pubsOffset + PUB_PAGE_SIZE - 1)
+              .then(({ data }) => {
+                if (!data) return;
+                const activePubs = (data as any[]).filter(p => p.enterprises?.is_active !== false);
+                setPublications(prev => [...prev, ...activePubs as FeedPub[]]);
+                setHasMorePubs(data.length === PUB_PAGE_SIZE);
+                setPubsOffset(prev => prev + PUB_PAGE_SIZE);
+              })
+          : Promise.resolve(),
+      ]);
     } catch (e) {
-      console.error('Exception fetchFeed:', e);
+      console.error('Exception loadMore:', e);
     } finally {
-      setFeedLoading(false);
-      setRefreshing(false);
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
     }
   };
 
@@ -508,7 +1131,7 @@ export default function FeedScreen() {
           </TouchableOpacity>
         ))}
         <Text style={[styles.resultCount, { color: C.subText }]}>
-          {filtered.length} résultat{filtered.length !== 1 ? 's' : ''}
+          {feedItems.length} résultat{feedItems.length !== 1 ? 's' : ''}
         </Text>
       </View>
 
@@ -520,18 +1143,40 @@ export default function FeedScreen() {
         </View>
       ) : (
         <FlatList
-          data={filtered}
-          keyExtractor={item => item.id}
-          renderItem={({ item }) => (
-            <MotoCard
-              item={item}
-              onPress={() => setDetailMoto(item)}
-              onContact={() => setContactMoto(item)}
-            />
-          )}
+          data={feedItems}
+          keyExtractor={item => item.kind + '_' + item.data.id}
+          renderItem={({ item }) => {
+            if (item.kind === 'moto') {
+              return (
+                <MotoCard
+                  item={item.data}
+                  onPress={() => setDetailMoto(item.data)}
+                  onContact={() => setContactMoto(item.data)}
+                />
+              );
+            }
+            return (
+              <PublicationCard
+                item={item.data}
+                onContact={() => setPubContact(item.data)}
+              />
+            );
+          }}
           ListEmptyComponent={<EmptyFeed />}
-          contentContainerStyle={filtered.length === 0 ? styles.emptyList : styles.feedList}
+          contentContainerStyle={feedItems.length === 0 ? styles.emptyList : styles.feedList}
           showsVerticalScrollIndicator={false}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={styles.footerLoader}>
+                <ActivityIndicator size="small" color={C.primary} />
+                <Text style={[styles.footerLoaderText, { color: C.subText }]}>Chargement...</Text>
+              </View>
+            ) : (!hasMoreMotos && !hasMorePubs && feedItems.length > 0) ? (
+              <Text style={[styles.footerEnd, { color: C.subText }]}>— Fin du fil —</Text>
+            ) : null
+          }
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -556,6 +1201,13 @@ export default function FeedScreen() {
         <ContactModal
           moto={contactMoto}
           onClose={() => setContactMoto(null)}
+        />
+      )}
+
+      {pubContact && (
+        <PubContactModal
+          pub={pubContact}
+          onClose={() => setPubContact(null)}
         />
       )}
     </SafeAreaView>
@@ -707,7 +1359,10 @@ function ContactModal({ moto, onClose }: { moto: FeedMoto; onClose: () => void }
       moto.couleur ? `Couleur : ${moto.couleur}` : null,
       moto.cylindree ? `Cylindrée : ${moto.cylindree}` : null,
     ].filter(Boolean).join('\n');
-    const text = `Bonjour, je suis intéressé(e) par votre moto :\n\n*${motoName}*\nPrix : ${price}${details ? '\n' + details : ''}\n\nPouvez-vous me donner plus d'informations ?`;
+    const principalImg = moto.moto_images?.find(i => i.is_principal) ?? moto.moto_images?.[0];
+    const imgUri = principalImg?.image_uri;
+    const imgLine = imgUri && imgUri.startsWith('http') ? `\n📸 Photo : ${imgUri}` : '';
+    const text = `Bonjour, je suis intéressé(e) par votre moto :\n\n*${motoName}*\nPrix : ${price}${details ? '\n' + details : ''}${imgLine}\n\nPouvez-vous me donner plus d'informations ?`;
     Linking.openURL(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`);
   };
 
@@ -914,6 +1569,10 @@ const styles = StyleSheet.create({
   feedList: { paddingBottom: 30, paddingTop: 4 },
   emptyList: { flex: 1 },
   separator: { height: 8 },
+
+  footerLoader: { paddingVertical: 24, alignItems: 'center', gap: 8 },
+  footerLoaderText: { fontSize: 12 },
+  footerEnd: { textAlign: 'center', fontSize: 12, paddingVertical: 20 },
 
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 14 },
   loadingText: { fontSize: 14 },

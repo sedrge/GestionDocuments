@@ -1,10 +1,8 @@
 // app/recu/[id].tsx
 
 import { Ionicons } from "@expo/vector-icons";
-import * as Print from "expo-print";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import * as Sharing from "expo-sharing";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -15,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { printAndSharePdf } from "../../lib/sharePdf";
 import { supabase } from "../../lib/supabase";
 
 export default function RecuDetail() {
@@ -146,7 +145,7 @@ export default function RecuDetail() {
 
   <div class="box">
     <div class="row">
-      <div class="col"><span class="label">${(d.article || "ARTICLE").toUpperCase()}:</span> <span class="value">${d.article || "—"}</span></div>
+      <div class="col"><span class="label">MOTO:</span> <span class="value">${d.article || "—"}</span></div>
       <div class="col"><span class="label">COULEUR:</span> <span class="value">${d.couleur || "—"}</span></div>
     </div>
     <div class="row">
@@ -185,18 +184,9 @@ export default function RecuDetail() {
   const handlePrint = async () => {
     try {
       const html = buildHtml();
-      const { uri } = await Print.printToFileAsync({ html, base64: false });
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(uri, {
-          mimeType: "application/pdf",
-          dialogTitle: "Exporter le réçu",
-        });
-      } else {
-        Alert.alert("Fichier PDF créé", uri);
-      }
+      await printAndSharePdf(html, "Exporter le réçu");
     } catch (e: any) {
-      Alert.alert("Erreur", e.message);
+      Alert.alert("Erreur d'export", e?.message ?? String(e));
     }
   };
 
@@ -257,10 +247,14 @@ export default function RecuDetail() {
                 {parametres?.nom_entreprise || "—"}
               </Text>
               {!!parametres?.sous_titre && (
-                <Text style={styles.compSousTitre}>{parametres.sous_titre}</Text>
+                <Text style={styles.compSousTitre}>
+                  {parametres.sous_titre}
+                </Text>
               )}
               {!!parametres?.telephone && (
-                <Text style={styles.compLigne}>Tél: {parametres.telephone}</Text>
+                <Text style={styles.compLigne}>
+                  Tél: {parametres.telephone}
+                </Text>
               )}
               {!!parametres?.adresse && (
                 <Text style={styles.compLigne}>{parametres.adresse}</Text>
@@ -319,7 +313,7 @@ export default function RecuDetail() {
           <View style={styles.itemRow}>
             <View style={styles.itemCol}>
               <Text>
-                <Text style={styles.itemLabel}>{(recu.article || "ARTICLE").toUpperCase()}: </Text>
+                <Text style={styles.itemLabel}>MOTO: </Text>
                 {recu.article || "—"}
               </Text>
             </View>
@@ -397,8 +391,12 @@ export default function RecuDetail() {
             )}
           </View>
           <View style={styles.arreteCol}>
-            <Text style={styles.bold}>Arrêté la présente facture à la somme :</Text>
-            <Text style={styles.arreteText}>{recu.prix_total_lettres || "—"}</Text>
+            <Text style={styles.bold}>
+              Arrêté la présente facture à la somme :
+            </Text>
+            <Text style={styles.arreteText}>
+              {recu.prix_total_lettres || "—"}
+            </Text>
           </View>
           <View style={styles.sigCol}>
             <Text style={styles.sigCaption}>Client</Text>
@@ -484,7 +482,12 @@ const styles = StyleSheet.create({
   },
   dateCellText: { fontSize: 11 },
   factureLabel: { fontSize: 11, fontWeight: "700", marginTop: 6 },
-  factureValue: { fontSize: 14, fontWeight: "800", color: "#007AFF", letterSpacing: 1 },
+  factureValue: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#007AFF",
+    letterSpacing: 1,
+  },
 
   hrBold: { height: 2, backgroundColor: "#000", marginTop: 6 },
 
@@ -497,11 +500,21 @@ const styles = StyleSheet.create({
     borderColor: "#000",
     padding: 10,
   },
-  itemRow: { flexDirection: "row", justifyContent: "space-between", gap: 8, marginVertical: 5 },
+  itemRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 8,
+    marginVertical: 5,
+  },
   itemCol: { flex: 1 },
   itemLabel: { fontWeight: "700" },
 
-  footerRow: { flexDirection: "row", marginTop: 14, gap: 6, alignItems: "flex-start" },
+  footerRow: {
+    flexDirection: "row",
+    marginTop: 14,
+    gap: 6,
+    alignItems: "flex-start",
+  },
   sigCol: { width: "22%", alignItems: "center" },
   sigCaption: { fontWeight: "700", fontSize: 12 },
   sigImg: {

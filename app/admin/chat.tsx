@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -218,6 +219,18 @@ export default function AdminChatScreen() {
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
           renderItem={({ item }) => {
             const isAdmin = item.sender_type === "admin";
+            // Séparer les lignes image (📸 URL) du texte normal
+            const lines = item.message.split("\n");
+            const imageUrls: string[] = [];
+            const textLines: string[] = [];
+            for (const line of lines) {
+              if (line.startsWith("📸 ")) {
+                imageUrls.push(line.slice(3).trim());
+              } else {
+                textLines.push(line);
+              }
+            }
+            const displayText = textLines.join("\n").trim();
             return (
               <View style={[styles.msgRow, isAdmin ? styles.msgRowRight : styles.msgRowLeft]}>
                 {!isAdmin && (
@@ -238,7 +251,17 @@ export default function AdminChatScreen() {
                       {item.sender_name}
                     </Text>
                   )}
-                  <Text style={[styles.msgText, { color: theme.text }]}>{item.message}</Text>
+                  {imageUrls.map((url, i) => (
+                    <Image
+                      key={i}
+                      source={{ uri: url }}
+                      style={styles.msgImage}
+                      resizeMode="cover"
+                    />
+                  ))}
+                  {displayText ? (
+                    <Text style={[styles.msgText, { color: isAdmin ? "#fff" : theme.text }]}>{displayText}</Text>
+                  ) : null}
                   <Text style={[styles.msgTime, { color: isAdmin ? "rgba(255,255,255,0.6)" : theme.subText }]}>
                     {new Date(item.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
                   </Text>
@@ -464,6 +487,7 @@ const styles = StyleSheet.create({
   clientInitialText: { fontSize: 13, fontWeight: "700" },
   msgBubble: { maxWidth: "75%", borderRadius: 16, padding: 12, paddingBottom: 8 },
   msgSender: { fontSize: 11, marginBottom: 4, fontWeight: "600" },
+  msgImage: { width: 200, height: 150, borderRadius: 10, marginBottom: 6 },
   msgText: { fontSize: 15, lineHeight: 21 },
   msgTime: { fontSize: 10, marginTop: 4, textAlign: "right" },
 

@@ -47,9 +47,13 @@ function RouteGuard() {
       return;
     }
 
-    // Admin actif ou user actif : sortir du flow auth vers l'app
+    // Admin actif → dashboard ; user actif → home
     if (tenant && inAuthFlow) {
-      router.replace('/home');
+      if (tenant.user_role === 'enterprise_admin') {
+        router.replace('/admin/dashboard');
+      } else {
+        router.replace('/home');
+      }
     }
   }, [loading, isAuthenticated, tenant, pendingState, segments]);
 
@@ -75,6 +79,9 @@ function AppStack() {
         <Stack.Screen name="admin/stock" />
         <Stack.Screen name="admin/ventes" />
         <Stack.Screen name="admin/rapports" />
+        <Stack.Screen name="admin/audit" />
+        <Stack.Screen name="admin/user_permissions" />
+        <Stack.Screen name="admin/publications" />
         <Stack.Screen name="contact" />
         <Stack.Screen name="chat" />
         <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: true }} />

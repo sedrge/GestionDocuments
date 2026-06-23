@@ -37,6 +37,7 @@ import {
   countUnreadNotifications,
   ensureNotificationPermissions,
 } from '../lib/notifications';
+import { logAction } from '../lib/auditLog';
 
 const { width } = Dimensions.get('window');
 
@@ -87,8 +88,26 @@ function HomeScreenContent() {
   const [newPin, setNewPin] = useState('');
 
   const [unreadNotif, setUnreadNotif] = useState(0);
+  const [permittedKeys, setPermittedKeys] = useState<Set<string> | undefined>(undefined);
 
-  useEffect(() => { fetchData(); fetchUnread(); ensureNotificationPermissions(); }, []);
+  useEffect(() => { fetchData(); fetchUnread(); ensureNotificationPermissions(); loadMenuPermissions(); }, []);
+
+  const loadMenuPermissions = async () => {
+    // Les admins voient tout sans restriction
+    if (isEnterpriseAdmin || isSuperAdmin) return;
+    if (!tenant?.enterprise_id) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase
+      .from('user_menu_permissions')
+      .select('menu_key, is_enabled')
+      .eq('enterprise_id', tenant.enterprise_id)
+      .eq('user_id', user.id);
+    // Si aucune ligne → aucune restriction (undefined = tout visible)
+    if (!data || data.length === 0) return;
+    const allowed = new Set(data.filter((r: any) => r.is_enabled).map((r: any) => r.menu_key as string));
+    setPermittedKeys(allowed);
+  };
 
   // Rafraîchit le compteur de notifications non lues à chaque retour sur l'écran
   useFocusEffect(useCallback(() => { fetchUnread(); }, []));
@@ -166,6 +185,9 @@ function HomeScreenContent() {
   if (error) {
     Alert.alert("Erreur Supabase", error.message);
   } else {
+    if (tenant?.enterprise_id) {
+      logAction({ enterprise_id: tenant.enterprise_id, action: 'CREATE', entity_type: 'categorie', entity_name: newCatName.trim() });
+    }
     setNewCatName('');
     setIsModalVisible(false);
     fetchData();
@@ -189,6 +211,9 @@ function HomeScreenContent() {
           const { error } = await supabase.from('categories').delete().eq('id', cat.id);
           if (error) Alert.alert("Erreur", error.message);
           else {
+            if (tenant?.enterprise_id) {
+              logAction({ enterprise_id: tenant.enterprise_id, action: 'DELETE', entity_type: 'categorie', entity_id: cat.id, entity_name: cat.nom });
+            }
             if (selectedCategory?.id === cat.id) setSelectedCategory(null);
             fetchData();
           }
@@ -246,6 +271,9 @@ function HomeScreenContent() {
 
     if (dbErr) throw dbErr;
 
+    if (tenant?.enterprise_id) {
+      logAction({ enterprise_id: tenant.enterprise_id, action: 'UPLOAD', entity_type: 'document', entity_name: newDocTitle.trim() });
+    }
     fetchData();
     setTempFile(null);
     setIsAddDocModal(false);
@@ -398,6 +426,7 @@ const handleOpenDoc = async (doc: Doc) => {
         unreadNotif={unreadNotif}
         isEnterpriseAdmin={isEnterpriseAdmin}
         isSuper={isSuperAdmin}
+        permittedKeys={permittedKeys}
       >
         {/* RECHERCHE */}
         <View style={[styles.searchBox, { backgroundColor: theme.card }]}>

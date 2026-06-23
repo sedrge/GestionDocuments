@@ -120,7 +120,18 @@ const sigStyles = StyleSheet.create({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function RecuForm() {
-  const { dossierId, id } = useLocalSearchParams();
+  const {
+    dossierId,
+    id,
+    moto_id,
+    prefill_article,
+    prefill_couleur,
+    prefill_marque,
+    prefill_type,
+    prefill_chassis,
+    prefill_moteur,
+    prefill_prix,
+  } = useLocalSearchParams();
   const router = useRouter();
 
   const today = new Date();
@@ -164,8 +175,18 @@ export default function RecuForm() {
     if (id) {
       fetchRecu();
     } else if (parametres) {
-      // Génération initiale du numéro selon l'année courante
       generateNumeroFacture(parametres, Number(annee));
+      // Préremplissage depuis la vente rapide (params passés par /vente)
+      if (prefill_article) setArticle(prefill_article as string);
+      if (prefill_couleur) setCouleur(prefill_couleur as string);
+      if (prefill_marque)  setMarque(prefill_marque as string);
+      if (prefill_type)    setTypeMoto(prefill_type as string);
+      if (prefill_chassis) setChassisNo(prefill_chassis as string);
+      if (prefill_moteur)  setMoteurNo(prefill_moteur as string);
+      if (prefill_prix) {
+        setPrixUnitaire(prefill_prix as string);
+        recomputeTotal("1", prefill_prix as string);
+      }
     }
   }, [parametres]);
 
@@ -364,6 +385,13 @@ export default function RecuForm() {
     if (result.error) {
       Alert.alert("Erreur", result.error.message);
     } else {
+      // Marquer la moto comme vendue et déduire du stock
+      if (moto_id && !id) {
+        await supabase
+          .from("motos")
+          .update({ etat: "vendu" })
+          .eq("id", moto_id as string);
+      }
       Alert.alert("Succès", `Réçu enregistré ! N° ${finalNumero}`);
       router.back();
     }

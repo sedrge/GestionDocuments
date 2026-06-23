@@ -373,7 +373,11 @@ export default function AdminDashboard() {
       {/* ── Actions rapides ──────────────────────────────────────────────────── */}
       <View style={styles.section}>
         <Text style={styles.secTitle}>Actions rapides</Text>
-        <View style={styles.actionsRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.actionsRow}
+        >
           <ActionBtn
             icon="layers-outline"
             label="Stock"
@@ -387,6 +391,12 @@ export default function AdminDashboard() {
             color="#34C759"
           />
           <ActionBtn
+            icon="megaphone-outline"
+            label="Publis"
+            onPress={() => router.push("/admin/publications" as any)}
+            color="#FF3B30"
+          />
+          <ActionBtn
             icon="document-text-outline"
             label="Rapports"
             onPress={() => router.push("/admin/rapports" as any)}
@@ -398,7 +408,7 @@ export default function AdminDashboard() {
             onPress={() => router.push("/admin/users" as any)}
             color="#5856D6"
           />
-        </View>
+        </ScrollView>
       </View>
 
       {/* ── Stock par marque ─────────────────────────────────────────────────── */}
@@ -625,8 +635,9 @@ const styles = StyleSheet.create({
 
   actionsRow: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    marginTop: 4,
+    gap: 20,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
   },
   actionBtn: { alignItems: "center", gap: 6 },
   actionBtnCircle: {

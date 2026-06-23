@@ -56,7 +56,17 @@ const STATUS_LABELS: Record<string, string> = {
   vendu: "Vendu",
 };
 
-const today = (): string => new Date().toISOString().slice(0, 10);
+const todayFR = (): string => {
+  const now = new Date();
+  const j = String(now.getDate()).padStart(2, "0");
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  return `${j}/${m}/${now.getFullYear()}`;
+};
+const frToISO = (fr: string): string => {
+  const parts = fr.split("/");
+  if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+  return fr;
+};
 
 // ─── Modal de vente ───────────────────────────────────────────────────────────
 
@@ -77,7 +87,7 @@ interface VenteModalProps {
 function VenteModal({ visible, moto, onClose, onConfirm, saving }: VenteModalProps) {
   const [nom, setNom] = useState("");
   const [tel, setTel] = useState("");
-  const [date, setDate] = useState(today());
+  const [date, setDate] = useState(todayFR());
   const [prix, setPrix] = useState("");
   const [notes, setNotes] = useState("");
 
@@ -86,7 +96,7 @@ function VenteModal({ visible, moto, onClose, onConfirm, saving }: VenteModalPro
       setPrix(moto.prix_vente ? String(moto.prix_vente) : "");
       setNom("");
       setTel("");
-      setDate(today());
+      setDate(todayFR());
       setNotes("");
     }
   }, [moto]);
@@ -141,13 +151,19 @@ function VenteModal({ visible, moto, onClose, onConfirm, saving }: VenteModalPro
             />
 
             {/* Date de vente */}
-            <Text style={styles.fieldLabel}>Date de vente</Text>
+            <Text style={styles.fieldLabel}>Date de vente (JJ/MM/AAAA)</Text>
             <TextInput
               style={styles.fieldInput}
               value={date}
-              onChangeText={setDate}
-              placeholder="AAAA-MM-JJ"
+              onChangeText={(t) => {
+                let v = t.replace(/[^0-9]/g, "");
+                if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2);
+                if (v.length > 5) v = v.slice(0, 5) + "/" + v.slice(5);
+                setDate(v.slice(0, 10));
+              }}
+              placeholder="JJ/MM/AAAA"
               keyboardType="numeric"
+              maxLength={10}
             />
 
             {/* Prix final */}
@@ -348,7 +364,7 @@ export default function StockScreen() {
     setSaving(true);
     const { error } = await supabase.from("motos").update({
       statut: "vendu",
-      date_vente: data.date ? new Date(data.date).toISOString() : new Date().toISOString(),
+      date_vente: data.date ? new Date(frToISO(data.date)).toISOString() : new Date().toISOString(),
       nom_acheteur: data.nom || null,
       telephone_acheteur: data.tel || null,
       notes_vente: data.notes || null,

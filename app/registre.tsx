@@ -691,10 +691,16 @@ export default function RegistreForm() {
             <Text style={styles.label}>Date (JJ/MM/AAAA)</Text>
             <TextInput
               value={date}
-              onChangeText={setDate}
+              onChangeText={(t) => {
+                let v = t.replace(/[^0-9]/g, "");
+                if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2);
+                if (v.length > 5) v = v.slice(0, 5) + "/" + v.slice(5);
+                setDate(v.slice(0, 10));
+              }}
               style={styles.input}
               placeholder="31/12/2026"
               keyboardType="numeric"
+              maxLength={10}
             />
           </View>
           <View style={{ flex: 1 }}>
@@ -967,10 +973,16 @@ export default function RegistreForm() {
                     <Text style={styles.label}>Date (JJ/MM/AAAA) *</Text>
                     <TextInput
                       value={rdvDate}
-                      onChangeText={setRdvDate}
+                      onChangeText={(t) => {
+                        let v = t.replace(/[^0-9]/g, "");
+                        if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2);
+                        if (v.length > 5) v = v.slice(0, 5) + "/" + v.slice(5);
+                        setRdvDate(v.slice(0, 10));
+                      }}
                       style={styles.input}
-                      placeholder="Ex: 15/06/2026"
+                      placeholder="15/06/2026"
                       keyboardType="numeric"
+                      maxLength={10}
                     />
                   </View>
                   <View style={{ flex: 1 }}>

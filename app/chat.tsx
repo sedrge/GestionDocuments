@@ -209,7 +209,8 @@ export default function ChatScreen() {
         .filter(Boolean)
         .join(" · ");
 
-      const introMsg = `Je suis intéressé(e) par votre moto :\n${parts}`;
+      const imgLine = moto_image && moto_image.startsWith('http') ? `\n📸 ${moto_image}` : "";
+      const introMsg = `Je suis intéressé(e) par votre moto :\n${parts}${imgLine}`;
 
       await supabase.from("enterprise_chat_messages").insert({
         chat_id: data.id,

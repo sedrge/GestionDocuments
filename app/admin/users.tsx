@@ -245,13 +245,26 @@ export default function EnterpriseAdminUsersScreen() {
                     <Text style={styles.actionText}>Approuver</Text>
                   </TouchableOpacity>
                 ) : (
-                  <TouchableOpacity
-                    style={[styles.actionBtn, { backgroundColor: theme.danger }]}
-                    onPress={() => handleDeactivate(item.user_id)}
-                  >
-                    <Ionicons name="close-circle" size={16} color="#fff" />
-                    <Text style={styles.actionText}>Désactiver</Text>
-                  </TouchableOpacity>
+                  <>
+                    <TouchableOpacity
+                      style={[styles.actionBtn, { backgroundColor: theme.primary }]}
+                      onPress={() =>
+                        router.push(
+                          `/admin/user_permissions?userId=${item.user_id}&userName=${encodeURIComponent(item.full_name || '')}&userEmail=${encodeURIComponent(item.email)}` as any
+                        )
+                      }
+                    >
+                      <Ionicons name="shield-checkmark-outline" size={16} color="#fff" />
+                      <Text style={styles.actionText}>Permissions</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.actionBtn, { backgroundColor: theme.danger }]}
+                      onPress={() => handleDeactivate(item.user_id)}
+                    >
+                      <Ionicons name="close-circle" size={16} color="#fff" />
+                      <Text style={styles.actionText}>Désactiver</Text>
+                    </TouchableOpacity>
+                  </>
                 )}
               </View>
             </View>
@@ -347,8 +360,9 @@ const styles = StyleSheet.create({
   userName: { fontSize: 15, fontWeight: '600', marginBottom: 4 },
   userEmail: { fontSize: 12, marginBottom: 2 },
   removeBtn: { padding: 6, marginLeft: 8 },
-  actions: { marginTop: 12 },
+  actions: { marginTop: 12, flexDirection: 'row', gap: 8 },
   actionBtn: {
+    flex: 1,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     paddingVertical: 10, borderRadius: 8, gap: 6,
   },

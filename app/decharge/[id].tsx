@@ -2,8 +2,6 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import * as Print from "expo-print";
-import * as Sharing from "expo-sharing";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
@@ -16,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { printAndSharePdf } from "../../lib/sharePdf";
 import { WebView } from "react-native-webview";
 import { supabase } from "../../lib/supabase";
 
@@ -259,15 +258,9 @@ export default function DechargeDetail() {
 </html>`;
 
     try {
-      const { uri } = await Print.printToFileAsync({ html, base64: false });
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(uri, { mimeType: "application/pdf", dialogTitle: "Exporter la décharge" });
-      } else {
-        Alert.alert("Fichier PDF créé", uri);
-      }
+      await printAndSharePdf(html, "Exporter la décharge");
     } catch (e: any) {
-      Alert.alert("Erreur", e.message);
+      Alert.alert("Erreur d'export", e?.message ?? String(e));
     }
   };
   // ───────────────────────────────────────────────────────────────────────────
@@ -333,15 +326,9 @@ export default function DechargeDetail() {
 
   const exportPdf = async (html: string, dialogTitle: string) => {
     try {
-      const { uri } = await Print.printToFileAsync({ html, base64: false });
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(uri, { mimeType: "application/pdf", dialogTitle });
-      } else {
-        Alert.alert("Fichier PDF créé", uri);
-      }
+      await printAndSharePdf(html, dialogTitle);
     } catch (e: any) {
-      Alert.alert("Erreur", e.message);
+      Alert.alert("Erreur d'export", e?.message ?? String(e));
     }
   };
 

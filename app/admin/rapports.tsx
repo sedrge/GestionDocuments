@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
 import * as Print from "expo-print";
-import * as Sharing from "expo-sharing";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -13,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { printAndSharePdf } from "../../lib/sharePdf";
 import { supabase } from "../../lib/supabase";
 import { useTenant } from "../../context/TenantContext";
 
@@ -513,26 +513,14 @@ export default function RapportsScreen() {
 
       if (action === "print") {
         await Print.printAsync({ html });
+      } else if (action === "share") {
+        await printAndSharePdf(html, `Rapport ${tenant?.enterprise_name || ""} — ${periodeLabel}`);
       } else {
-        const { uri } = await Print.printToFileAsync({ html, base64: false });
-        if (action === "share") {
-          const canShare = await Sharing.isAvailableAsync();
-          if (canShare) {
-            await Sharing.shareAsync(uri, {
-              mimeType: "application/pdf",
-              dialogTitle: `Rapport ${tenant?.enterprise_name || ""} — ${periodeLabel}`,
-              UTI: "com.adobe.pdf",
-            });
-          } else {
-            Alert.alert("Partage", "Le partage n'est pas disponible sur cet appareil.");
-          }
-        } else {
-          // pdf → ouvre l'aperçu pour impression / sauvegarde
-          await Print.printAsync({ uri });
-        }
+        // pdf → ouvre l'aperçu pour impression / sauvegarde
+        await Print.printAsync({ html });
       }
     } catch (e: any) {
-      Alert.alert("Erreur", e.message || "Impossible de générer le rapport.");
+      Alert.alert("Erreur d'export", (e?.message ?? String(e)) || "Impossible de générer le rapport.");
     } finally {
       setGenerating(false);
     }

@@ -31,7 +31,24 @@ interface HamburgerMenuProps {
   onSetViewMode?: (mode: "list" | "details" | "grid") => void;
   onChangePin?: () => void;
   onChangeLogo?: () => void;
+  /** Clés de menu autorisées. undefined = tout visible (admins). */
+  permittedKeys?: Set<string>;
 }
+
+type MenuItem = {
+  key: string;
+  icon: string;
+  label: string;
+  route?: string;
+  action?: () => void;
+};
+
+type MenuSection = {
+  id: string;
+  label: string;
+  icon: string;
+  items: MenuItem[];
+};
 
 export const HamburgerMenu = ({
   children,
@@ -50,6 +67,7 @@ export const HamburgerMenu = ({
   onSetViewMode,
   onChangePin,
   onChangeLogo,
+  permittedKeys,
 }: HamburgerMenuProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
@@ -122,18 +140,19 @@ export const HamburgerMenu = ({
     setTimeout(() => action?.(), 10);
   };
 
-  const menuStructure = [
+  // ── Structure du menu avec clés ────────────────────────────────────────────
+  const buildMenuStructure = (): MenuSection[] => [
     {
       id: "fichier",
       label: "Fichier",
       icon: "folder-outline",
       items: [
-        { icon: "folder-outline", label: "Nouveau Dossier", action: onOpenNewFolderModal },
-        { icon: "document-attach-outline", label: "Importer Fichier", action: onPickDocument },
-        { icon: "camera-outline", label: "Prendre Photo", action: onCapturePhoto },
-        { icon: "videocam-outline", label: "Filmer Vidéo", action: onCaptureVideo },
-        { icon: "clipboard-outline", label: "Registre", route: "/annees_mois" },
-        { icon: "document-text-outline", label: "Décharge", route: "/annees_mois_decharge" },
+        { key: "fichier.nouveau_dossier",  icon: "folder-outline",          label: "Nouveau Dossier",  action: onOpenNewFolderModal },
+        { key: "fichier.importer_fichier", icon: "document-attach-outline", label: "Importer Fichier", action: onPickDocument },
+        { key: "fichier.prendre_photo",    icon: "camera-outline",          label: "Prendre Photo",    action: onCapturePhoto },
+        { key: "fichier.filmer_video",     icon: "videocam-outline",        label: "Filmer Vidéo",     action: onCaptureVideo },
+        { key: "fichier.registre",         icon: "clipboard-outline",       label: "Registre",         route: "/annees_mois" },
+        { key: "fichier.decharge",         icon: "document-text-outline",   label: "Décharge",         route: "/annees_mois_decharge" },
       ],
     },
     {
@@ -141,11 +160,11 @@ export const HamburgerMenu = ({
       label: "Gestion",
       icon: "settings-outline",
       items: [
-        { icon: "bicycle-outline", label: "Moto", route: "/motos" },
-        { icon: "albums-outline", label: "Catalogue", route: "/catalogue" },
-        { icon: "clipboard-outline", label: "Vente", route: "/annees_mois" },
-        { icon: "receipt-outline", label: "Réçu", route: "/annees_mois_recu" },
-        { icon: "calendar-outline", label: "Rendez-Vous", route: "/rendezvous" },
+        { key: "gestion.moto",        icon: "bicycle-outline",   label: "Moto",        route: "/motos" },
+        { key: "gestion.catalogue",   icon: "albums-outline",    label: "Catalogue",   route: "/catalogue" },
+        { key: "gestion.vente",       icon: "bag-check-outline", label: "Vente",       route: "/vente" },
+        { key: "gestion.recu",        icon: "receipt-outline",   label: "Réçu",        route: "/annees_mois_recu" },
+        { key: "gestion.rendez_vous", icon: "calendar-outline",  label: "Rendez-Vous", route: "/rendezvous" },
       ],
     },
     {
@@ -153,9 +172,9 @@ export const HamburgerMenu = ({
       label: "Paramètres",
       icon: "cog-outline",
       items: [
-        { icon: "image-outline", label: "Changer le Logo", action: onChangeLogo },
-        { icon: "business-outline", label: "Entête facture", route: "/parametres_entreprise" },
-        { icon: "keypad-outline", label: "Changer le PIN", action: onChangePin },
+        { key: "parametres.logo",   icon: "image-outline",    label: "Changer le Logo", action: onChangeLogo },
+        { key: "parametres.entete", icon: "business-outline", label: "Entête facture",  route: "/parametres_entreprise" },
+        { key: "parametres.pin",    icon: "keypad-outline",   label: "Changer le PIN",  action: onChangePin },
       ],
     },
     {
@@ -163,19 +182,25 @@ export const HamburgerMenu = ({
       label: "Affichage",
       icon: "eye-outline",
       items: [
-        { icon: viewMode === "list" ? "checkmark-circle" : "ellipse-outline", label: "LIST", action: () => onSetViewMode?.("list") },
-        { icon: viewMode === "details" ? "checkmark-circle" : "ellipse-outline", label: "DETAILS", action: () => onSetViewMode?.("details") },
-        { icon: viewMode === "grid" ? "checkmark-circle" : "ellipse-outline", label: "GRID", action: () => onSetViewMode?.("grid") },
+        { key: "affichage.list",    icon: viewMode === "list"    ? "checkmark-circle" : "ellipse-outline", label: "LIST",    action: () => onSetViewMode?.("list") },
+        { key: "affichage.details", icon: viewMode === "details" ? "checkmark-circle" : "ellipse-outline", label: "DETAILS", action: () => onSetViewMode?.("details") },
+        { key: "affichage.grid",    icon: viewMode === "grid"    ? "checkmark-circle" : "ellipse-outline", label: "GRID",    action: () => onSetViewMode?.("grid") },
       ],
     },
   ];
 
-  type MenuItem = {
-    icon: string;
-    label: string;
-    route?: string;
-    action?: () => void;
+  // Filtre les sections et items selon les permissions
+  const filterSection = (section: MenuSection): MenuSection | null => {
+    // Les admins (permittedKeys === undefined) voient tout
+    if (permittedKeys === undefined) return section;
+    const visibleItems = section.items.filter((item) => permittedKeys.has(item.key));
+    if (visibleItems.length === 0) return null;
+    return { ...section, items: visibleItems };
   };
+
+  const menuStructure = buildMenuStructure()
+    .map(filterSection)
+    .filter((s): s is MenuSection => s !== null);
 
   const SubMenuItem = ({ item }: { item: MenuItem }) => (
     <TouchableOpacity
@@ -321,8 +346,8 @@ export const HamburgerMenu = ({
 
               {activeSubmenu === menu.id && (
                 <View style={{ backgroundColor: t.bg }}>
-                  {menu.items.map((item, idx) => (
-                    <SubMenuItem key={idx} item={item} />
+                  {menu.items.map((item) => (
+                    <SubMenuItem key={item.key} item={item} />
                   ))}
                 </View>
               )}
@@ -378,6 +403,14 @@ export const HamburgerMenu = ({
               >
                 <Ionicons name="people-outline" size={20} color={t.text} />
                 <Text style={[styles.mainMenuLabel, { color: t.text }]}>Équipe / Utilisateurs</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.mainMenuItem, { borderBottomColor: t.border }]}
+                onPress={() => handleNavigation("/admin/audit")}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="time-outline" size={20} color={t.text} />
+                <Text style={[styles.mainMenuLabel, { color: t.text }]}>Journal d'activité</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.mainMenuItem, { borderBottomColor: t.border }]}
@@ -516,14 +549,6 @@ const styles = StyleSheet.create({
   },
   subMenuLabel: { fontSize: 14, marginLeft: 10 },
   separator: { height: StyleSheet.hairlineWidth, marginVertical: 8, marginHorizontal: 20 },
-  badge: {
-    backgroundColor: "#FF3B30",
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    marginLeft: "auto",
-  },
-  badgeText: { color: "#fff", fontSize: 11, fontWeight: "600" },
   adminSectionHeader: {
     flexDirection: "row",
     alignItems: "center",

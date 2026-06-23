@@ -6,8 +6,6 @@
 //  • photo principale en petit, swipe + zoom plein écran sur clic
 
 import { Ionicons } from "@expo/vector-icons";
-import * as Print from "expo-print";
-import * as Sharing from "expo-sharing";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -23,6 +21,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { printAndSharePdf } from "../../lib/sharePdf";
 import QRCode from "react-native-qrcode-svg";
 import { WebView } from "react-native-webview";
 import { supabase } from "../../lib/supabase";
@@ -221,18 +220,9 @@ export default function MotoDetail() {
 </html>`;
 
     try {
-      const { uri } = await Print.printToFileAsync({ html, base64: false });
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(uri, {
-          mimeType: "application/pdf",
-          dialogTitle: "Exporter la fiche moto",
-        });
-      } else {
-        Alert.alert("Fichier PDF créé", uri);
-      }
+      await printAndSharePdf(html, "Exporter la fiche moto");
     } catch (e: any) {
-      Alert.alert("Erreur", e.message);
+      Alert.alert("Erreur d'export", e?.message ?? String(e));
     }
   };
 
