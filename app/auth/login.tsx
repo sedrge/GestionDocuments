@@ -13,11 +13,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../context/ThemeContext';
 
 export default function LoginScreen() {
   const { theme, isDark, toggleTheme } = useTheme();
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -48,11 +50,12 @@ export default function LoginScreen() {
   };
 
   return (
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.bg }]}>
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={[styles.container, { backgroundColor: theme.bg }]}
     >
-      <View style={styles.topBar}>
+      <View style={[styles.topBar, { top: insets.top + 12 }]}>
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={[styles.backText, { color: theme.primary }]}>← Retour</Text>
         </TouchableOpacity>
@@ -102,12 +105,14 @@ export default function LoginScreen() {
         }
       </TouchableOpacity>
     </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: { flex: 1 },
   container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 25 },
-  topBar: { position: 'absolute', top: 60, left: 20, right: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  topBar: { position: 'absolute', left: 20, right: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   backText: { fontSize: 16, fontWeight: '600' },
   themeToggle: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, borderWidth: 1 },
   themeToggleText: { fontSize: 12, fontWeight: '500' },

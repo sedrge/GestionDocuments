@@ -16,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import SignatureCanvas from "react-native-signature-canvas";
 import { supabase } from "../lib/supabase";
 
@@ -474,6 +475,7 @@ export default function DechargeForm() {
   };
 
   return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#f9f9f9" }}>
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: "#f9f9f9" }}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -666,6 +668,7 @@ export default function DechargeForm() {
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 

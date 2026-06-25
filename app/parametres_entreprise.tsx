@@ -17,6 +17,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../lib/supabase";
 import { applyTenantFilter, getTenantFilter, isSuperAdmin, TenantFilter } from "../lib/tenant";
 
@@ -225,6 +226,7 @@ export default function ParametresEntrepriseScreen() {
   }
 
   return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#f9f9f9" }}>
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: "#f9f9f9" }}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -387,6 +389,7 @@ export default function ParametresEntrepriseScreen() {
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 

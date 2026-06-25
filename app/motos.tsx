@@ -20,6 +20,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../lib/supabase";
 
 const { width } = Dimensions.get("window");
@@ -237,7 +238,7 @@ export default function MotosScreen() {
     : [];
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ title: "Motos" }} />
 
       <View style={styles.searchBox}>
@@ -309,7 +310,7 @@ export default function MotosScreen() {
       <TouchableOpacity style={styles.fab} onPress={() => router.push("/moto")}>
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 }
 

@@ -2,6 +2,7 @@ import { router, Stack, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { TenantProvider, useTenant } from '../context/TenantContext';
 import { ThemeProvider } from '../context/ThemeContext';
@@ -105,10 +106,12 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <ThemeProvider>
-      <TenantProvider>
-        <AppStack />
-      </TenantProvider>
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <TenantProvider>
+          <AppStack />
+        </TenantProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }

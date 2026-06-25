@@ -16,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import SignatureCanvas from "react-native-signature-canvas";
 import { nombreEnLettres } from "../lib/nombreEnLettres";
 import { supabase } from "../lib/supabase";
@@ -385,11 +386,15 @@ export default function RecuForm() {
     if (result.error) {
       Alert.alert("Erreur", result.error.message);
     } else {
-      // Marquer la moto comme vendue et déduire du stock
+      // Marquer la moto comme vendue dans le stock
       if (moto_id && !id) {
         await supabase
           .from("motos")
-          .update({ etat: "vendu" })
+          .update({
+            statut: "vendu",
+            date_vente: dateBDD,
+            nom_acheteur: nomClient || null,
+          })
           .eq("id", moto_id as string);
       }
       Alert.alert("Succès", `Réçu enregistré ! N° ${finalNumero}`);
@@ -436,6 +441,7 @@ export default function RecuForm() {
   }
 
   return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#f9f9f9" }}>
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: "#f9f9f9" }}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -671,6 +677,7 @@ export default function RecuForm() {
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 

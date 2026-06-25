@@ -22,6 +22,11 @@ module.exports = {
       predictiveBackGestureEnabled: false,
       package: "com.anonymous.docvault",
       googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
+      permissions: [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+      ],
     },
     web: {
       output: "static",
@@ -54,6 +59,18 @@ module.exports = {
       "expo-image",
       "expo-sharing",
       "expo-status-bar",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Accès à la caméra pour scanner les QR codes des motos."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "SenMoto utilise votre position pour localiser votre boutique sur la carte."
+        }
+      ],
     ],
     experiments: {
       typedRoutes: true,

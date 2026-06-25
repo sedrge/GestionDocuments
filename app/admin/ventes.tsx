@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../lib/supabase";
 import { useTenant } from "../../context/TenantContext";
 
@@ -347,7 +348,7 @@ export default function VentesScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* ── Stats en-tête ─────────────────────────────────────────────────── */}
       <ScrollView
         style={styles.headerScroll}
@@ -515,7 +516,7 @@ export default function VentesScreen() {
         onClose={() => setSelectedVente(null)}
         onAnnuler={handleAnnulerVente}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 

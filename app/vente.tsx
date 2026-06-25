@@ -1,16 +1,13 @@
 // app/vente.tsx — Point de Vente
-// Recherche une moto par châssis/moteur/immatriculation ou contenu QR code,
-// puis ouvre le formulaire réçu pré-rempli.
-
 import { Ionicons } from "@expo/vector-icons";
+import { CameraView, useCameraPermissions } from "expo-camera";
 import { Stack, useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Modal,
   Platform,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -19,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../lib/supabase";
 import { useTenant } from "../context/TenantContext";
 
@@ -37,6 +35,7 @@ type Moto = {
   prix_achat: number | null;
   prix_vente: number | null;
   etat: string | null;
+  statut: string | null;
   enterprise_id: string | null;
 };
 
@@ -62,10 +61,16 @@ export default function VenteScreen() {
   const [searching, setSearching] = useState(false);
   const [moto, setMoto] = useState<Moto | null>(null);
 
+  // Modal paste QR (fallback)
   const [qrModalVisible, setQrModalVisible] = useState(false);
   const [qrInput, setQrInput] = useState("");
 
-  // ── Recherche par texte libre (châssis / moteur / immat) ─────────────────────
+  // Scanner caméra
+  const [scannerVisible, setScannerVisible] = useState(false);
+  const [scanned, setScanned] = useState(false);
+  const [permission, requestPermission] = useCameraPermissions();
+
+  // ── Recherche par texte libre ────────────────────────────────────────────────
   const searchMoto = async (query: string) => {
     const q = query.trim();
     if (!q) return;
@@ -79,7 +84,6 @@ export default function VenteScreen() {
         `numero_chassis.ilike.%${q}%,numero_moteur.ilike.%${q}%,immatriculation.ilike.%${q}%`
       );
 
-    // Limiter à l'entreprise de l'utilisateur connecté si applicable
     if (tenant?.enterprise_id) {
       req = req.eq("enterprise_id", tenant.enterprise_id);
     }
@@ -117,14 +121,11 @@ export default function VenteScreen() {
   };
 
   // ── Traitement du contenu QR (JSON ou texte libre) ───────────────────────────
-  const parseQrAndSearch = () => {
-    const raw = qrInput.trim();
-    if (!raw) { setQrModalVisible(false); return; }
-
+  const parseAndSearch = (raw: string) => {
+    const text = raw.trim();
+    if (!text) return;
     try {
-      const parsed = JSON.parse(raw);
-      setQrModalVisible(false);
-      setQrInput("");
+      const parsed = JSON.parse(text);
       if (parsed.id) {
         searchById(parsed.id);
       } else if (parsed.chassis) {
@@ -134,19 +135,48 @@ export default function VenteScreen() {
         Alert.alert("QR invalide", "Le QR code ne contient pas de données moto reconnues.");
       }
     } catch {
-      // Texte brut → on le traite comme un numéro de châssis/moteur/immat
-      setQrModalVisible(false);
-      setSearchQuery(raw);
-      setQrInput("");
-      searchMoto(raw);
+      setSearchQuery(text);
+      searchMoto(text);
     }
+  };
+
+  // ── Scan caméra ───────────────────────────────────────────────────────────────
+  const openScanner = async () => {
+    if (!permission?.granted) {
+      const result = await requestPermission();
+      if (!result.granted) {
+        Alert.alert(
+          "Permission refusée",
+          "L'accès à la caméra est nécessaire pour scanner les QR codes. Activez-le dans les paramètres."
+        );
+        return;
+      }
+    }
+    setScanned(false);
+    setScannerVisible(true);
+  };
+
+  const handleBarCodeScanned = ({ data }: { data: string }) => {
+    if (scanned) return;
+    setScanned(true);
+    setScannerVisible(false);
+    parseAndSearch(data);
+  };
+
+  // ── Modal saisie manuelle (fallback) ─────────────────────────────────────────
+  const parseQrAndSearch = () => {
+    const raw = qrInput.trim();
+    if (!raw) { setQrModalVisible(false); return; }
+    setQrModalVisible(false);
+    setQrInput("");
+    parseAndSearch(raw);
   };
 
   // ── Démarrage du processus de vente ──────────────────────────────────────────
   const handleVendre = async () => {
     if (!moto) return;
 
-    if (moto.etat?.toLowerCase() === "vendu") {
+    if (moto.statut === "vendu") {
       return Alert.alert(
         "Déjà vendue",
         "Cette moto est déjà marquée comme vendue dans votre stock."
@@ -158,7 +188,6 @@ export default function VenteScreen() {
     } = await supabase.auth.getUser();
     if (!user) return Alert.alert("Erreur", "Utilisateur non connecté.");
 
-    // Trouver ou créer le dossier réçu du mois courant (format YYYY-MM)
     const now = new Date();
     const nomDossier = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
@@ -187,7 +216,6 @@ export default function VenteScreen() {
       dossierId = created?.id;
     }
 
-    // Naviguer vers le formulaire réçu avec les données pré-remplies
     router.push({
       pathname: "/recu",
       params: {
@@ -233,7 +261,7 @@ export default function VenteScreen() {
           </View>
           <Text style={styles.heroTitle}>Point de Vente</Text>
           <Text style={styles.heroSubtitle}>
-            Recherchez la moto par numéro ou QR code pour créer un réçu de vente instantané
+            Recherchez la moto par numéro ou scannez son QR code pour créer un réçu instantané
           </Text>
         </View>
 
@@ -272,23 +300,42 @@ export default function VenteScreen() {
           </View>
         </View>
 
-        {/* Bouton QR */}
-        <TouchableOpacity
-          style={styles.qrCard}
-          onPress={() => setQrModalVisible(true)}
-          activeOpacity={0.8}
-        >
-          <View style={styles.qrIconWrap}>
-            <Ionicons name="qr-code" size={28} color="#007AFF" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.qrCardTitle}>Scanner le QR code de la moto</Text>
-            <Text style={styles.qrCardHint}>
-              Scannez avec l'appareil photo, puis collez le texte résultant ici
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color="#007AFF" />
-        </TouchableOpacity>
+        {/* Boutons QR — scanner caméra + saisie manuelle */}
+        <View style={styles.qrRow}>
+          {/* Scan direct */}
+          <TouchableOpacity
+            style={[styles.qrCard, styles.qrCardPrimary]}
+            onPress={openScanner}
+            activeOpacity={0.8}
+          >
+            <View style={styles.qrIconWrap}>
+              <Ionicons name="camera" size={26} color="#fff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.qrCardTitle, { color: "#fff" }]}>Scanner avec la caméra</Text>
+              <Text style={[styles.qrCardHint, { color: "rgba(255,255,255,0.75)" }]}>
+                Pointez directement sur le QR code
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.8)" />
+          </TouchableOpacity>
+
+          {/* Saisie manuelle (fallback) */}
+          <TouchableOpacity
+            style={[styles.qrCard, styles.qrCardSecondary]}
+            onPress={() => setQrModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.qrIconWrap, { backgroundColor: "#D6EEFF" }]}>
+              <Ionicons name="clipboard-outline" size={22} color="#007AFF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.qrCardTitle}>Coller le contenu</Text>
+              <Text style={styles.qrCardHint}>Collez le texte du QR code manuellement</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#007AFF" />
+          </TouchableOpacity>
+        </View>
 
         {/* Résultat de recherche */}
         {searching && !moto && (
@@ -300,7 +347,6 @@ export default function VenteScreen() {
 
         {moto && (
           <View style={styles.motoCard}>
-            {/* Titre moto */}
             <View style={styles.motoCardHeader}>
               <View style={styles.motoIconWrap}>
                 <Ionicons name="bicycle" size={22} color="#fff" />
@@ -322,7 +368,6 @@ export default function VenteScreen() {
               ) : null}
             </View>
 
-            {/* Grille d'infos */}
             <View style={styles.chipGrid}>
               {moto.couleur       ? <InfoChip icon="color-palette-outline"  label="Couleur"    value={moto.couleur} /> : null}
               {moto.type          ? <InfoChip icon="layers-outline"          label="Type"       value={moto.type} /> : null}
@@ -333,17 +378,14 @@ export default function VenteScreen() {
               {moto.immatriculation ? <InfoChip icon="card-outline"          label="Immat."     value={moto.immatriculation} /> : null}
             </View>
 
-            {/* Prix */}
             <View style={styles.priceRow}>
               <Text style={styles.prixLabel}>Prix de vente</Text>
               <Text style={styles.prixValue}>{formatPrix(moto.prix_vente)}</Text>
             </View>
 
-            {/* Séparateur */}
             <View style={styles.divider} />
 
-            {/* Bouton vente ou message déjà vendu */}
-            {moto.etat?.toLowerCase() === "vendu" ? (
+            {moto.statut === "vendu" ? (
               <View style={styles.soldBanner}>
                 <Ionicons name="close-circle" size={20} color="#FF3B30" />
                 <Text style={styles.soldText}>
@@ -364,7 +406,49 @@ export default function VenteScreen() {
         )}
       </ScrollView>
 
-      {/* Modal saisie QR */}
+      {/* ── Modal Scanner caméra ─────────────────────────────────────────────── */}
+      <Modal
+        visible={scannerVisible}
+        animationType="slide"
+        onRequestClose={() => setScannerVisible(false)}
+      >
+        <View style={styles.scannerContainer}>
+          <CameraView
+            style={StyleSheet.absoluteFillObject}
+            facing="back"
+            barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+            onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+          />
+
+          {/* Overlay avec viseur */}
+          <View style={styles.scannerOverlay}>
+            <View style={styles.scannerTopBar}>
+              <TouchableOpacity
+                style={styles.scannerCloseBtn}
+                onPress={() => setScannerVisible(false)}
+              >
+                <Ionicons name="close" size={26} color="#fff" />
+              </TouchableOpacity>
+              <Text style={styles.scannerTitle}>Scanner le QR code</Text>
+              <View style={{ width: 44 }} />
+            </View>
+
+            <View style={styles.scannerViewfinder}>
+              {/* Coins du viseur */}
+              <View style={[styles.corner, styles.cornerTL]} />
+              <View style={[styles.corner, styles.cornerTR]} />
+              <View style={[styles.corner, styles.cornerBL]} />
+              <View style={[styles.corner, styles.cornerBR]} />
+            </View>
+
+            <Text style={styles.scannerHint}>
+              Placez le QR code de la moto dans le cadre
+            </Text>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Modal saisie manuelle (fallback) ────────────────────────────────── */}
       <Modal
         visible={qrModalVisible}
         transparent
@@ -377,8 +461,8 @@ export default function VenteScreen() {
 
             <View style={styles.modalHeader}>
               <View style={styles.modalTitleRow}>
-                <Ionicons name="qr-code-outline" size={22} color="#007AFF" />
-                <Text style={styles.modalTitle}>Contenu du QR Code</Text>
+                <Ionicons name="clipboard-outline" size={22} color="#007AFF" />
+                <Text style={styles.modalTitle}>Coller le contenu du QR</Text>
               </View>
               <TouchableOpacity
                 onPress={() => { setQrModalVisible(false); setQrInput(""); }}
@@ -389,15 +473,14 @@ export default function VenteScreen() {
             </View>
 
             <Text style={styles.modalHint}>
-              1. Ouvrez l'appareil photo de votre téléphone{"\n"}
-              2. Pointez-le sur le QR code collé à la moto{"\n"}
-              3. Copiez le texte affiché{"\n"}
-              4. Collez-le ci-dessous et appuyez sur "Rechercher"
+              1. Scannez le QR code avec l'appareil photo de votre téléphone{"\n"}
+              2. Copiez le texte affiché{"\n"}
+              3. Collez-le ci-dessous et appuyez sur "Rechercher"
             </Text>
 
             <TextInput
               style={styles.qrTextInput}
-              placeholder='Collez ici le contenu du QR code…'
+              placeholder="Collez ici le contenu du QR code…"
               placeholderTextColor="#AEAEB2"
               value={qrInput}
               onChangeText={setQrInput}
@@ -422,11 +505,14 @@ export default function VenteScreen() {
   );
 }
 
+const VIEWFINDER = 240;
+const CORNER = 22;
+const THICKNESS = 4;
+
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#F5F5F7" },
   container: { padding: 16, paddingBottom: 48 },
 
-  // Hero
   heroSection: { alignItems: "center", paddingVertical: 28 },
   heroIcon: {
     width: 72,
@@ -452,7 +538,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
 
-  // Card générique
   card: {
     backgroundColor: "#fff",
     borderRadius: 16,
@@ -468,7 +553,6 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 15, fontWeight: "700", color: "#1C1C1E" },
   cardHint: { fontSize: 12, color: "#8E8E93", marginBottom: 14 },
 
-  // Recherche
   searchRow: { flexDirection: "row", gap: 8 },
   searchInput: {
     flex: 1,
@@ -494,30 +578,39 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
 
-  // QR card
+  qrRow: { gap: 10, marginBottom: 20 },
   qrCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#EBF5FF",
     borderRadius: 16,
     padding: 16,
-    marginBottom: 20,
     borderWidth: 1.5,
-    borderColor: "#B3D9FF",
     gap: 12,
+  },
+  qrCardPrimary: {
+    backgroundColor: "#007AFF",
+    borderColor: "#007AFF",
+    shadowColor: "#007AFF",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  qrCardSecondary: {
+    backgroundColor: "#EBF5FF",
+    borderColor: "#B3D9FF",
   },
   qrIconWrap: {
     width: 46,
     height: 46,
     borderRadius: 12,
-    backgroundColor: "#D6EEFF",
+    backgroundColor: "rgba(255,255,255,0.2)",
     justifyContent: "center",
     alignItems: "center",
   },
   qrCardTitle: { fontSize: 15, fontWeight: "700", color: "#007AFF" },
   qrCardHint: { fontSize: 12, color: "#5A8AB8", marginTop: 3, lineHeight: 17 },
 
-  // Searching
   searchingBox: {
     flexDirection: "row",
     alignItems: "center",
@@ -527,7 +620,6 @@ const styles = StyleSheet.create({
   },
   searchingText: { color: "#8E8E93", fontSize: 14 },
 
-  // Moto card
   motoCard: {
     backgroundColor: "#fff",
     borderRadius: 16,
@@ -549,12 +641,7 @@ const styles = StyleSheet.create({
   },
   motoName: { fontSize: 18, fontWeight: "800", color: "#1C1C1E" },
   motoSub: { fontSize: 12, color: "#8E8E93", marginTop: 2 },
-  etatBadge: {
-    borderWidth: 1.5,
-    borderRadius: 8,
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-  },
+  etatBadge: { borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 3 },
   etatText: { fontSize: 11, fontWeight: "800", letterSpacing: 0.5 },
 
   chipGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 },
@@ -612,7 +699,59 @@ const styles = StyleSheet.create({
   },
   venteBtnText: { color: "#fff", fontWeight: "800", fontSize: 16 },
 
-  // Modal QR
+  // Scanner caméra
+  scannerContainer: { flex: 1, backgroundColor: "#000" },
+  scannerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingBottom: 60,
+  },
+  scannerTopBar: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === "android" ? (StatusBar.currentHeight ?? 0) + 12 : 56,
+    paddingBottom: 12,
+    backgroundColor: "rgba(0,0,0,0.55)",
+  },
+  scannerCloseBtn: {
+    width: 44,
+    height: 44,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  scannerTitle: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 17,
+  },
+  scannerViewfinder: {
+    width: VIEWFINDER,
+    height: VIEWFINDER,
+    position: "relative",
+  },
+  corner: {
+    position: "absolute",
+    width: CORNER,
+    height: CORNER,
+    borderColor: "#fff",
+  },
+  cornerTL: { top: 0, left: 0, borderTopWidth: THICKNESS, borderLeftWidth: THICKNESS, borderTopLeftRadius: 4 },
+  cornerTR: { top: 0, right: 0, borderTopWidth: THICKNESS, borderRightWidth: THICKNESS, borderTopRightRadius: 4 },
+  cornerBL: { bottom: 0, left: 0, borderBottomWidth: THICKNESS, borderLeftWidth: THICKNESS, borderBottomLeftRadius: 4 },
+  cornerBR: { bottom: 0, right: 0, borderBottomWidth: THICKNESS, borderRightWidth: THICKNESS, borderBottomRightRadius: 4 },
+  scannerHint: {
+    color: "#fff",
+    fontSize: 14,
+    textAlign: "center",
+    paddingHorizontal: 32,
+    opacity: 0.85,
+  },
+
+  // Modal coller
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",

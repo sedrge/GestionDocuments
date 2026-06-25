@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../lib/supabase";
 
 export default function AnneesMoisRecuScreen() {
@@ -98,7 +99,7 @@ export default function AnneesMoisRecuScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ title: "Dossiers Réçus" }} />
 
       {loading ? (
@@ -161,7 +162,7 @@ export default function AnneesMoisRecuScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 

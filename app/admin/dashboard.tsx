@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../lib/supabase";
 import { useTenant } from "../../context/TenantContext";
 
@@ -226,7 +227,7 @@ export default function AdminDashboard() {
   const { start: periodStart, end: periodEnd } = getDateRange(period, customFrom, customTo);
 
   const disponibles = motos.filter(
-    (m) => !m.statut || m.statut === "disponible" || m.statut === "réservé"
+    (m) => !m.statut || m.statut === "disponible"
   );
   const reserves = motos.filter((m) => m.statut === "réservé");
   const vendues = motos.filter((m) => m.statut === "vendu");
@@ -301,6 +302,13 @@ export default function AdminDashboard() {
     .sort((a, b) => (b.like_count ?? 0) - (a.like_count ?? 0))
     .slice(0, 5);
 
+  // ─ Taux de vente ─────────────────────────────────────────────────────────────
+  const totalMotosSaisies = motos.length;
+  const tauxVente =
+    totalMotosSaisies > 0
+      ? Math.round((vendues.length / totalMotosSaisies) * 100)
+      : 0;
+
   // ─ Recommandations intelligentes ─────────────────────────────────────────────
   type Rec = { type: "urgent" | "warning" | "success" | "info"; icon: string; title: string; desc: string };
   const recommendations: Rec[] = [];
@@ -358,13 +366,6 @@ export default function AdminDashboard() {
     });
   }
 
-  // ─ Taux de vente ─────────────────────────────────────────────────────────────
-  const totalMotosSaisies = motos.length;
-  const tauxVente =
-    totalMotosSaisies > 0
-      ? Math.round((vendues.length / totalMotosSaisies) * 100)
-      : 0;
-
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -375,8 +376,9 @@ export default function AdminDashboard() {
   }
 
   return (
+    <SafeAreaView style={styles.container}>
     <ScrollView
-      style={styles.container}
+      style={{ flex: 1 }}
       contentContainerStyle={{ paddingBottom: 40 }}
       refreshControl={
         <RefreshControl
@@ -781,6 +783,7 @@ export default function AdminDashboard() {
         )}
       </View>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 

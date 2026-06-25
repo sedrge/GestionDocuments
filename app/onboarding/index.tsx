@@ -11,6 +11,7 @@ import {
     TouchableOpacity,
     View
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function OnboardingScreen() {
   const [loading, setLoading] = useState(false);
@@ -44,8 +45,9 @@ export default function OnboardingScreen() {
   }
 
   return (
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
     <ScrollView
-      style={[styles.container, { backgroundColor: theme.bg }]}
+      style={{ flex: 1 }}
       contentContainerStyle={styles.content}
     >
       {/* Toggle thème */}
@@ -163,6 +165,7 @@ export default function OnboardingScreen() {
         </Text>
       </View>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 

@@ -20,6 +20,7 @@ import {
     TouchableOpacity,
     View
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const themes = {
   light: {
@@ -184,7 +185,7 @@ export default function SuperAdminEnterprisesScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.bg }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       {/* Header */}
       <View
         style={[
@@ -276,7 +277,7 @@ export default function SuperAdminEnterprisesScreen() {
           scrollEnabled={false}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -340,7 +341,7 @@ function EnterpriseUsersView({
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.bg }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       {/* Header with back button */}
       <View
         style={[
@@ -458,7 +459,7 @@ function EnterpriseUsersView({
           scrollEnabled={false}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 

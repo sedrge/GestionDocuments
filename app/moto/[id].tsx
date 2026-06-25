@@ -21,6 +21,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { printAndSharePdf } from "../../lib/sharePdf";
 import QRCode from "react-native-qrcode-svg";
 import { WebView } from "react-native-webview";
@@ -243,7 +244,8 @@ export default function MotoDetail() {
   };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: "#f5f5f7" }} contentContainerStyle={{ paddingBottom: 50 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#f5f5f7" }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 50 }}>
       <Stack.Screen
         options={{
           title: [moto.marque, moto.modele].filter(Boolean).join(" ") || "Moto",
@@ -408,6 +410,7 @@ export default function MotoDetail() {
         </View>
       </Modal>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 

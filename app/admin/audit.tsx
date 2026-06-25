@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTenant } from '../../context/TenantContext';
 import {
   ACTION_COLORS,
@@ -138,7 +139,7 @@ export default function AuditScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.bg }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 14 }}>
@@ -326,7 +327,7 @@ export default function AuditScreen() {
           }}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 

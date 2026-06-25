@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 
 export default function DechargesList() {
@@ -106,7 +107,7 @@ export default function DechargesList() {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ title: `Décharges — ${nom}` }} />
 
       <View style={styles.searchBox}>
@@ -141,7 +142,7 @@ export default function DechargesList() {
       >
         <Ionicons name="add" size={28} color="white" />
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 }
 

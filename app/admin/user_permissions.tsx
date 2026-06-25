@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTenant } from '../../context/TenantContext';
 import { supabase } from '../../lib/supabase';
 
@@ -209,7 +210,7 @@ export default function UserPermissionsScreen() {
   const enabledCount = Object.values(permissions).filter(Boolean).length;
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.bg }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 14 }}>
@@ -325,7 +326,7 @@ export default function UserPermissionsScreen() {
           </View>
         </>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 

@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { printAndSharePdf } from "../../lib/sharePdf";
 import { supabase } from "../../lib/supabase";
 
@@ -204,7 +205,8 @@ export default function RecuDetail() {
   const dt = formatDate(recu.date);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#f5f5f7" }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.container}>
       <Stack.Screen
         options={{
           title: `Réçu ${recu.numero_facture}`,
@@ -420,6 +422,7 @@ export default function RecuDetail() {
         <Text style={styles.printBtnText}>Imprimer / Exporter PDF</Text>
       </TouchableOpacity>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 

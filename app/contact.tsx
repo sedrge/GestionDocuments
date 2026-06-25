@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const EXTRA = {
   green: "#34C759",
@@ -173,8 +174,9 @@ export default function ContactScreen() {
   ].filter(Boolean) as ContactRow[];
 
   return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
     <ScrollView
-      style={{ flex: 1, backgroundColor: theme.bg }}
+      style={{ flex: 1 }}
       contentContainerStyle={styles.content}
     >
       {/* Retour */}
@@ -286,6 +288,7 @@ export default function ContactScreen() {
         </TouchableOpacity>
       )}
     </ScrollView>
+    </SafeAreaView>
   );
 }
 

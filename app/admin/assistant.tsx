@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../lib/supabase";
 import { useFocusEffect } from "expo-router";
 import { useTenant } from "../../context/TenantContext";
@@ -246,8 +247,9 @@ export default function AssistantScreen() {
 
   // ─── Rendu ───────────────────────────────────────────────────────────────────
   return (
+    <SafeAreaView style={styles.container}>
     <ScrollView
-      style={styles.container}
+      style={{ flex: 1 }}
       contentContainerStyle={{ paddingBottom: 50 }}
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF2D55" colors={["#FF2D55"]} />}
@@ -459,6 +461,7 @@ export default function AssistantScreen() {
         )}
       </View>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 

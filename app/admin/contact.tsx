@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
 import { useTenant } from "@/context/TenantContext";
 import { useTheme } from "@/context/ThemeContext";
@@ -239,6 +240,7 @@ export default function AdminContactScreen() {
   }
 
   return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -409,6 +411,7 @@ export default function AdminContactScreen() {
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 

@@ -15,7 +15,6 @@ import {
   Modal,
   Platform,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -24,6 +23,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import { useTenant } from '../../context/TenantContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -425,7 +425,7 @@ function PinScreen({
   const [pin, setPin] = useState('');
 
   return (
-    <SafeAreaView style={[styles.pinContainer, { backgroundColor: C.bg, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }]}>
+    <SafeAreaView style={[styles.pinContainer, { backgroundColor: C.bg, paddingTop: 0 }]}>
       <View style={[styles.pinCard, { backgroundColor: C.card, borderColor: C.cardBorder }]}>
         <Ionicons name="lock-closed" size={48} color={C.primary} style={{ marginBottom: 20 }} />
         <Text style={[styles.pinTitle, { color: C.text }]}>{storedPin ? '🔐 Accès verrouillé' : '🛡️ Sécurisez votre accès'}</Text>
@@ -1211,7 +1211,7 @@ export default function FeedScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: C.bg, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: C.bg, paddingTop: 0 }]}>
       <FeedHeader isAuthenticated={isAuthenticated} isLoading={authLoading} />
 
       {/* Barre de recherche */}

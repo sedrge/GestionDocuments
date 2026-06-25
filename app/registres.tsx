@@ -13,6 +13,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 
 export default function RegistresList() {
@@ -101,7 +102,7 @@ export default function RegistresList() {
 
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ title: `Registres — ${nom}` }} />
 
       {/* Barre de recherche */}
@@ -138,7 +139,7 @@ export default function RegistresList() {
       >
         <Ionicons name="add" size={28} color="white" />
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 }
 

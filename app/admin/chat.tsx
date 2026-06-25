@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../lib/supabase";
 import { useTenant } from "../../context/TenantContext";
 import { useTheme } from "../../context/ThemeContext";
@@ -307,7 +308,7 @@ export default function AdminChatScreen() {
 
   // Vue liste des conversations
   return (
-    <View style={{ flex: 1, backgroundColor: theme.bg }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <View style={[styles.listHeader, { borderBottomColor: theme.border }]}>
         <Ionicons name="chatbubbles" size={22} color={theme.primary} />
         <Text style={[styles.listTitle, { color: theme.text }]}>Messages clients</Text>
@@ -384,7 +385,7 @@ export default function AdminChatScreen() {
           )}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 

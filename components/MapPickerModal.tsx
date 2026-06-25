@@ -1,8 +1,7 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
-  Platform,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -10,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { WebView } from "react-native-webview";
+import * as Location from "expo-location";
 
 export interface LocationResult {
   latitude: number;
@@ -127,28 +127,24 @@ const buildMapHtml = (lat: number, lng: number) => `
       var btn = document.getElementById('btn-locate');
       btn.disabled = true;
       btn.textContent = '⏳ Localisation...';
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          function(pos) {
-            var lat = pos.coords.latitude;
-            var lng = pos.coords.longitude;
-            map.setView([lat, lng], 17);
-            placeMarker(lat, lng);
-            btn.disabled = false;
-            btn.textContent = '📍 Ma position';
-          },
-          function(err) {
-            btn.disabled = false;
-            btn.textContent = '📍 Ma position';
-            alert('Impossible de récupérer votre position GPS. Vérifiez les permissions de localisation.');
-          },
-          { enableHighAccuracy: true, timeout: 10000 }
-        );
-      } else {
-        btn.disabled = false;
-        btn.textContent = '📍 Ma position';
-        alert('La géolocalisation n\\'est pas supportée sur cet appareil.');
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'LOCATE_ME' }));
       }
+    }
+
+    function receiveLocation(lat, lng) {
+      map.setView([lat, lng], 17);
+      placeMarker(lat, lng);
+      var btn = document.getElementById('btn-locate');
+      btn.disabled = false;
+      btn.textContent = '📍 Ma position';
+    }
+
+    function locateError(msg) {
+      var btn = document.getElementById('btn-locate');
+      btn.disabled = false;
+      btn.textContent = '📍 Ma position';
+      alert(msg || 'Impossible de récupérer votre position GPS.');
     }
 
     function confirmSelection() {
@@ -176,10 +172,37 @@ export default function MapPickerModal({
   initialLongitude = -1.5330,
 }: MapPickerModalProps) {
   const [loading, setLoading] = useState(true);
+  const webViewRef = useRef<WebView>(null);
 
-  const handleMessage = (event: { nativeEvent: { data: string } }) => {
+  const handleMessage = async (event: { nativeEvent: { data: string } }) => {
     try {
-      const data: LocationResult = JSON.parse(event.nativeEvent.data);
+      const raw = JSON.parse(event.nativeEvent.data);
+
+      if (raw.type === "LOCATE_ME") {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") {
+          webViewRef.current?.injectJavaScript(
+            `locateError("Permission de localisation refusée. Activez-la dans les paramètres."); true;`
+          );
+          return;
+        }
+        try {
+          const pos = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.High,
+          });
+          const { latitude, longitude } = pos.coords;
+          webViewRef.current?.injectJavaScript(
+            `receiveLocation(${latitude}, ${longitude}); true;`
+          );
+        } catch {
+          webViewRef.current?.injectJavaScript(
+            `locateError("Impossible de récupérer votre position GPS."); true;`
+          );
+        }
+        return;
+      }
+
+      const data: LocationResult = raw;
       if (data.latitude && data.longitude) {
         onLocationSelected(data);
         onClose();
@@ -219,10 +242,10 @@ export default function MapPickerModal({
 
         {/* Map WebView */}
         <WebView
+          ref={webViewRef}
           style={styles.webview}
           source={{ html: buildMapHtml(initialLatitude, initialLongitude) }}
           javaScriptEnabled
-          geolocationEnabled
           domStorageEnabled
           onLoadEnd={() => setLoading(false)}
           onMessage={handleMessage}

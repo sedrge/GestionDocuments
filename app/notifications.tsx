@@ -16,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../lib/supabase";
 
 type Notif = {
@@ -220,7 +221,7 @@ export default function NotificationsScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Stack.Screen
         options={{
           title: "Notifications",
@@ -256,7 +257,7 @@ export default function NotificationsScreen() {
           }
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 

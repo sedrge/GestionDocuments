@@ -17,6 +17,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../lib/supabase";
 import { cancelRdvReminders } from "../lib/notifications";
 
@@ -241,7 +242,7 @@ export default function RendezVousList() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ title: "Rendez-Vous" }} />
 
       <View style={styles.searchBox}>
@@ -308,7 +309,7 @@ export default function RendezVousList() {
       >
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 }
 

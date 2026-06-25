@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 
 export default function AnneesMoisDechargeScreen() {
@@ -76,7 +77,7 @@ export default function AnneesMoisDechargeScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ title: "Dossiers Décharges" }} />
 
       {loading ? (
@@ -124,7 +125,7 @@ export default function AnneesMoisDechargeScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 

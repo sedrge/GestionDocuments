@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
 
@@ -53,8 +54,9 @@ export default function PendingScreen() {
   };
 
   return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
     <ScrollView
-      style={{ flex: 1, backgroundColor: theme.bg }}
+      style={{ flex: 1 }}
       contentContainerStyle={styles.content}
     >
       <Text style={styles.icon}>{info.icon}</Text>
@@ -100,6 +102,7 @@ export default function PendingScreen() {
         <Text style={styles.signOutText}>Se déconnecter</Text>
       </TouchableOpacity>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 

@@ -23,7 +23,6 @@ import {
   FlatList,
   Modal,
   Platform,
-  SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
@@ -31,6 +30,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
 import {

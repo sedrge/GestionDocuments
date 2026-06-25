@@ -17,6 +17,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../lib/supabase";
 import { useTenant } from "../../context/TenantContext";
 
@@ -411,7 +412,7 @@ export default function StockScreen() {
   const resCount = motos.filter((m) => m.statut === "réservé").length;
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* ── Stats ──────────────────────────────────────────────────────────── */}
       <View style={styles.statsBar}>
         <View style={styles.statItem}>
@@ -518,7 +519,7 @@ export default function StockScreen() {
         onConfirm={handleVente}
         saving={saving}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 

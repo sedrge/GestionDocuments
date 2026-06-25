@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   activateUser,
   createUserInEnterprise,
@@ -168,7 +169,7 @@ export default function EnterpriseAdminUsersScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.bg }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 14 }}>
@@ -337,7 +338,7 @@ export default function EnterpriseAdminUsersScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 

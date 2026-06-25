@@ -3,6 +3,7 @@
 import { Stack, useRouter } from "expo-router";
 import React, { useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../lib/supabase";
 
 export default function NewAnneesMoisDechargeScreen() {
@@ -43,6 +44,7 @@ export default function NewAnneesMoisDechargeScreen() {
   };
 
   return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -61,6 +63,7 @@ export default function NewAnneesMoisDechargeScreen() {
         <Text style={styles.buttonText}>{loading ? "Création..." : "Créer"}</Text>
       </TouchableOpacity>
     </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 

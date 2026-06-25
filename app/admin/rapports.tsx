@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { printAndSharePdf } from "../../lib/sharePdf";
 import { supabase } from "../../lib/supabase";
 import { useTenant } from "../../context/TenantContext";
@@ -535,8 +536,9 @@ export default function RapportsScreen() {
   }
 
   return (
+    <SafeAreaView style={styles.container}>
     <ScrollView
-      style={styles.container}
+      style={{ flex: 1 }}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
@@ -712,6 +714,7 @@ export default function RapportsScreen() {
 
       <View style={{ height: 20 }} />
     </ScrollView>
+    </SafeAreaView>
   );
 }
 

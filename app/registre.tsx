@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import SignatureCanvas from "react-native-signature-canvas";
 import { nombreEnLettres } from "../lib/nombreEnLettres";
 import { supabase } from "../lib/supabase";
@@ -672,6 +673,7 @@ export default function RegistreForm() {
   };
 
   return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#f9f9f9" }}>
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: "#f9f9f9" }}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -1037,6 +1039,7 @@ export default function RegistreForm() {
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 

@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 
 export default function AnneesMoisScreen() {
@@ -75,7 +76,7 @@ export default function AnneesMoisScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ title: "Dossiers Registres" }} />
 
       {loading ? (
@@ -124,7 +125,7 @@ export default function AnneesMoisScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 

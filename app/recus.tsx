@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../lib/supabase";
 
 export default function RecusList() {
@@ -120,7 +121,7 @@ export default function RecusList() {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ title: `Réçus — ${nom}` }} />
 
       <View style={styles.searchBox}>
@@ -159,7 +160,7 @@ export default function RecusList() {
       >
         <Ionicons name="add" size={28} color="white" />
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 }
 

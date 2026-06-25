@@ -20,6 +20,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../lib/supabase";
 
 const { width: WIN_W } = Dimensions.get("window");
@@ -97,7 +98,7 @@ export default function CatalogueScreen() {
   const filtered = motos.filter((m) => matchMoto(m, search.trim()));
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ title: "Catalogue" }} />
 
       <View style={styles.searchBox}>
@@ -135,7 +136,7 @@ export default function CatalogueScreen() {
           }
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 

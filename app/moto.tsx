@@ -17,6 +17,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../lib/supabase";
 import { useTenant } from "../context/TenantContext";
 
@@ -245,6 +246,7 @@ export default function MotoForm() {
   };
 
   return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#f9f9f9" }}>
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: "#f9f9f9" }}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -403,6 +405,7 @@ export default function MotoForm() {
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 

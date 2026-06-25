@@ -11,6 +11,7 @@ import {
   TextInput,
   TouchableOpacity,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../lib/supabase";
 
 export default function NewAnneesMoisRecuScreen() {
@@ -51,6 +52,7 @@ export default function NewAnneesMoisRecuScreen() {
   };
 
   return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -73,6 +75,7 @@ export default function NewAnneesMoisRecuScreen() {
         <Text style={styles.buttonText}>{loading ? "Création..." : "Créer"}</Text>
       </TouchableOpacity>
     </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 

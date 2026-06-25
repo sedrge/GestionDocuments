@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { printAndSharePdf } from "../../lib/sharePdf";
 import { WebView } from "react-native-webview";
 import { supabase } from "../../lib/supabase";
@@ -412,7 +413,8 @@ export default function DechargeDetail() {
   // ───────────────────────────────────────────────────────────────────────────
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#f5f5f7" }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.container}>
       <Stack.Screen
         options={{
           title: `Décharge — ${decharge.nom_vendeur}`,
@@ -758,6 +760,7 @@ export default function DechargeDetail() {
         </View>
       </Modal>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 

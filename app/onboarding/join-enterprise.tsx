@@ -11,6 +11,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const themes = {
   light: {
@@ -102,8 +103,9 @@ export default function JoinEnterpriseScreen() {
   };
 
   return (
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
     <ScrollView
-      style={[styles.container, { backgroundColor: theme.bg }]}
+      style={{ flex: 1 }}
       contentContainerStyle={styles.content}
     >
       {/* Header */}
@@ -289,6 +291,7 @@ export default function JoinEnterpriseScreen() {
         </Text>
       </TouchableOpacity>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
