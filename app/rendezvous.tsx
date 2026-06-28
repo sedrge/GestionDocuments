@@ -20,6 +20,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../lib/supabase";
 import { cancelRdvReminders } from "../lib/notifications";
+import { FeatureGate } from "../components/FeatureGate";
 
 type Statut = "en_attente" | "reporte" | "annule" | "termine";
 
@@ -55,7 +56,7 @@ const formatDateFR = (iso: string | null) => {
   return `${parts[2]}/${parts[1]}/${parts[0]}`;
 };
 
-export default function RendezVousList() {
+function RendezVousContent() {
   const router = useRouter();
   const [items, setItems] = useState<RendezVous[]>([]);
   const [loading, setLoading] = useState(true);
@@ -310,6 +311,14 @@ export default function RendezVousList() {
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
     </SafeAreaView>
+  );
+}
+
+export default function RendezVousList() {
+  return (
+    <FeatureGate featureKey="rendezvous.actif" featureName="Rendez-vous">
+      <RendezVousContent />
+    </FeatureGate>
   );
 }
 

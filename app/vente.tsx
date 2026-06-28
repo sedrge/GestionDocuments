@@ -19,6 +19,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../lib/supabase";
 import { useTenant } from "../context/TenantContext";
+import { FeatureGate } from "../components/FeatureGate";
 
 type Moto = {
   id: string;
@@ -53,7 +54,7 @@ function InfoChip({ icon, label, value }: { icon: string; label: string; value: 
   );
 }
 
-export default function VenteScreen() {
+function VenteContent() {
   const router = useRouter();
   const { tenant } = useTenant();
 
@@ -502,6 +503,14 @@ export default function VenteScreen() {
         </View>
       </Modal>
     </SafeAreaView>
+  );
+}
+
+export default function VenteScreen() {
+  return (
+    <FeatureGate featureKey="ventes.actif" featureName="Ventes">
+      <VenteContent />
+    </FeatureGate>
   );
 }
 

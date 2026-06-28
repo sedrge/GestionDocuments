@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../lib/supabase";
 import { useFocusEffect } from "expo-router";
 import { useTenant } from "../../context/TenantContext";
+import { FeatureGate } from "../../components/FeatureGate";
 
 const { width } = Dimensions.get("window");
 
@@ -112,7 +113,7 @@ function InsightChip({ label, value, color }: { label: string; value: string; co
 }
 
 // ─── Écran principal ──────────────────────────────────────────────────────────
-export default function AssistantScreen() {
+function AssistantContent() {
   const router = useRouter();
   const { tenant } = useTenant();
   const [motos, setMotos] = useState<Moto[]>([]);
@@ -462,6 +463,14 @@ export default function AssistantScreen() {
       </View>
     </ScrollView>
     </SafeAreaView>
+  );
+}
+
+export default function AssistantScreen() {
+  return (
+    <FeatureGate featureKey="assistant_ia.actif" featureName="Assistant IA">
+      <AssistantContent />
+    </FeatureGate>
   );
 }
 

@@ -1,5 +1,5 @@
 -- =====================================================================
--- docvault — Migration multi-tenant
+-- SenMoto — Migration multi-tenant
 -- Ajoute les entités entreprises, gestion des membres et invitations
 -- =====================================================================
 

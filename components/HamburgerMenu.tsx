@@ -31,8 +31,10 @@ interface HamburgerMenuProps {
   onSetViewMode?: (mode: "list" | "details" | "grid") => void;
   onChangePin?: () => void;
   onChangeLogo?: () => void;
-  /** Clés de menu autorisées. undefined = tout visible (admins). */
+  /** Clés de menu autorisées (niveau utilisateur). undefined = tout visible. */
   permittedKeys?: Set<string>;
+  /** Features activées pour l'entreprise (niveau entreprise). undefined = tout visible. */
+  enabledFeatures?: Set<string>;
 }
 
 type MenuItem = {
@@ -41,6 +43,8 @@ type MenuItem = {
   label: string;
   route?: string;
   action?: () => void;
+  /** Clé de feature entreprise associée. Si la feature est désactivée, l'item est masqué. */
+  featureKey?: string;
 };
 
 type MenuSection = {
@@ -68,6 +72,7 @@ export const HamburgerMenu = ({
   onChangePin,
   onChangeLogo,
   permittedKeys,
+  enabledFeatures,
 }: HamburgerMenuProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
@@ -147,12 +152,12 @@ export const HamburgerMenu = ({
       label: "Fichier",
       icon: "folder-outline",
       items: [
-        { key: "fichier.nouveau_dossier",  icon: "folder-outline",          label: "Nouveau Dossier",  action: onOpenNewFolderModal },
-        { key: "fichier.importer_fichier", icon: "document-attach-outline", label: "Importer Fichier", action: onPickDocument },
-        { key: "fichier.prendre_photo",    icon: "camera-outline",          label: "Prendre Photo",    action: onCapturePhoto },
-        { key: "fichier.filmer_video",     icon: "videocam-outline",        label: "Filmer Vidéo",     action: onCaptureVideo },
-        { key: "fichier.registre",         icon: "clipboard-outline",       label: "Registre",         route: "/annees_mois" },
-        { key: "fichier.decharge",         icon: "document-text-outline",   label: "Décharge",         route: "/annees_mois_decharge" },
+        { key: "fichier.nouveau_dossier",  icon: "folder-outline",          label: "Nouveau Dossier",  action: onOpenNewFolderModal, featureKey: "documents.dossiers" },
+        { key: "fichier.importer_fichier", icon: "document-attach-outline", label: "Importer Fichier", action: onPickDocument,        featureKey: "documents.import" },
+        { key: "fichier.prendre_photo",    icon: "camera-outline",          label: "Prendre Photo",    action: onCapturePhoto,        featureKey: "documents.photo" },
+        { key: "fichier.filmer_video",     icon: "videocam-outline",        label: "Filmer Vidéo",     action: onCaptureVideo,        featureKey: "documents.video" },
+        { key: "fichier.registre",         icon: "clipboard-outline",       label: "Registre",         route: "/annees_mois",         featureKey: "registres.actif" },
+        { key: "fichier.decharge",         icon: "document-text-outline",   label: "Décharge",         route: "/annees_mois_decharge", featureKey: "decharges.actif" },
       ],
     },
     {
@@ -160,11 +165,11 @@ export const HamburgerMenu = ({
       label: "Gestion",
       icon: "settings-outline",
       items: [
-        { key: "gestion.moto",        icon: "bicycle-outline",   label: "Moto",        route: "/motos" },
-        { key: "gestion.catalogue",   icon: "albums-outline",    label: "Catalogue",   route: "/catalogue" },
-        { key: "gestion.vente",       icon: "bag-check-outline", label: "Vente",       route: "/vente" },
-        { key: "gestion.recu",        icon: "receipt-outline",   label: "Réçu",        route: "/annees_mois_recu" },
-        { key: "gestion.rendez_vous", icon: "calendar-outline",  label: "Rendez-Vous", route: "/rendezvous" },
+        { key: "gestion.moto",        icon: "bicycle-outline",   label: "Moto",        route: "/motos",           featureKey: "motos.liste" },
+        { key: "gestion.catalogue",   icon: "albums-outline",    label: "Catalogue",   route: "/catalogue",       featureKey: "motos.catalogue" },
+        { key: "gestion.vente",       icon: "bag-check-outline", label: "Vente",       route: "/vente",           featureKey: "ventes.actif" },
+        { key: "gestion.recu",        icon: "receipt-outline",   label: "Réçu",        route: "/annees_mois_recu", featureKey: "recus.actif" },
+        { key: "gestion.rendez_vous", icon: "calendar-outline",  label: "Rendez-Vous", route: "/rendezvous",      featureKey: "rendezvous.actif" },
       ],
     },
     {
@@ -172,9 +177,9 @@ export const HamburgerMenu = ({
       label: "Paramètres",
       icon: "cog-outline",
       items: [
-        { key: "parametres.logo",   icon: "image-outline",    label: "Changer le Logo", action: onChangeLogo },
-        { key: "parametres.entete", icon: "business-outline", label: "Entête facture",  route: "/parametres_entreprise" },
-        { key: "parametres.pin",    icon: "keypad-outline",   label: "Changer le PIN",  action: onChangePin },
+        { key: "parametres.logo",   icon: "image-outline",    label: "Changer le Logo", action: onChangeLogo,             featureKey: "parametres.logo" },
+        { key: "parametres.entete", icon: "business-outline", label: "Entête facture",  route: "/parametres_entreprise",  featureKey: "parametres.entete" },
+        { key: "parametres.pin",    icon: "keypad-outline",   label: "Changer le PIN",  action: onChangePin,              featureKey: "parametres.pin" },
       ],
     },
     {
@@ -189,11 +194,19 @@ export const HamburgerMenu = ({
     },
   ];
 
-  // Filtre les sections et items selon les permissions
+  // Filtre les sections et items selon les permissions utilisateur ET les features entreprise
   const filterSection = (section: MenuSection): MenuSection | null => {
-    // Les admins (permittedKeys === undefined) voient tout
-    if (permittedKeys === undefined) return section;
-    const visibleItems = section.items.filter((item) => permittedKeys.has(item.key));
+    const visibleItems = section.items.filter((item) => {
+      // Vérification feature entreprise (désactivée par super-admin)
+      if (enabledFeatures !== undefined && item.featureKey && !enabledFeatures.has(item.featureKey)) {
+        return false;
+      }
+      // Vérification permission utilisateur (désactivée par admin d'entreprise)
+      if (permittedKeys !== undefined && !permittedKeys.has(item.key)) {
+        return false;
+      }
+      return true;
+    });
     if (visibleItems.length === 0) return null;
     return { ...section, items: visibleItems };
   };
@@ -364,6 +377,7 @@ export const HamburgerMenu = ({
                 <Ionicons name="shield-outline" size={14} color={t.primary} />
                 <Text style={[styles.adminSectionLabel, { color: t.primary }]}>Administration</Text>
               </View>
+              {/* Tableau de bord — toujours visible pour l'admin */}
               <TouchableOpacity
                 style={[styles.mainMenuItem, { borderBottomColor: t.border }]}
                 onPress={() => handleNavigation("/admin/dashboard")}
@@ -372,30 +386,40 @@ export const HamburgerMenu = ({
                 <Ionicons name="grid-outline" size={20} color={t.text} />
                 <Text style={[styles.mainMenuLabel, { color: t.text }]}>Tableau de bord</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.mainMenuItem, { borderBottomColor: t.border }]}
-                onPress={() => handleNavigation("/admin/stock")}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="layers-outline" size={20} color={t.text} />
-                <Text style={[styles.mainMenuLabel, { color: t.text }]}>Gestion du stock</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.mainMenuItem, { borderBottomColor: t.border }]}
-                onPress={() => handleNavigation("/admin/ventes")}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="bag-check-outline" size={20} color={t.text} />
-                <Text style={[styles.mainMenuLabel, { color: t.text }]}>Historique ventes</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.mainMenuItem, { borderBottomColor: t.border }]}
-                onPress={() => handleNavigation("/admin/rapports")}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="document-text-outline" size={20} color={t.text} />
-                <Text style={[styles.mainMenuLabel, { color: t.text }]}>Rapports & Export</Text>
-              </TouchableOpacity>
+              {/* Stock — affiché seulement si feature activée */}
+              {(enabledFeatures === undefined || enabledFeatures.has("stock.actif")) && (
+                <TouchableOpacity
+                  style={[styles.mainMenuItem, { borderBottomColor: t.border }]}
+                  onPress={() => handleNavigation("/admin/stock")}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="layers-outline" size={20} color={t.text} />
+                  <Text style={[styles.mainMenuLabel, { color: t.text }]}>Gestion du stock</Text>
+                </TouchableOpacity>
+              )}
+              {/* Ventes admin */}
+              {(enabledFeatures === undefined || enabledFeatures.has("ventes.actif")) && (
+                <TouchableOpacity
+                  style={[styles.mainMenuItem, { borderBottomColor: t.border }]}
+                  onPress={() => handleNavigation("/admin/ventes")}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="bag-check-outline" size={20} color={t.text} />
+                  <Text style={[styles.mainMenuLabel, { color: t.text }]}>Historique ventes</Text>
+                </TouchableOpacity>
+              )}
+              {/* Rapports */}
+              {(enabledFeatures === undefined || enabledFeatures.has("rapports.actif")) && (
+                <TouchableOpacity
+                  style={[styles.mainMenuItem, { borderBottomColor: t.border }]}
+                  onPress={() => handleNavigation("/admin/rapports")}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="document-text-outline" size={20} color={t.text} />
+                  <Text style={[styles.mainMenuLabel, { color: t.text }]}>Rapports & Export</Text>
+                </TouchableOpacity>
+              )}
+              {/* Équipe — toujours visible pour l'admin */}
               <TouchableOpacity
                 style={[styles.mainMenuItem, { borderBottomColor: t.border }]}
                 onPress={() => handleNavigation("/admin/users")}
@@ -404,30 +428,39 @@ export const HamburgerMenu = ({
                 <Ionicons name="people-outline" size={20} color={t.text} />
                 <Text style={[styles.mainMenuLabel, { color: t.text }]}>Équipe / Utilisateurs</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.mainMenuItem, { borderBottomColor: t.border }]}
-                onPress={() => handleNavigation("/admin/audit")}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="time-outline" size={20} color={t.text} />
-                <Text style={[styles.mainMenuLabel, { color: t.text }]}>Journal d'activité</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.mainMenuItem, { borderBottomColor: t.border }]}
-                onPress={() => handleNavigation("/admin/contact")}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="call-outline" size={20} color={t.text} />
-                <Text style={[styles.mainMenuLabel, { color: t.text }]}>Page de contact</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.mainMenuItem, { borderBottomColor: t.border }]}
-                onPress={() => handleNavigation("/admin/chat")}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="chatbubbles-outline" size={20} color={t.text} />
-                <Text style={[styles.mainMenuLabel, { color: t.text }]}>Messages clients</Text>
-              </TouchableOpacity>
+              {/* Audit */}
+              {(enabledFeatures === undefined || enabledFeatures.has("audit.actif")) && (
+                <TouchableOpacity
+                  style={[styles.mainMenuItem, { borderBottomColor: t.border }]}
+                  onPress={() => handleNavigation("/admin/audit")}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="time-outline" size={20} color={t.text} />
+                  <Text style={[styles.mainMenuLabel, { color: t.text }]}>Journal d'activité</Text>
+                </TouchableOpacity>
+              )}
+              {/* Contact */}
+              {(enabledFeatures === undefined || enabledFeatures.has("contacts.actif")) && (
+                <TouchableOpacity
+                  style={[styles.mainMenuItem, { borderBottomColor: t.border }]}
+                  onPress={() => handleNavigation("/admin/contact")}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="call-outline" size={20} color={t.text} />
+                  <Text style={[styles.mainMenuLabel, { color: t.text }]}>Page de contact</Text>
+                </TouchableOpacity>
+              )}
+              {/* Chat clients */}
+              {(enabledFeatures === undefined || enabledFeatures.has("chat.actif")) && (
+                <TouchableOpacity
+                  style={[styles.mainMenuItem, { borderBottomColor: t.border }]}
+                  onPress={() => handleNavigation("/admin/chat")}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="chatbubbles-outline" size={20} color={t.text} />
+                  <Text style={[styles.mainMenuLabel, { color: t.text }]}>Messages clients</Text>
+                </TouchableOpacity>
+              )}
             </>
           )}
 

@@ -21,10 +21,10 @@ const Themes = {
   }
 };
 
-const ThemeContext = createContext({ theme: Themes.dark, isDark: true, toggleTheme: () => {} });
+const ThemeContext = createContext({ theme: Themes.light, isDark: false, toggleTheme: () => {} });
 
 export const ThemeProvider = ({ children }: any) => {
-  const [isDark, setIsDark] = useState(true);
+  const [isDark, setIsDark] = useState(false);
   const theme = isDark ? Themes.dark : Themes.light;
   const toggleTheme = () => setIsDark(!isDark);
 

@@ -166,7 +166,7 @@ Si vous préférez utiliser Firebase directement :
 ## 📊 Structure des Fichiers
 
 ```
-docvault/
+SenMoto/
 ├── app/
 │   ├── _layout.tsx ✅ (modifié - initialise les push)
 │   ├── notifications.tsx ✅ (centre de notifications)

@@ -22,6 +22,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../lib/supabase";
+import { FeatureGate } from "../components/FeatureGate";
 
 const { width: WIN_W } = Dimensions.get("window");
 const CARD_PADDING = 12;
@@ -59,7 +60,7 @@ const matchMoto = (m: Moto, q: string): boolean => {
     .some((v) => v!.toLowerCase().includes(s));
 };
 
-export default function CatalogueScreen() {
+function CatalogueContent() {
   const router = useRouter();
   const [motos, setMotos] = useState<Moto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -204,6 +205,14 @@ function MotoCatalogCard({ moto, onPress }: { moto: Moto; onPress: () => void })
         </TouchableOpacity>
       )}
     </View>
+  );
+}
+
+export default function CatalogueScreen() {
+  return (
+    <FeatureGate featureKey="motos.catalogue" featureName="Catalogue">
+      <CatalogueContent />
+    </FeatureGate>
   );
 }
 

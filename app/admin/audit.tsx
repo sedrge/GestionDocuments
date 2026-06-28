@@ -21,6 +21,7 @@ import {
   EntityType,
 } from '../../lib/auditLog';
 import { supabase } from '../../lib/supabase';
+import { FeatureGate } from '../../components/FeatureGate';
 
 type AuditLog = {
   id: string;
@@ -82,7 +83,7 @@ function buildSentence(log: AuditLog): string {
   return `${action} ${entity}${name}`.trim();
 }
 
-export default function AuditScreen() {
+function AuditContent() {
   const { tenant, isEnterpriseAdmin } = useTenant();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -328,6 +329,14 @@ export default function AuditScreen() {
         />
       )}
     </SafeAreaView>
+  );
+}
+
+export default function AuditScreen() {
+  return (
+    <FeatureGate featureKey="audit.actif" featureName="Journal d'Audit">
+      <AuditContent />
+    </FeatureGate>
   );
 }
 

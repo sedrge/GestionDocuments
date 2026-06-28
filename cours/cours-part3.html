@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cours React Native Expo – SenMoto | Partie 3</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#1a1a1a;line-height:1.7;font-size:15px}
+  @media print{body{font-size:12px}pre{white-space:pre-wrap}}
+  .cover{background:linear-gradient(135deg,#0a0a0a 0%,#1a1a3a 50%,#0a0a0a 100%);color:#fff;min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:40px;page-break-after:always}
+  .cover-logo{font-size:80px;margin-bottom:20px}
+  .cover h1{font-size:42px;font-weight:900;background:linear-gradient(90deg,#FF9F0A,#FF453A);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:10px}
+  .cover h2{font-size:22px;color:#aaa;font-weight:400;margin-bottom:40px}
+  .toc{padding:60px 80px;page-break-after:always;background:#f9f9f9}
+  .toc h2{font-size:28px;font-weight:800;margin-bottom:30px;color:#1a1a1a;border-bottom:3px solid #FF9F0A;padding-bottom:12px}
+  .toc-chapter{font-size:18px;font-weight:700;color:#1a1a1a;margin-top:20px;margin-bottom:6px}
+  .toc-sub{margin-left:20px;color:#555;font-size:14px;list-style:none}
+  .toc-sub li{margin:3px 0}
+  .chapter{padding:60px 80px;page-break-before:always}
+  h1.ch-title{font-size:36px;font-weight:900;color:#FF9F0A;margin-bottom:6px}
+  h1.ch-title .ch-num{font-size:14px;color:#888;display:block;font-weight:400;margin-bottom:4px}
+  .ch-intro{font-size:16px;color:#555;margin:16px 0 40px;padding:16px 20px;border-left:4px solid #FF9F0A;background:#fff8f0;border-radius:0 8px 8px 0}
+  h2.section{font-size:24px;font-weight:800;color:#1a1a1a;margin:40px 0 16px;padding-bottom:8px;border-bottom:2px solid #eee}
+  h3.subsection{font-size:18px;font-weight:700;color:#0A84FF;margin:28px 0 12px}
+  p{margin-bottom:14px;color:#333}
+  pre{background:#0f1117;color:#abb2bf;border-radius:10px;padding:20px 24px;overflow-x:auto;margin:16px 0 24px;border:1px solid #2a2a3a;font-size:13px;line-height:1.6}
+  code{font-family:'Cascadia Code','Fira Code','Consolas',monospace}
+  p code,li code,td code{background:#f0f0f0;padding:2px 6px;border-radius:4px;font-size:13px;color:#c0392b;font-family:monospace}
+  .kw{color:#c678dd}.fn{color:#61afef}.str{color:#98c379}.num{color:#d19a66}.cmt{color:#5c6370;font-style:italic}.cls{color:#e5c07b}.prop{color:#e06c75}.op{color:#56b6c2}
+  .note,.warn,.tip,.danger{border-radius:10px;padding:16px 20px;margin:20px 0;border-left:5px solid}
+  .note{background:#e8f4fd;border-color:#0A84FF;color:#1a4a6b}
+  .warn{background:#fff8e6;border-color:#FF9F0A;color:#6b4a1a}
+  .tip{background:#e8fdf0;border-color:#30D158;color:#1a4a2b}
+  .danger{background:#fde8e8;border-color:#FF453A;color:#6b1a1a}
+  .note strong,.warn strong,.tip strong,.danger strong{display:block;margin-bottom:6px;font-size:14px}
+  table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:14px}
+  th{background:#FF9F0A;color:#fff;padding:10px 14px;text-align:left;font-weight:600}
+  td{padding:10px 14px;border-bottom:1px solid #eee;color:#333}
+  tr:nth-child(even) td{background:#f9f9f9}
+  .checklist{list-style:none;padding:0}
+  .checklist li{padding:8px 0;border-bottom:1px solid #eee;font-size:14px}
+  .checklist li::before{content:"✅ ";margin-right:8px}
+  .checklist li.warn::before{content:"⚠️ "}
+  .checklist li.tip::before{content:"💡 "}
+  .badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;margin:2px}
+  .badge-orange{background:#ffedd5;color:#9a3412}
+  .badge-blue{background:#dbeafe;color:#1d4ed8}
+  .badge-green{background:#dcfce7;color:#166534}
+  .roadmap{display:grid;gap:16px;margin:20px 0}
+  .roadmap-item{border:1px solid #eee;border-radius:10px;padding:16px;border-left:4px solid #FF9F0A}
+  .roadmap-item h4{color:#FF9F0A;font-size:15px;margin-bottom:8px}
+  .roadmap-item p{font-size:13px;color:#555;margin:0}
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="cover-logo">🏆</div>
+  <h1>Partie 3 — Expert Level</h1>
+  <h2>Signatures · Audit · Sécurité · Build & Déploiement · Devenir Expert</h2>
+</div>
+
+<div class="toc">
+  <h2>📋 Table des Matières — Partie 3</h2>
+  <div class="toc-chapter">Chapitre 13 · Signatures numériques</div>
+  <ul class="toc-sub">
+    <li>13.1 — react-native-signature-canvas</li>
+    <li>13.2 — Stocker une signature en base64</li>
+    <li>13.3 — Afficher une signature</li>
+  </ul>
+  <div class="toc-chapter">Chapitre 14 · Audit Log : journal d'activité</div>
+  <ul class="toc-sub">
+    <li>14.1 — Pourquoi un audit log ?</li>
+    <li>14.2 — lib/auditLog.ts</li>
+    <li>14.3 — Afficher les logs (admin/audit.tsx)</li>
+  </ul>
+  <div class="toc-chapter">Chapitre 15 · Sécurité et permissions</div>
+  <ul class="toc-sub">
+    <li>15.1 — expo-secure-store : stockage sécurisé</li>
+    <li>15.2 — expo-local-authentication : biométrie</li>
+    <li>15.3 — Permissions menu par utilisateur</li>
+  </ul>
+  <div class="toc-chapter">Chapitre 16 · Build & Déploiement avec EAS</div>
+  <ul class="toc-sub">
+    <li>16.1 — EAS Build : compiler sans machine locale</li>
+    <li>16.2 — eas.json : profils de build</li>
+    <li>16.3 — EAS Secrets : variables sensibles</li>
+    <li>16.4 — Soumettre aux stores</li>
+  </ul>
+  <div class="toc-chapter">Chapitre 17 · Patterns avancés du projet</div>
+  <ul class="toc-sub">
+    <li>17.1 — Gestion des permissions de menu</li>
+    <li>17.2 — Pagination et chargement infini</li>
+    <li>17.3 — Optimistic updates</li>
+    <li>17.4 — Platform-specific code</li>
+  </ul>
+  <div class="toc-chapter">Chapitre 18 · Devenir Expert React Native</div>
+  <ul class="toc-sub">
+    <li>18.1 — Récapitulatif : tout ce que SenMoto t'a appris</li>
+    <li>18.2 — Les pièges à éviter</li>
+    <li>18.3 — Checklist d'une app de production</li>
+    <li>18.4 — Feuille de route pour aller plus loin</li>
+  </ul>
+</div>
+
+<!-- ════════════════════════════════════════════
+     CHAPITRE 13 — SIGNATURES
+════════════════════════════════════════════ -->
+<div class="chapter" id="ch13">
+  <h1 class="ch-title"><span class="ch-num">Chapitre 13</span>Signatures numériques</h1>
+  <p class="ch-intro">
+    Les reçus de vente dans SenMoto intègrent les signatures du vendeur et du client.
+    Ces signatures sont capturées via un canvas de dessin, converties en base64, et stockées
+    dans la base de données avec le reçu.
+  </p>
+
+  <h2 class="section">13.1 — react-native-signature-canvas</h2>
+
+<pre><code><span class="cmt">// app/recu.tsx — Capture de signature</span>
+<span class="kw">import</span> <span class="cls">SignatureCanvas</span> <span class="kw">from</span> <span class="str">'react-native-signature-canvas'</span>;
+<span class="kw">import</span> { <span class="fn">useRef</span> } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">SignatureCapture</span>({
+  onSignature
+}: { onSignature: (sig: <span class="kw">string</span>) => <span class="kw">void</span> }) {
+  <span class="kw">const</span> signRef = <span class="fn">useRef</span>&lt;<span class="cls">SignatureCanvas</span>&gt;(<span class="kw">null</span>);
+
+  <span class="kw">return</span> (
+    &lt;<span class="cls">SignatureCanvas</span>
+      ref={signRef}
+      onOK={(signature) => {
+        <span class="cmt">// signature = "data:image/png;base64,iVBORw0KGgo..."</span>
+        <span class="fn">onSignature</span>(signature);
+      }}
+      onEmpty={() => {
+        <span class="cls">Alert</span>.<span class="fn">alert</span>(<span class="str">'Erreur'</span>, <span class="str">'Signature vide'</span>);
+      }}
+      descriptionText=<span class="str">"Signez ici"</span>
+      clearText=<span class="str">"Effacer"</span>
+      confirmText=<span class="str">"Valider"</span>
+      webStyle={<span class="str">`.m-signature-pad { background: #fff; border: 2px solid #ccc; }
+                 .m-signature-pad--footer .button { background: #0A84FF; }`</span>}
+      style={{ width: <span class="num">340</span>, height: <span class="num">200</span> }}
+      backgroundColor=<span class="str">"white"</span>
+      penColor=<span class="str">"#000"</span>
+    /&gt;
+  );
+}
+</code></pre>
+
+  <div class="note">
+    <strong>📌 SignatureCanvas utilise une WebView</strong>
+    Comme <code>MapPickerModal</code>, <code>react-native-signature-canvas</code> utilise une WebView
+    avec un canvas HTML5 en dessous. La signature PNG est retournée via <code>postMessage</code>.
+    C'est le même pattern bridge que la carte !
+  </div>
+
+  <h2 class="section">13.2 — Stocker et afficher une signature</h2>
+
+<pre><code><span class="cmt">// Stocker la signature avec la vente</span>
+<span class="kw">await</span> supabase.<span class="fn">from</span>(<span class="str">'recus'</span>).<span class="fn">update</span>({
+  signature_vendeur: signatureBase64,  <span class="cmt">// data:image/png;base64,...</span>
+  statut: <span class="str">'finalise'</span>,
+}).<span class="fn">eq</span>(<span class="str">'id'</span>, recuId);
+
+<span class="cmt">// Afficher une signature sauvegardée</span>
+{recu.signature_vendeur &amp;&amp; (
+  &lt;<span class="cls">Image</span>
+    source={{ uri: recu.signature_vendeur }}
+    style={{ width: <span class="num">200</span>, height: <span class="num">100</span> }}
+    resizeMode=<span class="str">"contain"</span>
+  /&gt;
+)}
+
+<span class="cmt">// Inclure dans le PDF HTML</span>
+&lt;img src="${recu.signature_vendeur}" style="max-width:200px;border-top:1px solid #ccc;" /&gt;
+</code></pre>
+</div>
+
+<!-- ════════════════════════════════════════════
+     CHAPITRE 14 — AUDIT LOG
+════════════════════════════════════════════ -->
+<div class="chapter" id="ch14">
+  <h1 class="ch-title"><span class="ch-num">Chapitre 14</span>Audit Log — Journal d'activité</h1>
+  <p class="ch-intro">
+    Un audit log enregistre chaque action importante dans l'application : qui a fait quoi, quand,
+    sur quelle donnée. C'est indispensable pour la traçabilité et la conformité.
+  </p>
+
+  <h2 class="section">14.1 — La table audit_logs</h2>
+
+<pre><code><span class="cmt">-- Structure de la table audit_logs</span>
+<span class="str">CREATE TABLE audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  enterprise_id UUID REFERENCES enterprises(id),
+  user_id UUID REFERENCES auth.users(id),
+  user_name VARCHAR(255),          -- Nom lisible (pas juste UUID)
+  action VARCHAR(50),               -- 'CREATE', 'UPDATE', 'DELETE', ...
+  entity_type VARCHAR(100),         -- 'moto', 'vente', 'user', ...
+  entity_id UUID,                   -- ID de l'entité modifiée
+  entity_name VARCHAR(255),         -- Nom lisible de l'entité
+  details JSONB,                    -- Détails supplémentaires (champs modifiés)
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);</span>
+</code></pre>
+
+  <h2 class="section">14.2 — lib/auditLog.ts</h2>
+
+<pre><code><span class="cmt">// lib/auditLog.ts — Système d'audit complet</span>
+<span class="kw">import</span> { supabase } <span class="kw">from</span> <span class="str">'./supabase'</span>;
+
+<span class="kw">export type</span> <span class="cls">AuditAction</span> =
+  | <span class="str">'CREATE'</span> | <span class="str">'UPDATE'</span> | <span class="str">'DELETE'</span>
+  | <span class="str">'UPLOAD'</span> | <span class="str">'DOWNLOAD'</span>
+  | <span class="str">'LOGIN'</span> | <span class="str">'LOGOUT'</span>
+  | <span class="str">'APPROVE'</span> | <span class="str">'DEACTIVATE'</span>;
+
+<span class="kw">export type</span> <span class="cls">EntityType</span> =
+  | <span class="str">'moto'</span> | <span class="str">'vente'</span> | <span class="str">'user'</span>
+  | <span class="str">'rendezvous'</span> | <span class="str">'document'</span>
+  | <span class="str">'registre'</span> | <span class="str">'decharge'</span> | <span class="str">'recu'</span>
+  | <span class="str">'session'</span>;
+
+<span class="cmt">// Labels lisibles pour l'interface</span>
+<span class="kw">export const</span> ACTION_LABELS: Record&lt;<span class="cls">AuditAction</span>, <span class="kw">string</span>&gt; = {
+  CREATE: <span class="str">'Création'</span>,
+  UPDATE: <span class="str">'Modification'</span>,
+  DELETE: <span class="str">'Suppression'</span>,
+  UPLOAD: <span class="str">'Upload'</span>,
+  DOWNLOAD: <span class="str">'Téléchargement'</span>,
+  LOGIN: <span class="str">'Connexion'</span>,
+  LOGOUT: <span class="str">'Déconnexion'</span>,
+  APPROVE: <span class="str">'Approbation'</span>,
+  DEACTIVATE: <span class="str">'Désactivation'</span>,
+};
+
+<span class="kw">export const</span> ACTION_COLORS: Record&lt;<span class="cls">AuditAction</span>, <span class="kw">string</span>&gt; = {
+  CREATE: <span class="str">'#30D158'</span>,   <span class="cmt">// Vert</span>
+  UPDATE: <span class="str">'#0A84FF'</span>,   <span class="cmt">// Bleu</span>
+  DELETE: <span class="str">'#FF453A'</span>,   <span class="cmt">// Rouge</span>
+  UPLOAD: <span class="str">'#5856D6'</span>,   <span class="cmt">// Violet</span>
+  DOWNLOAD: <span class="str">'#5856D6'</span>,
+  LOGIN: <span class="str">'#FF9F0A'</span>,    <span class="cmt">// Orange</span>
+  LOGOUT: <span class="str">'#8E8E93'</span>,   <span class="cmt">// Gris</span>
+  APPROVE: <span class="str">'#30D158'</span>,
+  DEACTIVATE: <span class="str">'#FF453A'</span>,
+};
+
+<span class="cmt">// Fonction principale : enregistrer une action</span>
+<span class="kw">export async function</span> <span class="fn">logAction</span>(params: {
+  enterprise_id: <span class="kw">string</span>;
+  action: <span class="cls">AuditAction</span>;
+  entity_type: <span class="cls">EntityType</span>;
+  entity_id?: <span class="kw">string</span>;
+  entity_name?: <span class="kw">string</span>;
+  details?: Record&lt;<span class="kw">string</span>, <span class="kw">any</span>&gt;;
+}): Promise&lt;<span class="kw">void</span>&gt; {
+  <span class="kw">try</span> {
+    <span class="kw">const</span> { data: { session } } = <span class="kw">await</span> supabase.auth.<span class="fn">getSession</span>();
+    <span class="kw">if</span> (!session) <span class="kw">return</span>;
+
+    <span class="kw">await</span> supabase.<span class="fn">from</span>(<span class="str">'audit_logs'</span>).<span class="fn">insert</span>({
+      enterprise_id: params.enterprise_id,
+      user_id: session.user.id,
+      user_name: session.user.email,  <span class="cmt">// Ou récupérer depuis profile</span>
+      action: params.action,
+      entity_type: params.entity_type,
+      entity_id: params.entity_id ?? <span class="kw">null</span>,
+      entity_name: params.entity_name ?? <span class="kw">null</span>,
+      details: params.details ?? <span class="kw">null</span>,
+    });
+  } <span class="kw">catch</span> (error) {
+    <span class="cmt">// Ne jamais faire crasher l'app à cause d'un log raté</span>
+    console.<span class="fn">warn</span>(<span class="str">'logAction failed:'</span>, error);
+  }
+}
+</code></pre>
+
+  <h2 class="section">14.3 — Utiliser logAction dans les pages</h2>
+
+<pre><code><span class="cmt">// app/moto.tsx — Logger la création/modification d'une moto</span>
+<span class="kw">const</span> <span class="fn">handleSave</span> = <span class="kw">async</span> () => {
+  <span class="cmt">// ... sauvegarder en DB ...</span>
+  <span class="kw">const</span> { data: moto } = <span class="kw">await</span> supabase.<span class="fn">from</span>(<span class="str">'motos'</span>).<span class="fn">insert</span>({...}).<span class="fn">single</span>();
+
+  <span class="cmt">// Logger l'action</span>
+  <span class="kw">await</span> <span class="fn">logAction</span>({
+    enterprise_id: tenant.enterprise_id,
+    action: <span class="str">'CREATE'</span>,
+    entity_type: <span class="str">'moto'</span>,
+    entity_id: moto.id,
+    entity_name: <span class="str">`</span>${marque}<span class="str"> </span>${modele}<span class="str">`</span>,
+    details: {
+      prix_vente,
+      numero_chassis,
+      etat,
+    }
+  });
+};
+
+<span class="cmt">// app/admin/users.tsx — Logger approbation d'un user</span>
+<span class="kw">const</span> <span class="fn">approveUser</span> = <span class="kw">async</span> (userId: <span class="kw">string</span>, userName: <span class="kw">string</span>) => {
+  <span class="kw">await</span> <span class="fn">activateUser</span>(userId, tenant.enterprise_id);
+
+  <span class="kw">await</span> <span class="fn">logAction</span>({
+    enterprise_id: tenant.enterprise_id,
+    action: <span class="str">'APPROVE'</span>,
+    entity_type: <span class="str">'user'</span>,
+    entity_id: userId,
+    entity_name: userName,
+  });
+};
+</code></pre>
+
+  <h2 class="section">14.4 — Afficher les logs (admin/audit.tsx)</h2>
+
+<pre><code><span class="cmt">// Afficher les logs avec couleurs et icônes</span>
+<span class="kw">function</span> <span class="fn">LogItem</span>({ log }: { log: <span class="cls">AuditLog</span> }) {
+  <span class="kw">const</span> color = <span class="cls">ACTION_COLORS</span>[log.action <span class="kw">as</span> <span class="cls">AuditAction</span>] ?? <span class="str">'#888'</span>;
+  <span class="kw">const</span> label = <span class="cls">ACTION_LABELS</span>[log.action <span class="kw">as</span> <span class="cls">AuditAction</span>] ?? log.action;
+
+  <span class="kw">return</span> (
+    &lt;<span class="cls">View</span> style={styles.logItem}&gt;
+      <span class="cmt">{/* Badge coloré par type d'action */}</span>
+      &lt;<span class="cls">View</span> style={[styles.badge, { backgroundColor: color + <span class="str">'22'</span> }]}&gt;
+        &lt;<span class="cls">Text</span> style={[styles.badgeText, { color }]}&gt;{label}&lt;/<span class="cls">Text</span>&gt;
+      &lt;/<span class="cls">View</span>&gt;
+
+      &lt;<span class="cls">Text</span> style={styles.entityName}&gt;
+        {log.entity_type}: {log.entity_name}
+      &lt;/<span class="cls">Text</span>&gt;
+
+      &lt;<span class="cls">Text</span> style={styles.userName}&gt;
+        Par {log.user_name}
+      &lt;/<span class="cls">Text</span>&gt;
+
+      &lt;<span class="cls">Text</span> style={styles.date}&gt;
+        {<span class="kw">new</span> <span class="cls">Date</span>(log.created_at).<span class="fn">toLocaleString</span>(<span class="str">'fr-FR'</span>)}
+      &lt;/<span class="cls">Text</span>&gt;
+
+      <span class="cmt">{/* Détails JSON si présents */}</span>
+      {log.details &amp;&amp; (
+        &lt;<span class="cls">Text</span> style={styles.details}&gt;
+          {<span class="cls">Object</span>.<span class="fn">entries</span>(log.details)
+            .<span class="fn">map</span>(([k, v]) => <span class="str">`</span>${k}<span class="str">: </span>${v}<span class="str">`</span>)
+            .<span class="fn">join</span>(<span class="str">' • '</span>)}
+        &lt;/<span class="cls">Text</span>&gt;
+      )}
+    &lt;/<span class="cls">View</span>&gt;
+  );
+}
+</code></pre>
+</div>
+
+<!-- ════════════════════════════════════════════
+     CHAPITRE 15 — SÉCURITÉ
+════════════════════════════════════════════ -->
+<div class="chapter" id="ch15">
+  <h1 class="ch-title"><span class="ch-num">Chapitre 15</span>Sécurité et Permissions</h1>
+  <p class="ch-intro">
+    SenMoto gère plusieurs couches de sécurité : stockage sécurisé des tokens,
+    authentification biométrique, et permissions granulaires par utilisateur dans les menus.
+  </p>
+
+  <h2 class="section">15.1 — expo-secure-store : stockage sécurisé</h2>
+
+  <p>
+    Les données sensibles (PIN, tokens) ne doivent <strong>jamais</strong> être dans <code>AsyncStorage</code>
+    (non chiffré). <code>expo-secure-store</code> utilise le Keychain (iOS) et le Keystore (Android),
+    des stockages chiffrés fournis par l'OS.
+  </p>
+
+<pre><code><span class="kw">import</span> * <span class="kw">as</span> <span class="cls">SecureStore</span> <span class="kw">from</span> <span class="str">'expo-secure-store'</span>;
+
+<span class="cmt">// Sauvegarder un PIN</span>
+<span class="kw">await</span> <span class="cls">SecureStore</span>.<span class="fn">setItemAsync</span>(<span class="str">'user_pin'</span>, <span class="str">'1234'</span>);
+
+<span class="cmt">// Lire le PIN</span>
+<span class="kw">const</span> pin = <span class="kw">await</span> <span class="cls">SecureStore</span>.<span class="fn">getItemAsync</span>(<span class="str">'user_pin'</span>);
+
+<span class="cmt">// Supprimer le PIN</span>
+<span class="kw">await</span> <span class="cls">SecureStore</span>.<span class="fn">deleteItemAsync</span>(<span class="str">'user_pin'</span>);
+
+<span class="cmt">// Exemple dans SenMoto : sauvegarder l'userId pour biométrie</span>
+<span class="kw">const</span> <span class="fn">saveUserId</span> = <span class="kw">async</span> (userId: <span class="kw">string</span>) => {
+  <span class="kw">await</span> <span class="cls">SecureStore</span>.<span class="fn">setItemAsync</span>(<span class="str">'enterprise_user_id'</span>, userId);
+};
+</code></pre>
+
+  <div class="warn">
+    <strong>⚠️ Limites de SecureStore</strong>
+    Taille maximale : 2048 octets par valeur. Pour stocker de grandes données,
+    utiliser <code>expo-file-system</code> avec un fichier chiffré, ou stocker seulement
+    une référence (ID) dans SecureStore.
+  </div>
+
+  <h2 class="section">15.2 — expo-local-authentication : biométrie</h2>
+
+<pre><code><span class="cmt">// app/home.tsx — Déverrouillage par biométrie ou PIN</span>
+<span class="kw">import</span> * <span class="kw">as</span> <span class="cls">LocalAuth</span> <span class="kw">from</span> <span class="str">'expo-local-authentication'</span>;
+
+<span class="kw">const</span> <span class="fn">checkBiometric</span> = <span class="kw">async</span> (): Promise&lt;<span class="kw">boolean</span>&gt; => {
+  <span class="cmt">// Vérifier si le hardware est disponible</span>
+  <span class="kw">const</span> available = <span class="kw">await</span> <span class="cls">LocalAuth</span>.<span class="fn">hasHardwareAsync</span>();
+  <span class="kw">if</span> (!available) <span class="kw">return false</span>;
+
+  <span class="cmt">// Vérifier si des empreintes sont enregistrées</span>
+  <span class="kw">const</span> enrolled = <span class="kw">await</span> <span class="cls">LocalAuth</span>.<span class="fn">isEnrolledAsync</span>();
+  <span class="kw">if</span> (!enrolled) <span class="kw">return false</span>;
+
+  <span class="cmt">// Demander authentification biométrique</span>
+  <span class="kw">const</span> result = <span class="kw">await</span> <span class="cls">LocalAuth</span>.<span class="fn">authenticateAsync</span>({
+    promptMessage: <span class="str">'Authentifiez-vous pour accéder à SenMoto'</span>,
+    fallbackLabel: <span class="str">'Utiliser le PIN'</span>,
+    disableDeviceFallback: <span class="kw">false</span>,  <span class="cmt">// Permettre PIN si bio échoue</span>
+  });
+
+  <span class="kw">return</span> result.success;
+};
+
+<span class="cmt">// Workflow de déverrouillage dans home.tsx</span>
+<span class="fn">useEffect</span>(() => {
+  <span class="kw">const</span> <span class="fn">checkAuth</span> = <span class="kw">async</span> () => {
+    <span class="kw">const</span> storedPin = <span class="kw">await</span> <span class="cls">SecureStore</span>.<span class="fn">getItemAsync</span>(<span class="str">'user_pin'</span>);
+
+    <span class="kw">if</span> (!storedPin) {
+      setUnlocked(<span class="kw">true</span>);  <span class="cmt">// Pas de PIN configuré → accès direct</span>
+      <span class="kw">return</span>;
+    }
+
+    <span class="cmt">// Essayer biométrie d'abord</span>
+    <span class="kw">const</span> biometricSuccess = <span class="kw">await</span> <span class="fn">checkBiometric</span>();
+    <span class="kw">if</span> (biometricSuccess) {
+      setUnlocked(<span class="kw">true</span>);
+    } <span class="kw">else</span> {
+      <span class="cmt">// Afficher modal PIN</span>
+      setShowPinModal(<span class="kw">true</span>);
+    }
+  };
+
+  <span class="fn">checkAuth</span>();
+}, []);
+</code></pre>
+
+  <h2 class="section">15.3 — Permissions menu par utilisateur</h2>
+
+  <p>
+    SenMoto permet à l'admin de contrôler finement ce que chaque utilisateur peut faire
+    dans le menu hamburger. Chaque item de menu a une clé (<code>menu_key</code>).
+  </p>
+
+<pre><code><span class="cmt">// Table user_menu_permissions</span>
+<span class="cmt">-- enterprise_id + user_id + menu_key → is_enabled</span>
+
+<span class="cmt">// Clés disponibles dans HamburgerMenu.tsx</span>
+<span class="kw">const</span> MENU_KEYS = {
+  <span class="str">'fichier.nouveau_dossier'</span>: <span class="str">'Nouveau dossier'</span>,
+  <span class="str">'fichier.importer'</span>: <span class="str">'Importer un fichier'</span>,
+  <span class="str">'fichier.photo'</span>: <span class="str">'Prendre une photo'</span>,
+  <span class="str">'gestion.motos'</span>: <span class="str">'Gérer les motos'</span>,
+  <span class="str">'gestion.ventes'</span>: <span class="str">'Effectuer une vente'</span>,
+  <span class="str">'gestion.rendezvous'</span>: <span class="str">'Rendez-vous'</span>,
+};
+
+<span class="cmt">// Charger les permissions d'un user (admin/user_permissions.tsx)</span>
+<span class="kw">const</span> { data: perms } = <span class="kw">await</span> supabase
+  .<span class="fn">from</span>(<span class="str">'user_menu_permissions'</span>)
+  .<span class="fn">select</span>(<span class="str">'menu_key, is_enabled'</span>)
+  .<span class="fn">eq</span>(<span class="str">'enterprise_id'</span>, enterpriseId)
+  .<span class="fn">eq</span>(<span class="str">'user_id'</span>, targetUserId);
+
+<span class="cmt">// Convertir en Set pour accès O(1)</span>
+<span class="kw">const</span> permittedKeys = <span class="kw">new</span> <span class="cls">Set</span>(
+  perms?.filter(p => p.is_enabled).<span class="fn">map</span>(p => p.menu_key) ?? []
+);
+
+<span class="cmt">// Dans HamburgerMenu.tsx : afficher un item seulement si permis</span>
+{(!permittedKeys || permittedKeys.<span class="fn">has</span>(<span class="str">'gestion.motos'</span>)) &amp;&amp; (
+  &lt;<span class="cls">TouchableOpacity</span> onPress={() => router.<span class="fn">push</span>(<span class="str">'/motos'</span>)}&gt;
+    &lt;<span class="cls">Text</span>&gt;🏍️ Gérer les motos&lt;/<span class="cls">Text</span>&gt;
+  &lt;/<span class="cls">TouchableOpacity</span>&gt;
+)}
+</code></pre>
+</div>
+
+<!-- ════════════════════════════════════════════
+     CHAPITRE 16 — BUILD ET DÉPLOIEMENT
+════════════════════════════════════════════ -->
+<div class="chapter" id="ch16">
+  <h1 class="ch-title"><span class="ch-num">Chapitre 16</span>Build &amp; Déploiement avec EAS</h1>
+  <p class="ch-intro">
+    EAS (Expo Application Services) permet de compiler et distribuer l'app sans avoir
+    besoin d'un Mac pour iOS ou d'Android Studio. Tout se passe dans le cloud.
+  </p>
+
+  <h2 class="section">16.1 — Les 3 profils de build (eas.json)</h2>
+
+<pre><code><span class="cmt">// eas.json du projet SenMoto annoté</span>
+{
+  <span class="prop">"cli"</span>: {
+    <span class="prop">"version"</span>: <span class="str">">= 16.28.0"</span>,
+    <span class="cmt">// Version de l'app gérée côté serveur EAS (pas dans package.json)</span>
+    <span class="prop">"appVersionSource"</span>: <span class="str">"remote"</span>
+  },
+
+  <span class="prop">"build"</span>: {
+    <span class="cmt">// ━━━ DEVELOPMENT : pour tester sur un vrai appareil ━━━</span>
+    <span class="prop">"development"</span>: {
+      <span class="prop">"developmentClient"</span>: <span class="kw">true</span>,   <span class="cmt">// Dev build (pas Expo Go)</span>
+      <span class="prop">"distribution"</span>: <span class="str">"internal"</span>  <span class="cmt">// Pas dans les stores</span>
+    },
+
+    <span class="cmt">// ━━━ PREVIEW : APK pour tests internes ━━━</span>
+    <span class="prop">"preview"</span>: {
+      <span class="prop">"distribution"</span>: <span class="str">"internal"</span>,
+      <span class="prop">"android"</span>: {
+        <span class="prop">"buildType"</span>: <span class="str">"apk"</span>         <span class="cmt">// APK (Android Package) - installable directement</span>
+      }
+    },
+
+    <span class="cmt">// ━━━ PRODUCTION : pour les stores ━━━</span>
+    <span class="prop">"production"</span>: {
+      <span class="prop">"autoIncrement"</span>: <span class="kw">true</span>       <span class="cmt">// Auto-incrémenter le numéro de version</span>
+    }
+  },
+
+  <span class="prop">"submit"</span>: {
+    <span class="prop">"production"</span>: {}
+  }
+}
+</code></pre>
+
+  <h2 class="section">16.2 — Commandes EAS essentielles</h2>
+
+<pre><code><span class="cmt"># Installer EAS CLI</span>
+npm install -g eas-cli
+
+<span class="cmt"># Se connecter à son compte Expo</span>
+eas login
+
+<span class="cmt"># Configurer le projet (première fois)</span>
+eas build:configure
+
+<span class="cmt"># Build APK Android (pour tester) - prend ~10 minutes</span>
+eas build --platform android --profile preview
+
+<span class="cmt"># Build iOS (requiert compte Apple Developer)</span>
+eas build --platform ios --profile production
+
+<span class="cmt"># Build les deux plateformes en une commande</span>
+eas build --platform all --profile production
+
+<span class="cmt"># Voir les builds en cours</span>
+eas build:list
+
+<span class="cmt"># Soumettre sur les stores</span>
+eas submit --platform android
+eas submit --platform ios
+
+<span class="cmt"># Publier une mise à jour OTA (Over-The-Air) sans re-build</span>
+eas update --branch production --message "Fix bug notification"
+</code></pre>
+
+  <h2 class="section">16.3 — EAS Secrets : variables sensibles</h2>
+
+  <p>
+    Le fichier <code>google-services.json</code> contient des clés Firebase secrètes.
+    Il ne doit <strong>jamais</strong> être dans Git. EAS Secrets le gère de façon sécurisée.
+  </p>
+
+<pre><code><span class="cmt"># Envoyer google-services.json comme secret EAS</span>
+eas secret:create \
+  --scope project \
+  --name GOOGLE_SERVICES_JSON \
+  --type file \
+  --value ./google-services.json
+
+<span class="cmt"># Dans app.config.js : lire le secret ou fallback local</span>
+<span class="prop">googleServicesFile</span>: process.env.<span class="cls">GOOGLE_SERVICES_JSON</span>
+  ?? <span class="str">"./google-services.json"</span>
+<span class="cmt">// EAS injecte la variable d'environnement lors du build cloud</span>
+<span class="cmt">// En local : fallback vers le fichier local</span>
+
+<span class="cmt"># Lister les secrets</span>
+eas secret:list
+</code></pre>
+
+  <h2 class="section">16.4 — OTA Updates : mises à jour sans store</h2>
+
+  <p>
+    EAS Update permet de pousser des corrections de bugs sans passer par la validation
+    des stores (qui peut prendre 1-3 jours). Seul le code JS change, pas le code natif.
+  </p>
+
+<pre><code><span class="cmt"># Publier une mise à jour d'urgence</span>
+eas update --branch production --message "Correction calcul prix"
+
+<span class="cmt"># L'app télécharge automatiquement la mise à jour au prochain lancement</span>
+
+<span class="cmt">// Dans app.config.js : configurer les updates</span>
+<span class="prop">"updates"</span>: {
+  <span class="prop">"url"</span>: <span class="str">"https://u.expo.dev/votre-project-id"</span>
+},
+<span class="prop">"runtimeVersion"</span>: {
+  <span class="prop">"policy"</span>: <span class="str">"appVersion"</span>  <span class="cmt">// Compatibilité par version app</span>
+}
+</code></pre>
+</div>
+
+<!-- ════════════════════════════════════════════
+     CHAPITRE 17 — PATTERNS AVANCÉS
+════════════════════════════════════════════ -->
+<div class="chapter" id="ch17">
+  <h1 class="ch-title"><span class="ch-num">Chapitre 17</span>Patterns avancés du projet</h1>
+  <p class="ch-intro">
+    Ce chapitre couvre des patterns de code utilisés dans SenMoto qui font la différence
+    entre une app qui "marche" et une app de production robuste.
+  </p>
+
+  <h2 class="section">17.1 — Pagination et chargement infini</h2>
+
+<pre><code><span class="cmt">// app/(tabs)/index.tsx — Pagination du feed motos</span>
+<span class="kw">const</span> PAGE_SIZE = <span class="num">10</span>;
+<span class="kw">const</span> [page, setPage] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">const</span> [motos, setMotos] = <span class="fn">useState</span>&lt;<span class="cls">FeedMoto</span>[]&gt;([]);
+<span class="kw">const</span> [hasMore, setHasMore] = <span class="fn">useState</span>(<span class="kw">true</span>);
+<span class="kw">const</span> [loadingMore, setLoadingMore] = <span class="fn">useState</span>(<span class="kw">false</span>);
+
+<span class="kw">const</span> <span class="fn">fetchMotos</span> = <span class="kw">async</span> (pageNum: <span class="kw">number</span>) => {
+  <span class="kw">if</span> (loadingMore) <span class="kw">return</span>;
+  <span class="fn">setLoadingMore</span>(<span class="kw">true</span>);
+
+  <span class="kw">const</span> from = pageNum * PAGE_SIZE;
+  <span class="kw">const</span> to = from + PAGE_SIZE - <span class="num">1</span>;
+
+  <span class="kw">const</span> { data } = <span class="kw">await</span> supabase
+    .<span class="fn">from</span>(<span class="str">'motos'</span>)
+    .<span class="fn">select</span>(<span class="str">'...'</span>)
+    .<span class="fn">eq</span>(<span class="str">'statut'</span>, <span class="str">'disponible'</span>)
+    .<span class="fn">range</span>(from, to);          <span class="cmt">// Pagination côté serveur</span>
+
+  <span class="kw">if</span> (data) {
+    <span class="kw">if</span> (pageNum === <span class="num">0</span>) {
+      <span class="fn">setMotos</span>(data);          <span class="cmt">// Première page : remplacer</span>
+    } <span class="kw">else</span> {
+      <span class="fn">setMotos</span>(prev => [...prev, ...data]);  <span class="cmt">// Suite : ajouter</span>
+    }
+    <span class="fn">setHasMore</span>(data.length === PAGE_SIZE);  <span class="cmt">// Plus de données?</span>
+  }
+
+  <span class="fn">setLoadingMore</span>(<span class="kw">false</span>);
+};
+
+<span class="cmt">// Dans la FlatList</span>
+&lt;<span class="cls">FlatList</span>
+  data={motos}
+  onEndReached={() => {
+    <span class="kw">if</span> (hasMore &amp;&amp; !loadingMore) {
+      <span class="kw">const</span> nextPage = page + <span class="num">1</span>;
+      <span class="fn">setPage</span>(nextPage);
+      <span class="fn">fetchMotos</span>(nextPage);
+    }
+  }}
+  onEndReachedThreshold={<span class="num">0.3</span>}
+  ListFooterComponent={
+    loadingMore ? &lt;<span class="cls">ActivityIndicator</span> /&gt; : <span class="kw">null</span>
+  }
+/&gt;
+</code></pre>
+
+  <h2 class="section">17.2 — Rafraîchissement (Pull to refresh)</h2>
+
+<pre><code><span class="kw">const</span> [refreshing, setRefreshing] = <span class="fn">useState</span>(<span class="kw">false</span>);
+
+<span class="kw">const</span> <span class="fn">handleRefresh</span> = <span class="kw">async</span> () => {
+  <span class="fn">setRefreshing</span>(<span class="kw">true</span>);
+  <span class="fn">setPage</span>(<span class="num">0</span>);
+  <span class="fn">setHasMore</span>(<span class="kw">true</span>);
+  <span class="kw">await</span> <span class="fn">fetchMotos</span>(<span class="num">0</span>);
+  <span class="fn">setRefreshing</span>(<span class="kw">false</span>);
+};
+
+&lt;<span class="cls">FlatList</span>
+  refreshControl={
+    &lt;<span class="cls">RefreshControl</span>
+      refreshing={refreshing}
+      onRefresh={handleRefresh}
+      tintColor=<span class="str">"#0A84FF"</span>
+    /&gt;
+  }
+/&gt;
+</code></pre>
+
+  <h2 class="section">17.3 — Platform-specific code</h2>
+
+<pre><code><span class="kw">import</span> { <span class="cls">Platform</span> } <span class="kw">from</span> <span class="str">'react-native'</span>;
+
+<span class="cmt">// ━━━ Styles différents selon plateforme ━━━</span>
+<span class="kw">const</span> styles = <span class="cls">StyleSheet</span>.<span class="fn">create</span>({
+  container: {
+    <span class="cmt">// paddingTop seulement sur Android (la StatusBar chevauche le contenu)</span>
+    paddingTop: <span class="cls">Platform</span>.OS === <span class="str">'android'</span> ? <span class="num">24</span> : <span class="num">0</span>,
+
+    <span class="cmt">// Ombres : shadow* sur iOS, elevation sur Android</span>
+    ...<span class="cls">Platform</span>.<span class="fn">select</span>({
+      ios: {
+        shadowColor: <span class="str">'#000'</span>,
+        shadowOffset: { width: <span class="num">0</span>, height: <span class="num">2</span> },
+        shadowOpacity: <span class="num">0.2</span>,
+        shadowRadius: <span class="num">4</span>,
+      },
+      android: {
+        elevation: <span class="num">4</span>,
+      },
+    }),
+  }
+});
+
+<span class="cmt">// ━━━ Comportement différent ━━━</span>
+<span class="kw">const</span> <span class="fn">handleShare</span> = <span class="kw">async</span> () => {
+  <span class="kw">if</span> (<span class="cls">Platform</span>.OS === <span class="str">'ios'</span>) {
+    <span class="cmt">// iOS : expo-print peut écrire directement</span>
+    <span class="kw">const</span> { uri } = <span class="kw">await</span> <span class="cls">Print</span>.<span class="fn">printToFileAsync</span>({ html });
+    <span class="kw">await</span> <span class="cls">Sharing</span>.<span class="fn">shareAsync</span>(uri);
+  } <span class="kw">else</span> {
+    <span class="cmt">// Android : workaround avec base64</span>
+    <span class="kw">const</span> { base64 } = <span class="kw">await</span> <span class="cls">Print</span>.<span class="fn">printToFileAsync</span>({ html, base64: <span class="kw">true</span> });
+    <span class="kw">const</span> path = <span class="str">`</span>${<span class="cls">FileSystem</span>.cacheDirectory}<span class="str">doc.pdf`</span>;
+    <span class="kw">await</span> <span class="cls">FileSystem</span>.<span class="fn">writeAsStringAsync</span>(path, base64!, {
+      encoding: <span class="cls">FileSystem</span>.<span class="cls">EncodingType</span>.<span class="cls">Base64</span>
+    });
+    <span class="kw">await</span> <span class="cls">Sharing</span>.<span class="fn">shareAsync</span>(path);
+  }
+};
+
+<span class="cmt">// ━━━ Fichiers spécifiques à une plateforme ━━━</span>
+<span class="cmt">// hooks/use-color-scheme.web.ts → seulement sur Web</span>
+<span class="cmt">// hooks/use-color-scheme.ts → iOS et Android</span>
+<span class="cmt">// React Native choisit automatiquement le bon fichier selon la plateforme</span>
+
+<span class="cmt">// ━━━ Version système ━━━</span>
+<span class="kw">if</span> (<span class="cls">Platform</span>.OS === <span class="str">'android'</span> &amp;&amp; <span class="cls">Platform</span>.Version &gt;= <span class="num">33</span>) {
+  <span class="cmt">// Android 13+ : permission notifications runtime</span>
+}
+</code></pre>
+
+  <h2 class="section">17.4 — Gestion d'erreurs robuste</h2>
+
+<pre><code><span class="cmt">// Pattern try/catch/finally systématique dans SenMoto</span>
+<span class="kw">const</span> <span class="fn">safeAction</span> = <span class="kw">async</span> () => {
+  <span class="fn">setLoading</span>(<span class="kw">true</span>);
+  <span class="kw">try</span> {
+    <span class="kw">const</span> result = <span class="kw">await</span> <span class="fn">riskyOperation</span>();
+    <span class="fn">setData</span>(result);
+  } <span class="kw">catch</span> (error: <span class="kw">any</span>) {
+    <span class="cmt">// Messages d'erreur utilisateur-friendly</span>
+    <span class="kw">const</span> message = error?.message ?? <span class="str">'Une erreur est survenue'</span>;
+    <span class="cls">Alert</span>.<span class="fn">alert</span>(<span class="str">'Erreur'</span>, message);
+    console.<span class="fn">error</span>(<span class="str">'safeAction error:'</span>, error);
+  } <span class="kw">finally</span> {
+    <span class="fn">setLoading</span>(<span class="kw">false</span>);  <span class="cmt">// TOUJOURS s'exécute (succès ou échec)</span>
+  }
+};
+
+<span class="cmt">// Validation avant soumission</span>
+<span class="kw">const</span> <span class="fn">validateForm</span> = (): <span class="kw">string</span> | <span class="kw">null</span> => {
+  <span class="kw">if</span> (!formData.enterpriseName.<span class="fn">trim</span>()) <span class="kw">return</span> <span class="str">'Nom requis'</span>;
+  <span class="kw">if</span> (!formData.adminEmail.<span class="fn">includes</span>(<span class="str">'@'</span>)) <span class="kw">return</span> <span class="str">'Email invalide'</span>;
+  <span class="kw">if</span> (formData.adminPassword.length &lt; <span class="num">6</span>) <span class="kw">return</span> <span class="str">'Mot de passe trop court'</span>;
+  <span class="kw">if</span> (formData.adminPassword !== formData.adminPasswordConfirm)
+    <span class="kw">return</span> <span class="str">'Mots de passe différents'</span>;
+  <span class="kw">return null</span>;  <span class="cmt">// null = tout est OK</span>
+};
+
+<span class="kw">const</span> <span class="fn">handleSubmit</span> = <span class="kw">async</span> () => {
+  <span class="kw">const</span> error = <span class="fn">validateForm</span>();
+  <span class="kw">if</span> (error) {
+    <span class="cls">Alert</span>.<span class="fn">alert</span>(<span class="str">'Erreur de saisie'</span>, error);
+    <span class="kw">return</span>;
+  }
+  <span class="cmt">// ... continuer</span>
+};
+</code></pre>
+
+  <h2 class="section">17.5 — Chargement d'images optimisé</h2>
+
+<pre><code><span class="cmt">// expo-image vs Image standard : lequel choisir ?</span>
+<span class="kw">import</span> { <span class="cls">Image</span> } <span class="kw">from</span> <span class="str">'expo-image'</span>;  <span class="cmt">// Préférer celui-ci</span>
+
+<span class="cmt">// expo-image : cache intelligent + transitions + blurhash</span>
+&lt;<span class="cls">Image</span>
+  source={{ uri: moto.image_uri }}
+  style={{ width: <span class="num">200</span>, height: <span class="num">150</span> }}
+  contentFit=<span class="str">"cover"</span>
+  transition={<span class="num">200</span>}              <span class="cmt">// Fondu de 200ms à l'apparition</span>
+  cachePolicy=<span class="str">"memory-disk"</span>    <span class="cmt">// Cache mémoire + disque</span>
+  placeholder={{ blurhash: <span class="str">'LHFT[-?]%Mxu'</span> }}  <span class="cmt">// Placeholder flou</span>
+/&gt;
+
+<span class="cmt">// Pour les listes avec beaucoup d'images base64 :</span>
+<span class="cmt">// N'afficher que l'image principale (position = 0)</span>
+<span class="kw">const</span> mainImage = moto.moto_images?.<span class="fn">find</span>(img => img.is_principal)
+  ?? moto.moto_images?.[<span class="num">0</span>];
+</code></pre>
+</div>
+
+<!-- ════════════════════════════════════════════
+     CHAPITRE 18 — DEVENIR EXPERT
+════════════════════════════════════════════ -->
+<div class="chapter" id="ch18">
+  <h1 class="ch-title"><span class="ch-num">Chapitre 18</span>Devenir Expert React Native</h1>
+  <p class="ch-intro">
+    Ce dernier chapitre récapitule tout ce que SenMoto t'a appris et trace la voie
+    vers la maîtrise complète de React Native Expo.
+  </p>
+
+  <h2 class="section">18.1 — Récapitulatif : les compétences acquises</h2>
+
+  <table>
+    <tr><th>Domaine</th><th>Compétence</th><th>Où dans SenMoto</th></tr>
+    <tr><td><span class="badge badge-blue">Fondations</span></td><td>Composants, Props, JSX</td><td>Tous les fichiers</td></tr>
+    <tr><td><span class="badge badge-blue">Fondations</span></td><td>StyleSheet + Flexbox</td><td>Tous les styles</td></tr>
+    <tr><td><span class="badge badge-blue">Fondations</span></td><td>TypeScript dans RN</td><td>Tous les fichiers .tsx</td></tr>
+    <tr><td><span class="badge badge-green">React</span></td><td>useState, useEffect, useRef</td><td>Chaque page</td></tr>
+    <tr><td><span class="badge badge-green">React</span></td><td>Context API</td><td>TenantContext, ThemeContext</td></tr>
+    <tr><td><span class="badge badge-green">React</span></td><td>Hooks personnalisés</td><td>usePushNotifications, useTheme</td></tr>
+    <tr><td><span class="badge badge-orange">Navigation</span></td><td>Expo Router (file-based)</td><td>app/ directory</td></tr>
+    <tr><td><span class="badge badge-orange">Navigation</span></td><td>Route guards, layouts</td><td>app/_layout.tsx</td></tr>
+    <tr><td><span class="badge badge-orange">Navigation</span></td><td>Paramètres de route</td><td>moto.tsx, rendezvous.tsx</td></tr>
+    <tr><td><span class="badge badge-blue">Backend</span></td><td>Supabase (CRUD + Auth + RPC)</td><td>lib/supabase.js, multitenant.ts</td></tr>
+    <tr><td><span class="badge badge-blue">Backend</span></td><td>Row Level Security</td><td>Tables Supabase</td></tr>
+    <tr><td><span class="badge badge-green">Mobile</span></td><td>Caméra, Galerie, Documents</td><td>moto.tsx, vente.tsx, home.tsx</td></tr>
+    <tr><td><span class="badge badge-green">Mobile</span></td><td>Géolocalisation</td><td>MapPickerModal.tsx</td></tr>
+    <tr><td><span class="badge badge-green">Mobile</span></td><td>Notifications Push</td><td>lib/notifications.ts</td></tr>
+    <tr><td><span class="badge badge-green">Mobile</span></td><td>Biométrie + SecureStore</td><td>home.tsx</td></tr>
+    <tr><td><span class="badge badge-orange">Avancé</span></td><td>WebView + bridge</td><td>MapPickerModal.tsx</td></tr>
+    <tr><td><span class="badge badge-orange">Avancé</span></td><td>Animated API</td><td>HamburgerMenu.tsx</td></tr>
+    <tr><td><span class="badge badge-orange">Avancé</span></td><td>Génération PDF</td><td>lib/sharePdf.ts</td></tr>
+    <tr><td><span class="badge badge-orange">Avancé</span></td><td>Signatures numériques</td><td>recu.tsx</td></tr>
+    <tr><td><span class="badge badge-blue">Prod</span></td><td>Multi-tenant architecture</td><td>context/TenantContext.tsx</td></tr>
+    <tr><td><span class="badge badge-blue">Prod</span></td><td>Audit log</td><td>lib/auditLog.ts</td></tr>
+    <tr><td><span class="badge badge-blue">Prod</span></td><td>EAS Build + Deploy</td><td>eas.json</td></tr>
+  </table>
+
+  <h2 class="section">18.2 — Les pièges à éviter</h2>
+
+  <ul class="checklist">
+    <li class="warn">Ne jamais mettre de données sensibles dans <code>AsyncStorage</code> → utiliser <code>expo-secure-store</code></li>
+    <li class="warn">Ne jamais committer <code>google-services.json</code> ou les clés API dans Git → utiliser EAS Secrets</li>
+    <li class="warn">Ne pas appeler <code>setState</code> sur un composant démonté → vérifier <code>isMounted</code> ou annuler via <code>AbortController</code></li>
+    <li class="warn"><code>FlatList</code> pour les longues listes, <code>ScrollView</code> pour le contenu fixe</li>
+    <li class="warn">Toujours utiliser <code>useNativeDriver: true</code> dans les animations quand possible</li>
+    <li class="warn">Ne pas inclure des URLs de debug (<code>localhost</code>) dans les builds de production</li>
+    <li class="warn"><code>signUp()</code> connecte automatiquement le nouvel utilisateur → sauvegarder/restaurer session si nécessaire</li>
+    <li class="warn">Les images base64 gonflent la taille de la base de données → envisager Supabase Storage pour les grands projets</li>
+    <li class="warn"><code>useEffect</code> avec <code>async</code> : ne pas retourner la Promise, créer une fonction interne</li>
+  </ul>
+
+  <h2 class="section">18.3 — Checklist d'une app de production</h2>
+
+  <ul class="checklist">
+    <li>Variables d'environnement dans <code>app.config.js extra</code> (pas en dur dans le code)</li>
+    <li>EAS Secrets pour les fichiers sensibles (<code>google-services.json</code>)</li>
+    <li>Row Level Security activée sur toutes les tables Supabase</li>
+    <li>Validation des données avant envoi au backend</li>
+    <li>Messages d'erreur clairs pour l'utilisateur</li>
+    <li>Gestion du <code>loading</code> state sur toutes les opérations async</li>
+    <li>SafeAreaView sur toutes les pages (notches iOS)</li>
+    <li>KeyboardAvoidingView sur les formulaires</li>
+    <li>Audit log sur toutes les actions importantes</li>
+    <li>Permissions demandées au bon moment (avant d'en avoir besoin)</li>
+    <li>Test sur vrai appareil Android ET iOS (pas seulement simulateur)</li>
+    <li>Gestion hors-ligne (au moins afficher un message)</li>
+    <li>Bundle identifier unique (App Store) et package unique (Play Store)</li>
+    <li>Version incrémentale avant chaque build de production</li>
+    <li>OTA Update configuré pour les hotfixes rapides</li>
+  </ul>
+
+  <h2 class="section">18.4 — Feuille de route pour aller plus loin</h2>
+
+  <div class="roadmap">
+    <div class="roadmap-item">
+      <h4>🔜 Prochain niveau : Performance</h4>
+      <p>
+        <strong>react-native-reanimated</strong> pour animations 60fps •
+        <strong>FlashList</strong> (remplacement ultra-rapide de FlatList) •
+        <strong>Profiling</strong> avec React Native Debugger •
+        Memoïsation avec <code>React.memo</code>, <code>useCallback</code>, <code>useMemo</code>
+      </p>
+    </div>
+    <div class="roadmap-item">
+      <h4>🔜 Gestion d'état avancée</h4>
+      <p>
+        <strong>Zustand</strong> (alternative légère à Redux) •
+        <strong>React Query / TanStack Query</strong> pour la synchronisation serveur •
+        <strong>Jotai</strong> pour state atomique •
+        Remplacer Context + useState par ces solutions si l'app grandit
+      </p>
+    </div>
+    <div class="roadmap-item">
+      <h4>🔜 Tests</h4>
+      <p>
+        <strong>Jest</strong> pour tests unitaires des fonctions utilitaires •
+        <strong>React Native Testing Library</strong> pour tester les composants •
+        <strong>Detox</strong> pour les tests d'intégration (end-to-end) •
+        Tests de snapshot pour les composants UI
+      </p>
+    </div>
+    <div class="roadmap-item">
+      <h4>🔜 Fonctionnalités avancées</h4>
+      <p>
+        <strong>Supabase Realtime</strong> pour chat en temps réel (WebSocket) •
+        <strong>Supabase Storage</strong> pour remplacer base64 par URLs •
+        <strong>expo-av</strong> pour audio/vidéo •
+        <strong>react-native-maps</strong> pour cartes natives (plus performant que WebView)
+      </p>
+    </div>
+    <div class="roadmap-item">
+      <h4>🔜 Internationalisation (i18n)</h4>
+      <p>
+        <strong>i18next + react-i18next</strong> pour multi-langues •
+        Formatage de dates avec <code>Intl.DateTimeFormat</code> •
+        Formatage de nombres et devises •
+        Détection automatique de la langue système
+      </p>
+    </div>
+  </div>
+
+  <h2 class="section">18.5 — Les bibliothèques à connaître absolument</h2>
+
+  <table>
+    <tr><th>Bibliothèque</th><th>Usage</th><th>Utilisée dans SenMoto</th></tr>
+    <tr><td><code>expo-router</code></td><td>Navigation</td><td>✅ Oui</td></tr>
+    <tr><td><code>@supabase/supabase-js</code></td><td>Backend BaaS</td><td>✅ Oui</td></tr>
+    <tr><td><code>expo-notifications</code></td><td>Notifications push</td><td>✅ Oui</td></tr>
+    <tr><td><code>expo-camera</code></td><td>Caméra + QR</td><td>✅ Oui</td></tr>
+    <tr><td><code>expo-image-picker</code></td><td>Galerie photos</td><td>✅ Oui</td></tr>
+    <tr><td><code>expo-location</code></td><td>GPS</td><td>✅ Oui</td></tr>
+    <tr><td><code>expo-secure-store</code></td><td>Stockage sécurisé</td><td>✅ Oui</td></tr>
+    <tr><td><code>expo-local-authentication</code></td><td>Biométrie</td><td>✅ Oui</td></tr>
+    <tr><td><code>expo-print</code> + <code>expo-sharing</code></td><td>PDF + partage</td><td>✅ Oui</td></tr>
+    <tr><td><code>react-native-webview</code></td><td>Contenu web intégré</td><td>✅ Oui</td></tr>
+    <tr><td><code>react-native-reanimated</code></td><td>Animations performantes</td><td>✅ Oui</td></tr>
+    <tr><td><code>react-native-gesture-handler</code></td><td>Gestes avancés</td><td>✅ Oui</td></tr>
+    <tr><td><code>react-native-svg</code></td><td>Graphiques vectoriels</td><td>✅ Oui</td></tr>
+    <tr><td><code>react-native-qrcode-svg</code></td><td>Génération QR codes</td><td>✅ Oui</td></tr>
+    <tr><td><code>expo-sqlite</code></td><td>Base de données locale</td><td>✅ Installé</td></tr>
+    <tr><td><code>@expo/vector-icons</code></td><td>Icônes (Ionicons, etc.)</td><td>✅ Oui</td></tr>
+    <tr><td><code>FlashList</code></td><td>FlatList ultra-rapide</td><td>⭐ À ajouter</td></tr>
+    <tr><td><code>Zustand</code></td><td>State management léger</td><td>⭐ Alternative à Context</td></tr>
+    <tr><td><code>TanStack Query</code></td><td>Synchronisation serveur</td><td>⭐ Recommandé pour prod</td></tr>
+    <tr><td><code>react-native-maps</code></td><td>Cartes natives</td><td>⭐ Alternative à WebView</td></tr>
+  </table>
+
+  <h2 class="section">18.6 — Comprendre le cycle de vie</h2>
+
+<pre><code><span class="cmt">// Cycle de vie d'un composant React Native</span>
+
+<span class="kw">function</span> <span class="fn">MonComposant</span>() {
+  <span class="cmt">// 1. MONTAGE (une seule fois)</span>
+  <span class="fn">useEffect</span>(() => {
+    console.<span class="fn">log</span>(<span class="str">'Composant monté (comme componentDidMount)'</span>);
+
+    <span class="cmt">// 3. DÉMONTAGE : retourner une fonction de nettoyage</span>
+    <span class="kw">return</span> () => {
+      console.<span class="fn">log</span>(<span class="str">'Composant démonté (comme componentWillUnmount)'</span>);
+      <span class="cmt">// Annuler subscriptions, timers, etc.</span>
+    };
+  }, []);  <span class="cmt">// [] = une seule fois</span>
+
+  <span class="cmt">// 2. MISE À JOUR (à chaque changement de dépendances)</span>
+  <span class="fn">useEffect</span>(() => {
+    console.<span class="fn">log</span>(<span class="str">'userId a changé, rechargement...'</span>);
+    <span class="fn">loadUserData</span>(userId);
+  }, [userId]);  <span class="cmt">// Exécute quand userId change</span>
+
+  <span class="cmt">// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // Cycle de vie Expo Router (écrans)
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+  <span class="kw">import</span> { <span class="fn">useFocusEffect</span> } <span class="kw">from</span> <span class="str">'expo-router'</span>;
+
+  <span class="cmt">// Exécute CHAQUE FOIS que l'écran devient visible</span>
+  <span class="fn">useFocusEffect</span>(
+    <span class="fn">useCallback</span>(() => {
+      console.<span class="fn">log</span>(<span class="str">'Écran en focus → recharger les données'</span>);
+      <span class="fn">loadData</span>();
+
+      <span class="kw">return</span> () => {
+        console.<span class="fn">log</span>(<span class="str">'Écran perd le focus'</span>);
+      };
+    }, [])
+  );
+}
+</code></pre>
+
+  <h2 class="section">18.7 — Conseils finaux du développeur SenMoto</h2>
+
+  <div class="tip">
+    <strong>💡 Conseil 1 : Commence par le design, pas le code</strong>
+    Dessine les écrans sur papier d'abord. Chaque écran = une page dans app/.
+    Identifie quelles données sont partagées entre écrans → ce qui va dans un Context.
+  </div>
+
+  <div class="tip">
+    <strong>💡 Conseil 2 : Un State, une source de vérité</strong>
+    Ne stocke jamais la même donnée à deux endroits. Si tu as <code>moto</code> en state et <code>motoId</code>
+    en state, tu auras des désynchronisations. Choisis l'un des deux et dérive l'autre.
+  </div>
+
+  <div class="tip">
+    <strong>💡 Conseil 3 : Test sur vrai appareil dès le début</strong>
+    Le simulateur iOS/Android ment souvent. Les permissions, les notifications, la caméra,
+    le GPS — tout se comporte différemment sur un vrai téléphone. Branche-le dès le premier jour.
+  </div>
+
+  <div class="tip">
+    <strong>💡 Conseil 4 : Supabase > backend custom pour 90% des apps</strong>
+    Auth, base de données, RLS, stockage, fonctions edge — Supabase couvre tout.
+    Tu peux construire une app complète en production sans écrire une seule ligne de backend.
+  </div>
+
+  <div class="tip">
+    <strong>💡 Conseil 5 : Audit log depuis le jour 1</strong>
+    Ajouter un audit log rétroactivement est douloureux. Commence avec <code>lib/auditLog.ts</code>
+    dès le début et appelle <code>logAction()</code> à chaque opération importante.
+  </div>
+
+  <div class="tip">
+    <strong>💡 Conseil 6 : EAS Build résout 99% des problèmes de compilation</strong>
+    Si tu n'arrives pas à compiler localement (erreurs Gradle, Xcode, etc.),
+    utilise <code>eas build --profile preview</code>. L'environnement cloud est propre et cohérent.
+  </div>
+
+</div>
+
+<!-- ════════════════════════════════════════════
+     PAGE FINALE
+════════════════════════════════════════════ -->
+<div style="background:linear-gradient(135deg,#0a0a0a,#1a1a2e);color:#fff;padding:80px;text-align:center;margin-top:40px;page-break-before:always">
+  <div style="font-size:60px;margin-bottom:24px">🏆</div>
+  <h2 style="font-size:32px;font-weight:900;background:linear-gradient(90deg,#0A84FF,#30D158,#FF9F0A);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:16px">
+    Félicitations !
+  </h2>
+  <p style="font-size:18px;color:#aaa;max-width:600px;margin:0 auto 40px">
+    Tu as parcouru l'intégralité du projet SenMoto.
+    Tu maîtrises maintenant les fondations et les patterns avancés
+    qui font un développeur React Native Expo compétent.
+  </p>
+
+  <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-bottom:40px">
+    <span style="background:#0A84FF22;border:1px solid #0A84FF44;border-radius:20px;padding:8px 20px;color:#0A84FF;font-size:14px">React Native Composants</span>
+    <span style="background:#30D15822;border:1px solid #30D15844;border-radius:20px;padding:8px 20px;color:#30D158;font-size:14px">Expo SDK 56</span>
+    <span style="background:#FF9F0A22;border:1px solid #FF9F0A44;border-radius:20px;padding:8px 20px;color:#FF9F0A;font-size:14px">Supabase Backend</span>
+    <span style="background:#5856D622;border:1px solid #5856D644;border-radius:20px;padding:8px 20px;color:#5856D6;font-size:14px">Multi-Tenant Architecture</span>
+    <span style="background:#FF453A22;border:1px solid #FF453A44;border-radius:20px;padding:8px 20px;color:#FF453A;font-size:14px">EAS Build & Deploy</span>
+    <span style="background:#0A84FF22;border:1px solid #0A84FF44;border-radius:20px;padding:8px 20px;color:#0A84FF;font-size:14px">Expo Router</span>
+    <span style="background:#30D15822;border:1px solid #30D15844;border-radius:20px;padding:8px 20px;color:#30D158;font-size:14px">TypeScript</span>
+    <span style="background:#FF9F0A22;border:1px solid #FF9F0A44;border-radius:20px;padding:8px 20px;color:#FF9F0A;font-size:14px">Notifications Push</span>
+    <span style="background:#5856D622;border:1px solid #5856D644;border-radius:20px;padding:8px 20px;color:#5856D6;font-size:14px">Caméra & Géolocalisation</span>
+    <span style="background:#FF453A22;border:1px solid #FF453A44;border-radius:20px;padding:8px 20px;color:#FF453A;font-size:14px">Animations</span>
+  </div>
+
+  <p style="color:#555;font-size:13px">
+    Projet SenMoto · Cours React Native Expo · 3 Parties · 18 Chapitres
+  </p>
+</div>
+
+</body>
+</html>

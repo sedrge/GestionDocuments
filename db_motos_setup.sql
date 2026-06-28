@@ -1,5 +1,5 @@
 -- =====================================================================
--- docvault — Tables pour la gestion des motos (Gestion > Moto / Catalogue)
+-- SenMoto — Tables pour la gestion des motos (Gestion > Moto / Catalogue)
 -- À exécuter une seule fois dans l'éditeur SQL de Supabase.
 -- =====================================================================
 

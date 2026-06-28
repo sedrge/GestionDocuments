@@ -1,4 +1,4 @@
-# Architecture Multi-Tenant - DocVault
+# Architecture Multi-Tenant - SenMoto
 
 ## 1. STRUCTURE DES TABLES SUPABASE
 
@@ -131,7 +131,7 @@ CREATE POLICY "user_see_own_enterprise_docs" ON documents
 
 ```
 ┌─────────────────────────────┐
-│  DocVault Multi-Tenant      │
+│  SenMoto Multi-Tenant       │
 ├─────────────────────────────┤
 │  1. Se connecter            │
 │  2. Créer une entreprise    │

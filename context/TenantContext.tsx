@@ -30,12 +30,16 @@ interface TenantContextType {
   isSuperAdmin: boolean;
   isEnterpriseAdmin: boolean;
   isRegularUser: boolean;
+  isImpersonating: boolean;
+  startImpersonation: (enterprise_id: string, enterprise_name: string) => void;
+  stopImpersonation: () => void;
 }
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
 export const TenantProvider = ({ children }: { children: ReactNode }) => {
-  const [tenant, setTenant] = useState<TenantInfo | null>(null);
+  const [realTenant, setRealTenant] = useState<TenantInfo | null>(null);
+  const [impersonation, setImpersonation] = useState<{ enterprise_id: string; enterprise_name: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -50,7 +54,7 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData.session?.user) {
         setIsAuthenticated(false);
-        setTenant(null);
+        setRealTenant(null);
         return;
       }
 
@@ -58,14 +62,18 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
       const userId = sessionData.session.user.id;
 
       // 1. Super-admin
-      const { data: superAdminData } = await supabase
+      const { data: superAdminData, error: superAdminError } = await supabase
         .from("super_admins")
         .select("id")
         .eq("user_id", userId)
         .single();
 
+      if (superAdminError && superAdminError.code !== 'PGRST116') {
+        console.warn('[TenantContext] super_admins query error:', superAdminError.code, superAdminError.message);
+      }
+
       if (superAdminData) {
-        setTenant({
+        setRealTenant({
           enterprise_id: "",
           enterprise_name: "Super-Admin",
           enterprise_code: "",
@@ -89,7 +97,7 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
 
       if (adminData && adminData.enterprises) {
         const enterprise = adminData.enterprises as any;
-        setTenant({
+        setRealTenant({
           enterprise_id: enterprise.id,
           enterprise_name: enterprise.name,
           enterprise_code: enterprise.code,
@@ -116,7 +124,7 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
 
       if (userData && userData.enterprises) {
         const enterprise = userData.enterprises as any;
-        setTenant({
+        setRealTenant({
           enterprise_id: enterprise.id,
           enterprise_name: enterprise.name,
           enterprise_code: enterprise.code,
@@ -136,10 +144,10 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
 
       // Utilisateur sans entreprise
       setPendingState("no_enterprise");
-      setTenant(null);
+      setRealTenant(null);
     } catch (err: any) {
       setError(err.message);
-      setTenant(null);
+      setRealTenant(null);
     } finally {
       setLoading(false);
     }
@@ -159,9 +167,29 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  const isSuperAdmin = tenant?.user_role === "super_admin";
-  const isEnterpriseAdmin = tenant?.user_role === "enterprise_admin";
-  const isRegularUser = tenant?.user_role === "user";
+  // Impersonation — super admin emprunte l'identité d'une entreprise
+  const isSuperAdmin = realTenant?.user_role === "super_admin";
+  const isImpersonating = !!impersonation && isSuperAdmin;
+
+  // tenant effectif : si impersonation active, on surcharge enterprise_id/name
+  const tenant: TenantInfo | null = isImpersonating
+    ? {
+        ...realTenant!,
+        enterprise_id: impersonation!.enterprise_id,
+        enterprise_name: impersonation!.enterprise_name,
+      }
+    : realTenant;
+
+  const startImpersonation = (enterprise_id: string, enterprise_name: string) => {
+    setImpersonation({ enterprise_id, enterprise_name });
+  };
+
+  const stopImpersonation = () => {
+    setImpersonation(null);
+  };
+
+  const isEnterpriseAdmin = realTenant?.user_role === "enterprise_admin";
+  const isRegularUser = realTenant?.user_role === "user";
 
   return (
     <TenantContext.Provider
@@ -175,6 +203,9 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
         isSuperAdmin,
         isEnterpriseAdmin,
         isRegularUser,
+        isImpersonating,
+        startImpersonation,
+        stopImpersonation,
       }}
     >
       {children}

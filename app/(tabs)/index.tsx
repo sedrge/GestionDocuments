@@ -1150,7 +1150,7 @@ export default function FeedScreen() {
       const saved = await SecureStore.getItemAsync(`USER_PIN_${tenant.user_id}`);
       setStoredPin(saved);
       if (saved) {
-        const bio = await LocalAuthentication.authenticateAsync({ promptMessage: 'Accès DocVault' });
+        const bio = await LocalAuthentication.authenticateAsync({ promptMessage: 'Accès SenMoto' });
         if (bio.success) { router.replace('/home'); return; }
         setShowPin(true);
       } else {

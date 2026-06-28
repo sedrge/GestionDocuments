@@ -1,5 +1,5 @@
 -- =====================================================================
--- docvault — Tables pour la fonctionnalité "Réçu / Facture"
+-- SenMoto — Tables pour la fonctionnalité "Réçu / Facture"
 -- À exécuter une seule fois dans l'éditeur SQL de Supabase
 -- =====================================================================
 

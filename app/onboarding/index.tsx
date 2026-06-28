@@ -2,27 +2,45 @@ import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/context/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
+    Alert,
+    Modal,
     ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+type SecretType = 'taps' | 'phrase';
+
+interface SecretConfig {
+  secret_type: SecretType;
+  tap_count: number;
+  secret_phrase: string | null;
+}
+
+const DEFAULT_CONFIG: SecretConfig = { secret_type: 'taps', tap_count: 11, secret_phrase: null };
+
 export default function OnboardingScreen() {
   const [loading, setLoading] = useState(false);
   const { theme, isDark, toggleTheme } = useTheme();
+
+  const [secretConfig, setSecretConfig] = useState<SecretConfig>(DEFAULT_CONFIG);
+  const [tapCount, setTapCount] = useState(0);
+  const [showPhraseModal, setShowPhraseModal] = useState(false);
+  const [phraseInput, setPhraseInput] = useState('');
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const checkAuth = async () => {
     setLoading(true);
     try {
       const { data: session } = await supabase.auth.getSession();
       if (session?.session) {
-        // User already logged in, go to home
         router.replace("/(tabs)");
       }
     } catch (error) {
@@ -32,9 +50,62 @@ export default function OnboardingScreen() {
     }
   };
 
-  React.useEffect(() => {
+  const loadSecretConfig = async () => {
+    try {
+      const { data } = await supabase
+        .from('super_admin_config')
+        .select('secret_type, tap_count, secret_phrase')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+      if (data) {
+        setSecretConfig({
+          secret_type: data.secret_type as SecretType,
+          tap_count: data.tap_count ?? 11,
+          secret_phrase: data.secret_phrase ?? null,
+        });
+      }
+    } catch {
+      // Pas de config, on garde le défaut
+    }
+  };
+
+  useEffect(() => {
     checkAuth();
+    loadSecretConfig();
   }, []);
+
+  const handleTitlePress = () => {
+    if (secretConfig.secret_type === 'phrase') {
+      // Montrer la modale de phrase secrète directement
+      setShowPhraseModal(true);
+      return;
+    }
+
+    // Mode taps
+    const newCount = tapCount + 1;
+    setTapCount(newCount);
+
+    if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+    tapTimerRef.current = setTimeout(() => setTapCount(0), 2000);
+
+    if (newCount >= secretConfig.tap_count) {
+      if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+      setTapCount(0);
+      router.push('/auth/super-admin-register');
+    }
+  };
+
+  const handlePhraseSubmit = () => {
+    if (phraseInput.trim() === secretConfig.secret_phrase?.trim()) {
+      setShowPhraseModal(false);
+      setPhraseInput('');
+      router.push('/auth/super-admin-register');
+    } else {
+      Alert.alert('Incorrect', 'Phrase incorrecte.');
+      setPhraseInput('');
+    }
+  };
 
   if (loading) {
     return (
@@ -63,7 +134,9 @@ export default function OnboardingScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.text }]}>DocVault</Text>
+        <TouchableOpacity onPress={handleTitlePress} activeOpacity={0.9}>
+          <Text style={[styles.title, { color: theme.text }]}>SenMoto</Text>
+        </TouchableOpacity>
         <Text style={[styles.subtitle, { color: theme.subText }]}>
           Gestion d'Entreprises Multi-Tenant
         </Text>
@@ -155,7 +228,7 @@ export default function OnboardingScreen() {
         ]}
       >
         <Text style={[styles.infoTitle, { color: theme.text }]}>
-          💡 Comment ça marche ?
+          Comment ça marche ?
         </Text>
         <Text style={[styles.infoText, { color: theme.subText }]}>
           • Créez votre entreprise et recevez un code unique{"\n"}• Partagez ce
@@ -165,6 +238,38 @@ export default function OnboardingScreen() {
         </Text>
       </View>
     </ScrollView>
+
+    {/* Modale phrase secrète */}
+    <Modal visible={showPhraseModal} transparent animationType="fade">
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalBox, { backgroundColor: theme.card }]}>
+          <Text style={[styles.modalTitle, { color: theme.text }]}>Accès restreint</Text>
+          <TextInput
+            style={[styles.modalInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.bg }]}
+            placeholder="Entrez la phrase secrète"
+            placeholderTextColor={theme.subText}
+            secureTextEntry
+            value={phraseInput}
+            onChangeText={setPhraseInput}
+            autoFocus
+          />
+          <View style={styles.modalButtons}>
+            <TouchableOpacity
+              style={[styles.modalBtn, { backgroundColor: theme.border }]}
+              onPress={() => { setShowPhraseModal(false); setPhraseInput(''); }}
+            >
+              <Text style={{ color: theme.text, fontWeight: '600' }}>Annuler</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalBtn, { backgroundColor: theme.primary }]}
+              onPress={handlePhraseSubmit}
+            >
+              <Text style={{ color: '#fff', fontWeight: '600' }}>Valider</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
     </SafeAreaView>
   );
 }
@@ -256,5 +361,39 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: 13,
     lineHeight: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 30,
+  },
+  modalBox: {
+    width: '100%',
+    borderRadius: 16,
+    padding: 24,
+    gap: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 14,
+    fontSize: 15,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalBtn: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 10,
+    alignItems: 'center',
   },
 });

@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cours React Native Expo – SenMoto | Partie 2</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#1a1a1a;line-height:1.7;font-size:15px}
+  @media print{body{font-size:12px}pre{white-space:pre-wrap}}
+  .cover{background:linear-gradient(135deg,#0a0a0a 0%,#1a2e1a 50%,#0a0a0a 100%);color:#fff;min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:40px;page-break-after:always}
+  .cover-logo{font-size:80px;margin-bottom:20px}
+  .cover h1{font-size:42px;font-weight:900;background:linear-gradient(90deg,#30D158,#0A84FF);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:10px}
+  .cover h2{font-size:22px;color:#aaa;font-weight:400;margin-bottom:40px}
+  .toc{padding:60px 80px;page-break-after:always;background:#f9f9f9}
+  .toc h2{font-size:28px;font-weight:800;margin-bottom:30px;color:#1a1a1a;border-bottom:3px solid #30D158;padding-bottom:12px}
+  .toc-chapter{font-size:18px;font-weight:700;color:#1a1a1a;margin-top:20px;margin-bottom:6px}
+  .toc-sub{margin-left:20px;color:#555;font-size:14px;list-style:none}
+  .toc-sub li{margin:3px 0}
+  .chapter{padding:60px 80px;page-break-before:always}
+  h1.ch-title{font-size:36px;font-weight:900;color:#30D158;margin-bottom:6px}
+  h1.ch-title .ch-num{font-size:14px;color:#888;display:block;font-weight:400;margin-bottom:4px}
+  .ch-intro{font-size:16px;color:#555;margin:16px 0 40px;padding:16px 20px;border-left:4px solid #30D158;background:#f0fdf4;border-radius:0 8px 8px 0}
+  h2.section{font-size:24px;font-weight:800;color:#1a1a1a;margin:40px 0 16px;padding-bottom:8px;border-bottom:2px solid #eee}
+  h3.subsection{font-size:18px;font-weight:700;color:#0A84FF;margin:28px 0 12px}
+  h4.point{font-size:15px;font-weight:700;color:#30D158;margin:20px 0 8px}
+  p{margin-bottom:14px;color:#333}
+  pre{background:#0f1117;color:#abb2bf;border-radius:10px;padding:20px 24px;overflow-x:auto;margin:16px 0 24px;border:1px solid #2a2a3a;font-size:13px;line-height:1.6}
+  code{font-family:'Cascadia Code','Fira Code','Consolas',monospace}
+  p code,li code{background:#f0f0f0;padding:2px 6px;border-radius:4px;font-size:13px;color:#c0392b;font-family:monospace}
+  .kw{color:#c678dd}.fn{color:#61afef}.str{color:#98c379}.num{color:#d19a66}.cmt{color:#5c6370;font-style:italic}.cls{color:#e5c07b}.prop{color:#e06c75}.op{color:#56b6c2}
+  .note,.warn,.tip,.danger{border-radius:10px;padding:16px 20px;margin:20px 0;border-left:5px solid}
+  .note{background:#e8f4fd;border-color:#0A84FF;color:#1a4a6b}
+  .warn{background:#fff8e6;border-color:#FF9F0A;color:#6b4a1a}
+  .tip{background:#e8fdf0;border-color:#30D158;color:#1a4a2b}
+  .danger{background:#fde8e8;border-color:#FF453A;color:#6b1a1a}
+  .note strong,.warn strong,.tip strong,.danger strong{display:block;margin-bottom:6px;font-size:14px}
+  table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:14px}
+  th{background:#30D158;color:#fff;padding:10px 14px;text-align:left;font-weight:600}
+  td{padding:10px 14px;border-bottom:1px solid #eee;color:#333}
+  tr:nth-child(even) td{background:#f9f9f9}
+  .diagram{text-align:center;padding:30px;background:#f5f5f5;border-radius:10px;margin:20px 0}
+  .box{display:inline-block;padding:10px 18px;border-radius:8px;margin:6px;font-weight:600;font-size:13px}
+  .box-blue{background:#dbeafe;color:#1d4ed8;border:2px solid #93c5fd}
+  .box-green{background:#dcfce7;color:#166534;border:2px solid #86efac}
+  .box-gray{background:#f3f4f6;color:#374151;border:2px solid #d1d5db}
+  .box-orange{background:#ffedd5;color:#9a3412;border:2px solid #fdba74}
+  .arrow{font-size:18px;color:#888;vertical-align:middle;margin:0 4px}
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="cover-logo">🗄️</div>
+  <h1>Partie 2 — Backend & Fonctionnalités avancées</h1>
+  <h2>Supabase · Authentification · Notifications · Caméra · PDF · Animations</h2>
+</div>
+
+<div class="toc">
+  <h2>📋 Table des Matières — Partie 2</h2>
+  <div class="toc-chapter">Chapitre 6 · Supabase — Base de données en temps réel</div>
+  <ul class="toc-sub">
+    <li>6.1 — Qu'est-ce que Supabase ?</li>
+    <li>6.2 — Initialiser le client</li>
+    <li>6.3 — Authentification (inscription, connexion, déconnexion)</li>
+    <li>6.4 — Lire des données (SELECT)</li>
+    <li>6.5 — Écrire des données (INSERT, UPDATE, DELETE)</li>
+    <li>6.6 — Fonctions RPC (appels SQL distants)</li>
+    <li>6.7 — Row Level Security (RLS)</li>
+  </ul>
+  <div class="toc-chapter">Chapitre 7 · Authentification multi-tenant (lib/multitenant.ts)</div>
+  <ul class="toc-sub">
+    <li>7.1 — Créer une entreprise</li>
+    <li>7.2 — Rejoindre une entreprise</li>
+    <li>7.3 — Gérer les utilisateurs (admin)</li>
+  </ul>
+  <div class="toc-chapter">Chapitre 8 · Notifications Push</div>
+  <ul class="toc-sub">
+    <li>8.1 — expo-notifications : local vs push</li>
+    <li>8.2 — Demander les permissions</li>
+    <li>8.3 — Programmer des rappels (J-3, J-2, Jour-J)</li>
+    <li>8.4 — Notifications en base de données</li>
+  </ul>
+  <div class="toc-chapter">Chapitre 9 · Caméra, Galerie et Fichiers</div>
+  <ul class="toc-sub">
+    <li>9.1 — Scanner QR code avec expo-camera</li>
+    <li>9.2 — Choisir depuis la galerie (expo-image-picker)</li>
+    <li>9.3 — Importer des documents (expo-document-picker)</li>
+    <li>9.4 — Système de fichiers (expo-file-system)</li>
+    <li>9.5 — Conversion image → base64</li>
+  </ul>
+  <div class="toc-chapter">Chapitre 10 · Génération et partage de PDF</div>
+  <ul class="toc-sub">
+    <li>10.1 — Générer du HTML pour PDF</li>
+    <li>10.2 — expo-print + expo-sharing</li>
+    <li>10.3 — Workaround Android</li>
+  </ul>
+  <div class="toc-chapter">Chapitre 11 · Géolocalisation et Carte</div>
+  <ul class="toc-sub">
+    <li>11.1 — expo-location : demander la permission GPS</li>
+    <li>11.2 — WebView + Leaflet : carte interactive</li>
+    <li>11.3 — Communication React Native ↔ WebView</li>
+  </ul>
+  <div class="toc-chapter">Chapitre 12 · Animations</div>
+  <ul class="toc-sub">
+    <li>12.1 — Animated API (menu hamburger)</li>
+    <li>12.2 — react-native-reanimated</li>
+  </ul>
+</div>
+
+<!-- ════════════════════════════════════════════
+     CHAPITRE 6 — SUPABASE
+════════════════════════════════════════════ -->
+<div class="chapter" id="ch6">
+  <h1 class="ch-title"><span class="ch-num">Chapitre 6</span>Supabase — Base de données</h1>
+  <p class="ch-intro">
+    Supabase est le backend de SenMoto. C'est un BaaS (Backend as a Service) open-source
+    qui fournit une base de données PostgreSQL, une API REST auto-générée, une authentification
+    et un système de fichiers — le tout hébergé dans le cloud.
+  </p>
+
+  <h2 class="section">6.1 — Architecture Supabase dans SenMoto</h2>
+
+  <div class="diagram">
+    <div class="box box-blue">App React Native<br><small>SenMoto</small></div>
+    <span class="arrow">↕ HTTPS</span>
+    <div class="box box-green">Supabase API<br><small>PostgREST</small></div>
+    <span class="arrow">↕ SQL</span>
+    <div class="box box-orange">PostgreSQL<br><small>Base de données</small></div>
+    <br><br>
+    <small style="color:#888">Supabase Auth gère aussi les sessions JWT automatiquement</small>
+  </div>
+
+  <h2 class="section">6.2 — Initialiser le client Supabase</h2>
+
+<pre><code><span class="cmt">// lib/supabase.js — Client Supabase singleton</span>
+<span class="kw">import</span> <span class="str">'react-native-url-polyfill/auto'</span>; <span class="cmt">// Polyfill URL pour RN</span>
+<span class="kw">import</span> { <span class="fn">createClient</span> } <span class="kw">from</span> <span class="str">'@supabase/supabase-js'</span>;
+<span class="kw">import</span> <span class="cls">Constants</span> <span class="kw">from</span> <span class="str">'expo-constants'</span>;
+
+<span class="kw">const</span> supabaseUrl = <span class="cls">Constants</span>.expoConfig.extra.supabaseUrl;
+<span class="kw">const</span> supabaseAnonKey = <span class="cls">Constants</span>.expoConfig.extra.supabaseAnonKey;
+
+<span class="cmt">// createClient : initialise la connexion</span>
+<span class="kw">export const</span> supabase = <span class="fn">createClient</span>(supabaseUrl, supabaseAnonKey);
+
+<span class="cmt">// Utilisation dans tout le projet :</span>
+<span class="cmt">// import { supabase } from '@/lib/supabase';</span>
+</code></pre>
+
+  <div class="note">
+    <strong>📌 Pourquoi react-native-url-polyfill ?</strong>
+    Le SDK Supabase utilise l'API <code>URL</code> du navigateur web qui n'existe pas dans React Native.
+    Ce polyfill l'ajoute. Il doit être importé <strong>en premier</strong> dans le fichier.
+  </div>
+
+  <h2 class="section">6.3 — Authentification</h2>
+
+  <h3 class="subsection">Inscription (sign up)</h3>
+
+<pre><code><span class="cmt">// Exemple : create-enterprise.tsx et join-enterprise.tsx</span>
+<span class="kw">const</span> { data, error } = <span class="kw">await</span> supabase.auth.<span class="fn">signUp</span>({
+  email: <span class="str">'user@exemple.com'</span>,
+  password: <span class="str">'motDePasse123'</span>,
+  options: {
+    data: {
+      <span class="cmt">// Données supplémentaires stockées dans auth.users.raw_user_meta_data</span>
+      full_name: <span class="str">'Jean Dupont'</span>,
+    }
+  }
+});
+
+<span class="kw">if</span> (error) {
+  <span class="cls">Alert</span>.<span class="fn">alert</span>(<span class="str">'Erreur'</span>, error.message);
+  <span class="kw">return</span>;
+}
+
+<span class="kw">const</span> userId = data.user?.id;  <span class="cmt">// UUID de l'utilisateur créé</span>
+</code></pre>
+
+  <h3 class="subsection">Connexion (sign in)</h3>
+
+<pre><code><span class="cmt">// auth/login.tsx</span>
+<span class="kw">const</span> { data, error } = <span class="kw">await</span> supabase.auth.<span class="fn">signInWithPassword</span>({
+  email: formEmail.<span class="fn">trim</span>().<span class="fn">toLowerCase</span>(),
+  password: formPassword,
+});
+
+<span class="kw">if</span> (error) {
+  <span class="cls">Alert</span>.<span class="fn">alert</span>(<span class="str">'Erreur de connexion'</span>, error.message);
+  <span class="kw">return</span>;
+}
+
+<span class="cmt">// Session automatiquement stockée par Supabase (AsyncStorage)</span>
+<span class="cmt">// TenantContext.tsx détecte l'événement SIGNED_IN et charge le tenant</span>
+</code></pre>
+
+  <h3 class="subsection">Déconnexion (sign out)</h3>
+
+<pre><code><span class="cmt">// HamburgerMenu.tsx → bouton déconnexion</span>
+<span class="kw">const</span> <span class="fn">handleLogout</span> = <span class="kw">async</span> () => {
+  <span class="kw">await</span> supabase.auth.<span class="fn">signOut</span>();
+  <span class="cmt">// TenantContext détecte SIGNED_OUT → efface tenant</span>
+  <span class="cmt">// RouteGuard redirige vers /onboarding</span>
+};
+
+<span class="cmt">// Récupérer la session actuelle</span>
+<span class="kw">const</span> { data: { session } } = <span class="kw">await</span> supabase.auth.<span class="fn">getSession</span>();
+<span class="kw">const</span> userId = session?.user?.id;
+</code></pre>
+
+  <h2 class="section">6.4 — Lire des données (SELECT)</h2>
+
+<pre><code><span class="cmt">// ━━━ SELECT simple ━━━</span>
+<span class="kw">const</span> { data: motos, error } = <span class="kw">await</span> supabase
+  .<span class="fn">from</span>(<span class="str">'motos'</span>)                          <span class="cmt">// Table</span>
+  .<span class="fn">select</span>(<span class="str">'*'</span>)                             <span class="cmt">// Toutes les colonnes</span>
+  .<span class="fn">eq</span>(<span class="str">'enterprise_id'</span>, enterpriseId)       <span class="cmt">// WHERE enterprise_id = ?</span>
+  .<span class="fn">eq</span>(<span class="str">'statut'</span>, <span class="str">'disponible'</span>)             <span class="cmt">// AND statut = 'disponible'</span>
+  .<span class="fn">order</span>(<span class="str">'created_at'</span>, { ascending: <span class="kw">false</span> }); <span class="cmt">// ORDER BY created_at DESC</span>
+
+<span class="cmt">// ━━━ SELECT avec colonnes spécifiques ━━━</span>
+<span class="kw">const</span> { data } = <span class="kw">await</span> supabase
+  .<span class="fn">from</span>(<span class="str">'motos'</span>)
+  .<span class="fn">select</span>(<span class="str">'id, marque, modele, prix_vente'</span>);
+
+<span class="cmt">// ━━━ SELECT avec jointure (relations) ━━━</span>
+<span class="cmt">// Récupérer les motos avec leurs images ET leur entreprise</span>
+<span class="kw">const</span> { data } = <span class="kw">await</span> supabase
+  .<span class="fn">from</span>(<span class="str">'motos'</span>)
+  .<span class="fn">select</span>(<span class="str">`
+    id, marque, modele, prix_vente, etat,
+    moto_images(image_uri, is_principal, position),
+    enterprises(name, logo_url, phone)
+  `</span>)
+  .<span class="fn">eq</span>(<span class="str">'statut'</span>, <span class="str">'disponible'</span>);
+
+<span class="cmt">// ━━━ Filtres divers ━━━</span>
+.<span class="fn">neq</span>(<span class="str">'statut'</span>, <span class="str">'vendue'</span>)          <span class="cmt">// ≠ vendue</span>
+.<span class="fn">ilike</span>(<span class="str">'marque'</span>, <span class="str">`%${search}%`</span>)  <span class="cmt">// LIKE insensible casse</span>
+.<span class="fn">in</span>(<span class="str">'statut'</span>, [<span class="str">'disponible'</span>, <span class="str">'en_service'</span>])  <span class="cmt">// IN (...)</span>
+.<span class="fn">not</span>(<span class="str">'logo_url'</span>, <span class="str">'is'</span>, <span class="kw">null</span>)    <span class="cmt">// IS NOT NULL</span>
+.<span class="fn">gte</span>(<span class="str">'prix_vente'</span>, <span class="num">100000</span>)       <span class="cmt">// >= 100000</span>
+.<span class="fn">lte</span>(<span class="str">'prix_vente'</span>, <span class="num">500000</span>)       <span class="cmt">// <= 500000</span>
+.<span class="fn">limit</span>(<span class="num">20</span>)                        <span class="cmt">// LIMIT 20</span>
+.<span class="fn">range</span>(<span class="num">0</span>, <span class="num">19</span>)                     <span class="cmt">// Pagination : enregistrements 0-19</span>
+
+<span class="cmt">// ━━━ Récupérer UN seul enregistrement ━━━</span>
+<span class="kw">const</span> { data: moto } = <span class="kw">await</span> supabase
+  .<span class="fn">from</span>(<span class="str">'motos'</span>)
+  .<span class="fn">select</span>(<span class="str">'*'</span>)
+  .<span class="fn">eq</span>(<span class="str">'id'</span>, motoId)
+  .<span class="fn">single</span>();  <span class="cmt">// Retourne l'objet directement (pas un tableau)</span>
+</code></pre>
+
+  <h2 class="section">6.5 — Écrire des données</h2>
+
+<pre><code><span class="cmt">// ━━━ INSERT : Créer un enregistrement ━━━</span>
+<span class="kw">const</span> { data: nouvelleMoto, error } = <span class="kw">await</span> supabase
+  .<span class="fn">from</span>(<span class="str">'motos'</span>)
+  .<span class="fn">insert</span>({
+    enterprise_id: tenant.enterprise_id,
+    marque: <span class="str">'Honda'</span>,
+    modele: <span class="str">'CB500'</span>,
+    prix_vente: <span class="num">850000</span>,
+    statut: <span class="str">'disponible'</span>,
+  })
+  .<span class="fn">select</span>()  <span class="cmt">// Récupérer l'enregistrement créé avec son ID généré</span>
+  .<span class="fn">single</span>();
+
+<span class="cmt">// ━━━ UPDATE : Modifier un enregistrement ━━━</span>
+<span class="kw">const</span> { error } = <span class="kw">await</span> supabase
+  .<span class="fn">from</span>(<span class="str">'motos'</span>)
+  .<span class="fn">update</span>({
+    statut: <span class="str">'vendue'</span>,
+    updated_at: <span class="kw">new</span> <span class="cls">Date</span>().<span class="fn">toISOString</span>(),
+  })
+  .<span class="fn">eq</span>(<span class="str">'id'</span>, motoId);
+
+<span class="cmt">// ━━━ UPSERT : Créer OU mettre à jour ━━━</span>
+<span class="cmt">// (si la clé primaire existe → UPDATE, sinon → INSERT)</span>
+<span class="kw">await</span> supabase
+  .<span class="fn">from</span>(<span class="str">'user_push_tokens'</span>)
+  .<span class="fn">upsert</span>({
+    user_id: userId,
+    expo_token: token,
+    updated_at: <span class="kw">new</span> <span class="cls">Date</span>().<span class="fn">toISOString</span>(),
+  }, {
+    onConflict: <span class="str">'user_id'</span>  <span class="cmt">// Colonne qui détecte le doublon</span>
+  });
+
+<span class="cmt">// ━━━ DELETE : Supprimer ━━━</span>
+<span class="kw">const</span> { error } = <span class="kw">await</span> supabase
+  .<span class="fn">from</span>(<span class="str">'moto_images'</span>)
+  .<span class="fn">delete</span>()
+  .<span class="fn">eq</span>(<span class="str">'moto_id'</span>, motoId);
+</code></pre>
+
+  <h2 class="section">6.6 — Fonctions RPC</h2>
+
+  <p>
+    Quand une opération est trop complexe pour PostgREST (ou requiert des privilèges spéciaux),
+    on crée une <strong>fonction SQL</strong> côté Supabase et on l'appelle depuis React Native.
+  </p>
+
+<pre><code><span class="cmt">// Côté Supabase (SQL) — Exemple : créer entreprise + admin en 1 transaction</span>
+<span class="str">CREATE OR REPLACE FUNCTION create_enterprise_with_admin(
+  p_name TEXT,
+  p_code TEXT,
+  p_phone TEXT,
+  p_email TEXT,
+  p_logo_url TEXT,
+  p_admin_user_id UUID,
+  p_admin_full_name TEXT,
+  p_admin_email TEXT,
+  p_admin_phone TEXT
+) RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER  -- Exécute avec les droits du créateur, pas de l'appelant
+AS $$
+DECLARE
+  v_enterprise_id UUID;
+BEGIN
+  -- Créer l'entreprise
+  INSERT INTO enterprises (name, code, phone, email, logo_url, created_by)
+  VALUES (p_name, p_code, p_phone, p_email, p_logo_url, p_admin_user_id)
+  RETURNING id INTO v_enterprise_id;
+
+  -- Créer l'admin
+  INSERT INTO enterprise_admins (enterprise_id, user_id, full_name, email, phone)
+  VALUES (v_enterprise_id, p_admin_user_id, p_admin_full_name, p_admin_email, p_admin_phone);
+
+  RETURN json_build_object('enterprise_id', v_enterprise_id, 'success', true);
+END;
+$$;</span>
+
+<span class="cmt">// Côté React Native — Appel RPC (lib/multitenant.ts)</span>
+<span class="kw">const</span> { data, error } = <span class="kw">await</span> supabase.<span class="fn">rpc</span>(<span class="str">'create_enterprise_with_admin'</span>, {
+  p_name: name,
+  p_code: code,
+  p_phone: phone ?? <span class="kw">null</span>,
+  p_email: email ?? <span class="kw">null</span>,
+  p_logo_url: logoUrl ?? <span class="kw">null</span>,
+  p_admin_user_id: adminUserId,
+  p_admin_full_name: adminFullName ?? <span class="kw">null</span>,
+  p_admin_email: adminEmail,
+  p_admin_phone: adminPhone ?? <span class="kw">null</span>,
+});
+
+<span class="kw">if</span> (error) <span class="kw">throw</span> error;
+<span class="kw">const</span> enterpriseId = data.enterprise_id;
+</code></pre>
+
+  <div class="note">
+    <strong>📌 SECURITY DEFINER — Contourner RLS</strong>
+    Normalement, un utilisateur ne peut pas créer d'entreprises pour lui-même (RLS bloque).
+    <code>SECURITY DEFINER</code> exécute la fonction avec les droits du créateur (super-admin SQL),
+    permettant de contourner RLS pour des opérations légitimes comme l'inscription.
+  </div>
+
+  <h2 class="section">6.7 — Row Level Security (RLS)</h2>
+
+  <p>
+    RLS est la couche de sécurité de Supabase. Chaque requête SQL est automatiquement
+    filtrée selon des règles définies pour chaque table. Même si un attaquant connaît l'API,
+    il ne voit que SES données.
+  </p>
+
+<pre><code><span class="cmt">-- Exemple : motos — chaque admin voit seulement les motos de son entreprise</span>
+<span class="str">CREATE POLICY "enterprise_members_see_their_motos"
+ON motos FOR SELECT
+USING (
+  -- L'utilisateur appartient à cette entreprise
+  enterprise_id IN (
+    SELECT enterprise_id FROM enterprise_users
+    WHERE user_id = auth.uid() AND is_active = true
+    UNION
+    SELECT enterprise_id FROM enterprise_admins
+    WHERE user_id = auth.uid() AND is_active = true
+  )
+  OR
+  -- Ou c'est le super-admin
+  EXISTS (SELECT 1 FROM super_admins WHERE user_id = auth.uid())
+);
+
+-- Feed public : toutes les motos disponibles (pour les clients)
+CREATE POLICY "public_feed_available_motos"
+ON motos FOR SELECT
+USING (
+  statut = 'disponible'
+  AND EXISTS (
+    SELECT 1 FROM enterprises e
+    WHERE e.id = enterprise_id AND e.is_active = true
+  )
+);</span>
+</code></pre>
+</div>
+
+<!-- ════════════════════════════════════════════
+     CHAPITRE 7 — MULTITENANT
+════════════════════════════════════════════ -->
+<div class="chapter" id="ch7">
+  <h1 class="ch-title"><span class="ch-num">Chapitre 7</span>Architecture Multi-Tenant</h1>
+  <p class="ch-intro">
+    SenMoto sert plusieurs entreprises indépendantes. Chaque entreprise (tenant) a ses propres
+    données, utilisateurs et paramètres, complètement isolés. Voyons comment <code>lib/multitenant.ts</code>
+    orchestre tout cela.
+  </p>
+
+  <h2 class="section">7.1 — Créer une entreprise</h2>
+
+<pre><code><span class="cmt">// lib/multitenant.ts — Fonction createEnterprise complète annotée</span>
+
+<span class="cmt">// Génère un code unique type ENT-A4K7P2</span>
+<span class="kw">function</span> <span class="fn">generateEnterpriseCode</span>(): <span class="kw">string</span> {
+  <span class="kw">const</span> chars = <span class="str">'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'</span>;
+  <span class="kw">let</span> code = <span class="str">'ENT-'</span>;
+  <span class="kw">for</span> (<span class="kw">let</span> i = <span class="num">0</span>; i &lt; <span class="num">6</span>; i++) {
+    code += chars[<span class="cls">Math</span>.<span class="fn">floor</span>(<span class="cls">Math</span>.<span class="fn">random</span>() * chars.length)];
+  }
+  <span class="kw">return</span> code;
+}
+
+<span class="kw">export async function</span> <span class="fn">createEnterprise</span>(params: {
+  name: <span class="kw">string</span>;
+  phone?: <span class="kw">string</span>;
+  email?: <span class="kw">string</span>;
+  logoUrl?: <span class="kw">string</span>;
+  adminFullName?: <span class="kw">string</span>;
+  adminEmail: <span class="kw">string</span>;
+  adminPhone?: <span class="kw">string</span>;
+  adminPassword: <span class="kw">string</span>;
+  latitude?: <span class="kw">number</span>;
+  longitude?: <span class="kw">number</span>;
+}) {
+  <span class="kw">try</span> {
+    <span class="cmt">// Étape 1 : Créer le compte auth de l'admin</span>
+    <span class="kw">const</span> { data: authData, error: authError } = <span class="kw">await</span> supabase.auth.<span class="fn">signUp</span>({
+      email: params.adminEmail,
+      password: params.adminPassword,
+    });
+
+    <span class="kw">if</span> (authError) <span class="kw">throw</span> authError;
+    <span class="kw">const</span> adminUserId = authData.user!.id;
+
+    <span class="cmt">// Étape 2 : Générer code unique (retry si doublon)</span>
+    <span class="kw">let</span> code = <span class="str">''</span>;
+    <span class="kw">let</span> codeUnique = <span class="kw">false</span>;
+    <span class="kw">while</span> (!codeUnique) {
+      code = <span class="fn">generateEnterpriseCode</span>();
+      <span class="kw">const</span> { data } = <span class="kw">await</span> supabase
+        .<span class="fn">from</span>(<span class="str">'enterprises'</span>)
+        .<span class="fn">select</span>(<span class="str">'id'</span>)
+        .<span class="fn">eq</span>(<span class="str">'code'</span>, code)
+        .<span class="fn">single</span>();
+      <span class="kw">if</span> (!data) codeUnique = <span class="kw">true</span>;
+    }
+
+    <span class="cmt">// Étape 3 : Créer entreprise + admin via RPC (transaction atomique)</span>
+    <span class="kw">const</span> { data: rpcData, error: rpcError } = <span class="kw">await</span> supabase.<span class="fn">rpc</span>(
+      <span class="str">'create_enterprise_with_admin'</span>,
+      {
+        p_name: params.name,
+        p_code: code,
+        p_phone: params.phone ?? <span class="kw">null</span>,
+        p_email: params.email ?? <span class="kw">null</span>,
+        p_logo_url: params.logoUrl ?? <span class="kw">null</span>,
+        p_admin_user_id: adminUserId,
+        p_admin_full_name: params.adminFullName ?? <span class="kw">null</span>,
+        p_admin_email: params.adminEmail,
+        p_admin_phone: params.adminPhone ?? <span class="kw">null</span>,
+      }
+    );
+    <span class="kw">if</span> (rpcError) <span class="kw">throw</span> rpcError;
+
+    <span class="cmt">// Étape 4 : Sauvegarder la localisation (si fournie)</span>
+    <span class="kw">if</span> (params.latitude &amp;&amp; params.longitude) {
+      <span class="kw">await</span> supabase.<span class="fn">from</span>(<span class="str">'entreprise_parametres'</span>).<span class="fn">upsert</span>({
+        entreprise_id: rpcData.enterprise_id,
+        localisation: <span class="str">`</span>${params.latitude}<span class="str">,</span>${params.longitude}<span class="str">`</span>,
+      });
+    }
+
+    <span class="kw">return</span> { success: <span class="kw">true</span>, code };
+
+  } <span class="kw">catch</span> (error: <span class="kw">any</span>) {
+    <span class="kw">return</span> { success: <span class="kw">false</span>, error: error.message };
+  }
+}
+</code></pre>
+
+  <h2 class="section">7.2 — Rejoindre une entreprise</h2>
+
+<pre><code><span class="kw">export async function</span> <span class="fn">joinEnterprise</span>(params: {
+  code: <span class="kw">string</span>;        <span class="cmt">// Code partagé par l'admin</span>
+  fullName: <span class="kw">string</span>;
+  email: <span class="kw">string</span>;
+  phone?: <span class="kw">string</span>;
+  password: <span class="kw">string</span>;
+}) {
+  <span class="cmt">// 1. Vérifier que l'entreprise existe et est active</span>
+  <span class="kw">const</span> { data: enterprise } = <span class="kw">await</span> supabase
+    .<span class="fn">from</span>(<span class="str">'enterprises'</span>)
+    .<span class="fn">select</span>(<span class="str">'id, is_active'</span>)
+    .<span class="fn">eq</span>(<span class="str">'code'</span>, params.code.<span class="fn">toUpperCase</span>())
+    .<span class="fn">single</span>();
+
+  <span class="kw">if</span> (!enterprise) <span class="kw">return</span> { success: <span class="kw">false</span>, error: <span class="str">'Code invalide'</span> };
+  <span class="kw">if</span> (!enterprise.is_active) <span class="kw">return</span> { success: <span class="kw">false</span>, error: <span class="str">'Entreprise inactive'</span> };
+
+  <span class="cmt">// 2. Créer le compte utilisateur</span>
+  <span class="kw">const</span> { data: authData, error: authError } = <span class="kw">await</span> supabase.auth.<span class="fn">signUp</span>({
+    email: params.email,
+    password: params.password,
+  });
+  <span class="kw">if</span> (authError) <span class="kw">return</span> { success: <span class="kw">false</span>, error: authError.message };
+
+  <span class="cmt">// 3. Ajouter à enterprise_users (is_active=false = attente admin)</span>
+  <span class="kw">await</span> supabase.<span class="fn">from</span>(<span class="str">'enterprise_users'</span>).<span class="fn">insert</span>({
+    enterprise_id: enterprise.id,
+    user_id: authData.user!.id,
+    role: <span class="str">'user'</span>,
+    is_active: <span class="kw">false</span>,   <span class="cmt">// Admin doit approuver</span>
+  });
+
+  <span class="kw">return</span> { success: <span class="kw">true</span> };
+}
+</code></pre>
+
+  <h2 class="section">7.3 — Gérer les utilisateurs (côté admin)</h2>
+
+<pre><code><span class="cmt">// Récupérer utilisateurs en attente (via RPC — RLS ne permet pas SELECT direct)</span>
+<span class="kw">export async function</span> <span class="fn">getPendingUsers</span>(enterpriseId: <span class="kw">string</span>) {
+  <span class="kw">const</span> { data, error } = <span class="kw">await</span> supabase.<span class="fn">rpc</span>(
+    <span class="str">'get_enterprise_pending_users'</span>,
+    { p_enterprise_id: enterpriseId }
+  );
+  <span class="kw">return</span> error ? [] : data;
+}
+
+<span class="cmt">// Approuver un utilisateur</span>
+<span class="kw">export async function</span> <span class="fn">activateUser</span>(userId: <span class="kw">string</span>, enterpriseId: <span class="kw">string</span>) {
+  <span class="kw">const</span> { error } = <span class="kw">await</span> supabase
+    .<span class="fn">from</span>(<span class="str">'enterprise_users'</span>)
+    .<span class="fn">update</span>({ is_active: <span class="kw">true</span> })
+    .<span class="fn">eq</span>(<span class="str">'user_id'</span>, userId)
+    .<span class="fn">eq</span>(<span class="str">'enterprise_id'</span>, enterpriseId);
+  <span class="kw">return</span> !error;
+}
+
+<span class="cmt">// Créer un user directement depuis l'admin (astuce session)</span>
+<span class="kw">export async function</span> <span class="fn">createUserInEnterprise</span>(params: {
+  fullName: <span class="kw">string</span>;
+  email: <span class="kw">string</span>;
+  phone?: <span class="kw">string</span>;
+  password: <span class="kw">string</span>;
+  enterpriseId: <span class="kw">string</span>;
+}) {
+  <span class="cmt">// Sauvegarder session admin AVANT signUp</span>
+  <span class="kw">const</span> { data: { session: adminSession } } = <span class="kw">await</span> supabase.auth.<span class="fn">getSession</span>();
+
+  <span class="cmt">// signUp() connecte automatiquement le nouvel utilisateur → perd session admin!</span>
+  <span class="kw">const</span> { data, error } = <span class="kw">await</span> supabase.auth.<span class="fn">signUp</span>({
+    email: params.email,
+    password: params.password,
+  });
+  <span class="kw">if</span> (error) <span class="kw">return</span> { success: <span class="kw">false</span>, error: error.message };
+
+  <span class="cmt">// Ajouter à l'entreprise (is_active=true car admin crée directement)</span>
+  <span class="kw">await</span> supabase.<span class="fn">from</span>(<span class="str">'enterprise_users'</span>).<span class="fn">insert</span>({
+    enterprise_id: params.enterpriseId,
+    user_id: data.user!.id,
+    role: <span class="str">'user'</span>,
+    is_active: <span class="kw">true</span>,
+  });
+
+  <span class="cmt">// Restaurer la session admin</span>
+  <span class="kw">if</span> (adminSession) {
+    <span class="kw">await</span> supabase.auth.<span class="fn">setSession</span>({
+      access_token: adminSession.access_token,
+      refresh_token: adminSession.refresh_token,
+    });
+  }
+
+  <span class="kw">return</span> { success: <span class="kw">true</span> };
+}
+</code></pre>
+
+  <div class="warn">
+    <strong>⚠️ Piège : signUp() change la session active</strong>
+    Quand l'admin crée un utilisateur via <code>signUp()</code>, Supabase connecte automatiquement
+    le nouvel utilisateur et déconnecte l'admin. La solution est de sauvegarder puis
+    restaurer la session admin après la création.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     CHAPITRE 8 — NOTIFICATIONS
+════════════════════════════════════════════ -->
+<div class="chapter" id="ch8">
+  <h1 class="ch-title"><span class="ch-num">Chapitre 8</span>Notifications Push</h1>
+  <p class="ch-intro">
+    SenMoto utilise des notifications push pour rappeler les rendez-vous aux utilisateurs.
+    Les rappels sont programmés 3 jours avant, 2 jours avant, et le jour même du rendez-vous.
+  </p>
+
+  <h2 class="section">8.1 — Types de notifications dans SenMoto</h2>
+
+  <table>
+    <tr><th>Type</th><th>Déclencheur</th><th>Moment</th></tr>
+    <tr><td><code>rdv_modification</code></td><td>Admin modifie un RDV</td><td>Immédiatement</td></tr>
+    <tr><td><code>rdv_rappel_j3</code></td><td>RDV créé/modifié</td><td>J-3 à 09:00</td></tr>
+    <tr><td><code>rdv_rappel_j2</code></td><td>RDV créé/modifié</td><td>J-2 à 09:00</td></tr>
+    <tr><td><code>rdv_rappel_j0</code></td><td>RDV créé/modifié</td><td>Jour-J à heure RDV - 1h</td></tr>
+  </table>
+
+  <h2 class="section">8.2 — Demander les permissions</h2>
+
+<pre><code><span class="cmt">// lib/notifications.ts</span>
+<span class="kw">import</span> * <span class="kw">as</span> <span class="cls">Notifications</span> <span class="kw">from</span> <span class="str">'expo-notifications'</span>;
+<span class="kw">import</span> { <span class="cls">Platform</span> } <span class="kw">from</span> <span class="str">'react-native'</span>;
+
+<span class="kw">export async function</span> <span class="fn">ensureNotificationPermissions</span>(): Promise&lt;<span class="kw">boolean</span>&gt; {
+  <span class="kw">const</span> { status: existing } = <span class="kw">await</span> <span class="cls">Notifications</span>.<span class="fn">getPermissionsAsync</span>();
+
+  <span class="kw">if</span> (existing === <span class="str">'granted'</span>) <span class="kw">return true</span>;
+
+  <span class="kw">const</span> { status } = <span class="kw">await</span> <span class="cls">Notifications</span>.<span class="fn">requestPermissionsAsync</span>({
+    ios: {
+      allowAlert: <span class="kw">true</span>,
+      allowBadge: <span class="kw">true</span>,
+      allowSound: <span class="kw">true</span>,
+    },
+  });
+
+  <span class="cmt">// Android 13+ : permission runtime nécessaire</span>
+  <span class="kw">if</span> (<span class="cls">Platform</span>.OS === <span class="str">'android'</span> &amp;&amp; <span class="cls">Platform</span>.Version >= <span class="num">33</span>) {
+    <span class="kw">const</span> { <span class="fn">requestPermissionsAsync</span> } =
+      <span class="kw">await</span> <span class="kw">import</span>(<span class="str">'expo-modules-core'</span>);
+    <span class="cmt">// expo-notifications gère cela automatiquement via requestPermissionsAsync()</span>
+  }
+
+  <span class="kw">return</span> status === <span class="str">'granted'</span>;
+}
+</code></pre>
+
+  <h2 class="section">8.3 — Programmer des rappels</h2>
+
+<pre><code><span class="cmt">// lib/notifications.ts — Programmer J-3, J-2, Jour-J</span>
+<span class="kw">export async function</span> <span class="fn">scheduleRdvReminders</span>(
+  userId: <span class="kw">string</span>,
+  rdv: <span class="cls">RendezVousLite</span>
+): Promise&lt;<span class="kw">void</span>&gt; {
+  <span class="kw">if</span> (!rdv.date_rdv) <span class="kw">return</span>;
+
+  <span class="cmt">// Annuler les anciens rappels pour ce RDV</span>
+  <span class="kw">await</span> <span class="fn">cancelRdvReminders</span>(rdv.id);
+
+  <span class="kw">const</span> granted = <span class="kw">await</span> <span class="fn">ensureNotificationPermissions</span>();
+  <span class="kw">if</span> (!granted) <span class="kw">return</span>;
+
+  <span class="kw">const</span> dateRdv = <span class="kw">new</span> <span class="cls">Date</span>(rdv.date_rdv);
+
+  <span class="cmt">// Définir J-3, J-2, Jour-J</span>
+  <span class="kw">const</span> rappels = [
+    { type: <span class="str">'rdv_rappel_j3'</span>, daysBefore: <span class="num">3</span>, heure: <span class="num">9</span>, minute: <span class="num">0</span> },
+    { type: <span class="str">'rdv_rappel_j2'</span>, daysBefore: <span class="num">2</span>, heure: <span class="num">9</span>, minute: <span class="num">0</span> },
+    { type: <span class="str">'rdv_rappel_j0'</span>, daysBefore: <span class="num">0</span>, heure: <span class="num">9</span>, minute: <span class="num">0</span> },
+  ];
+
+  <span class="cmt">// Pour Jour-J : utiliser heure du RDV - 1h</span>
+  <span class="kw">if</span> (rdv.heure_rdv) {
+    <span class="kw">const</span> [h, m] = rdv.heure_rdv.<span class="fn">split</span>(<span class="str">':'</span>).<span class="fn">map</span>(<span class="cls">Number</span>);
+    <span class="kw">let</span> notifHeure = h - <span class="num">1</span>;
+    <span class="kw">let</span> notifMinute = m;
+    <span class="kw">if</span> (notifHeure &lt; <span class="num">0</span>) { notifHeure = <span class="num">9</span>; notifMinute = <span class="num">0</span>; }
+    rappels[<span class="num">2</span>].heure = notifHeure;
+    rappels[<span class="num">2</span>].minute = notifMinute;
+  }
+
+  <span class="kw">for</span> (<span class="kw">const</span> rappel <span class="kw">of</span> rappels) {
+    <span class="kw">const</span> scheduledDate = <span class="kw">new</span> <span class="cls">Date</span>(dateRdv);
+    scheduledDate.<span class="fn">setDate</span>(scheduledDate.<span class="fn">getDate</span>() - rappel.daysBefore);
+    scheduledDate.<span class="fn">setHours</span>(rappel.heure, rappel.minute, <span class="num">0</span>, <span class="num">0</span>);
+
+    <span class="cmt">// Ne programmer que si la date est dans le futur</span>
+    <span class="kw">if</span> (scheduledDate &lt;= <span class="kw">new</span> <span class="cls">Date</span>()) <span class="kw">continue</span>;
+
+    <span class="cmt">// Programmer la notification locale</span>
+    <span class="kw">const</span> pushId = <span class="kw">await</span> <span class="cls">Notifications</span>.<span class="fn">scheduleNotificationAsync</span>({
+      content: {
+        title: <span class="str">'📅 Rappel de rendez-vous'</span>,
+        body: <span class="str">`RDV avec </span>${rdv.nom_prenom}<span class="str"> le </span>${rdv.date_rdv}<span class="str">`</span>,
+        data: { rendezvous_id: rdv.id },
+      },
+      trigger: {
+        type: <span class="cls">Notifications</span>.<span class="cls">SchedulableTriggerInputTypes</span>.<span class="cls">DATE</span>,
+        date: scheduledDate,
+      },
+    });
+
+    <span class="cmt">// Enregistrer en base pour historique et annulation future</span>
+    <span class="kw">await</span> supabase.<span class="fn">from</span>(<span class="str">'notifications'</span>).<span class="fn">insert</span>({
+      user_id: userId,
+      type: rappel.type,
+      titre: <span class="str">'Rappel de rendez-vous'</span>,
+      message: <span class="str">`RDV avec </span>${rdv.nom_prenom}<span class="str">`</span>,
+      rendezvous_id: rdv.id,
+      statut: <span class="str">'pending'</span>,
+      scheduled_at: scheduledDate.<span class="fn">toISOString</span>(),
+      push_id: pushId,  <span class="cmt">// Stocker l'ID pour pouvoir annuler</span>
+      lu: <span class="kw">false</span>,
+    });
+  }
+}
+
+<span class="cmt">// Annuler tous les rappels d'un RDV</span>
+<span class="kw">export async function</span> <span class="fn">cancelRdvReminders</span>(rendezvousId: <span class="kw">string</span>) {
+  <span class="cmt">// Récupérer les IDs des notifications programmées</span>
+  <span class="kw">const</span> { data: notifs } = <span class="kw">await</span> supabase
+    .<span class="fn">from</span>(<span class="str">'notifications'</span>)
+    .<span class="fn">select</span>(<span class="str">'push_id'</span>)
+    .<span class="fn">eq</span>(<span class="str">'rendezvous_id'</span>, rendezvousId)
+    .<span class="fn">not</span>(<span class="str">'push_id'</span>, <span class="str">'is'</span>, <span class="kw">null</span>);
+
+  <span class="cmt">// Annuler chaque notification locale</span>
+  <span class="kw">if</span> (notifs) {
+    <span class="kw">for</span> (<span class="kw">const</span> n <span class="kw">of</span> notifs) {
+      <span class="kw">await</span> <span class="cls">Notifications</span>.<span class="fn">cancelScheduledNotificationAsync</span>(n.push_id);
+    }
+  }
+
+  <span class="cmt">// Marquer comme annulées en base</span>
+  <span class="kw">await</span> supabase
+    .<span class="fn">from</span>(<span class="str">'notifications'</span>)
+    .<span class="fn">update</span>({ statut: <span class="str">'cancelled'</span> })
+    .<span class="fn">eq</span>(<span class="str">'rendezvous_id'</span>, rendezvousId);
+}
+</code></pre>
+
+  <h2 class="section">8.4 — Hook : usePushNotifications</h2>
+
+<pre><code><span class="cmt">// lib/usePushNotifications.ts — À utiliser dans RootLayout</span>
+<span class="kw">export function</span> <span class="fn">usePushNotifications</span>() {
+  <span class="fn">useEffect</span>(() => {
+    <span class="kw">let</span> cleanup: (() => <span class="kw">void</span>) | <span class="kw">undefined</span>;
+
+    <span class="kw">const</span> <span class="fn">init</span> = <span class="kw">async</span> () => {
+      <span class="cmt">// Configurer comment afficher les notifs quand l'app est au premier plan</span>
+      <span class="cls">Notifications</span>.<span class="fn">setNotificationHandler</span>({
+        <span class="fn">handleNotification</span>: <span class="kw">async</span> () => ({
+          shouldShowAlert: <span class="kw">true</span>,
+          shouldPlaySound: <span class="kw">true</span>,
+          shouldSetBadge: <span class="kw">true</span>,
+        }),
+      });
+
+      <span class="cmt">// Listener : quand l'utilisateur TAPE sur une notification</span>
+      <span class="kw">const</span> sub = <span class="cls">Notifications</span>.<span class="fn">addNotificationResponseReceivedListener</span>(
+        (response) => {
+          <span class="kw">const</span> data = response.notification.request.content.data;
+          <span class="kw">if</span> (data?.rendezvous_id) {
+            <span class="cmt">// Naviguer vers le RDV concerné</span>
+            router.<span class="fn">push</span>(<span class="str">'/rendezvous'</span>);
+          }
+        }
+      );
+
+      cleanup = () => <span class="cls">Notifications</span>.<span class="fn">removeNotificationSubscription</span>(sub);
+    };
+
+    <span class="fn">init</span>();
+    <span class="kw">return</span> () => cleanup?.();
+  }, []);
+}
+
+<span class="cmt">// Dans app/_layout.tsx :</span>
+<span class="kw">export default function</span> <span class="fn">RootLayout</span>() {
+  <span class="fn">usePushNotifications</span>();  <span class="cmt">// Active les notifications globalement</span>
+  <span class="kw">return</span> &lt;<span class="cls">Stack</span> /&gt;;
+}
+</code></pre>
+
+  <div class="tip">
+    <strong>✅ Différence Expo Go vs Build de production</strong>
+    Les notifications locales fonctionnent dans Expo Go. Les notifications push (FCM/APNs)
+    nécessitent un <strong>Development Build</strong> ou un build de production.
+    C'est pourquoi le projet charge Firebase dynamiquement avec <code>await import()</code>
+    pour éviter les crashs dans Expo Go.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     CHAPITRE 9 — CAMÉRA ET FICHIERS
+════════════════════════════════════════════ -->
+<div class="chapter" id="ch9">
+  <h1 class="ch-title"><span class="ch-num">Chapitre 9</span>Caméra, Galerie et Fichiers</h1>
+  <p class="ch-intro">
+    SenMoto utilise la caméra pour scanner les QR codes des motos, la galerie pour les photos,
+    et un sélecteur de documents pour importer des fichiers. Ces fonctionnalités utilisent
+    plusieurs bibliothèques Expo.
+  </p>
+
+  <h2 class="section">9.1 — Scanner QR code (expo-camera)</h2>
+
+<pre><code><span class="cmt">// app/vente.tsx — Scanner QR code pour identifier une moto</span>
+<span class="kw">import</span> { <span class="cls">CameraView</span>, <span class="fn">useCameraPermissions</span> } <span class="kw">from</span> <span class="str">'expo-camera'</span>;
+
+<span class="kw">function</span> <span class="fn">ScannerMoto</span>() {
+  <span class="kw">const</span> [permission, requestPermission] = <span class="fn">useCameraPermissions</span>();
+  <span class="kw">const</span> [scanned, setScanned] = <span class="fn">useState</span>(<span class="kw">false</span>);
+
+  <span class="kw">if</span> (!permission?.granted) {
+    <span class="kw">return</span> (
+      &lt;<span class="cls">View</span>&gt;
+        &lt;<span class="cls">Text</span>&gt;Permission caméra requise&lt;/<span class="cls">Text</span>&gt;
+        &lt;<span class="cls">TouchableOpacity</span> onPress={requestPermission}&gt;
+          &lt;<span class="cls">Text</span>&gt;Autoriser&lt;/<span class="cls">Text</span>&gt;
+        &lt;/<span class="cls">TouchableOpacity</span>&gt;
+      &lt;/<span class="cls">View</span>&gt;
+    );
+  }
+
+  <span class="kw">const</span> <span class="fn">handleBarCodeScanned</span> = ({ data }: { data: <span class="kw">string</span> }) => {
+    <span class="kw">if</span> (scanned) <span class="kw">return</span>;
+    <span class="fn">setScanned</span>(<span class="kw">true</span>);
+
+    <span class="cmt">// Le QR contient l'ID de la moto</span>
+    <span class="cmt">// Format attendu : "moto:UUID" ou directement l'UUID</span>
+    <span class="kw">const</span> motoId = data.<span class="fn">replace</span>(<span class="str">'moto:'</span>, <span class="str">''</span>);
+    <span class="fn">loadMoto</span>(motoId);
+  };
+
+  <span class="kw">return</span> (
+    &lt;<span class="cls">CameraView</span>
+      style={{ flex: <span class="num">1</span> }}
+      facing=<span class="str">"back"</span>
+      barcodeScannerSettings={{
+        barcodeTypes: [<span class="str">'qr'</span>],  <span class="cmt">// QR codes seulement</span>
+      }}
+      onBarcodeScanned={handleBarCodeScanned}
+    /&gt;
+  );
+}
+</code></pre>
+
+  <div class="note">
+    <strong>📌 Génération du QR Code (admin/stock.tsx)</strong>
+<pre><code><span class="kw">import</span> <span class="cls">QRCode</span> <span class="kw">from</span> <span class="str">'react-native-qrcode-svg'</span>;
+
+<span class="cmt">// Chaque moto a son QR code</span>
+&lt;<span class="cls">QRCode</span>
+  value={<span class="str">`moto:</span>${moto.id}<span class="str">`</span>}
+  size={<span class="num">150</span>}
+  color=<span class="str">"#000"</span>
+  backgroundColor=<span class="str">"#fff"</span>
+/&gt;
+</code></pre>
+  </div>
+
+  <h2 class="section">9.2 — Galerie (expo-image-picker)</h2>
+
+<pre><code><span class="cmt">// app/moto.tsx — Ajouter des photos à une moto</span>
+<span class="kw">import</span> * <span class="kw">as</span> <span class="cls">ImagePicker</span> <span class="kw">from</span> <span class="str">'expo-image-picker'</span>;
+
+<span class="kw">const</span> <span class="fn">pickImages</span> = <span class="kw">async</span> () => {
+  <span class="cmt">// Demander permission galerie</span>
+  <span class="kw">const</span> { status } = <span class="kw">await</span> <span class="cls">ImagePicker</span>.<span class="fn">requestMediaLibraryPermissionsAsync</span>();
+  <span class="kw">if</span> (status !== <span class="str">'granted'</span>) {
+    <span class="cls">Alert</span>.<span class="fn">alert</span>(<span class="str">'Permission refusée'</span>);
+    <span class="kw">return</span>;
+  }
+
+  <span class="kw">const</span> result = <span class="kw">await</span> <span class="cls">ImagePicker</span>.<span class="fn">launchImageLibraryAsync</span>({
+    mediaTypes: <span class="cls">ImagePicker</span>.<span class="cls">MediaTypeOptions</span>.<span class="cls">Images</span>,
+    allowsMultipleSelection: <span class="kw">true</span>,  <span class="cmt">// Sélection multiple</span>
+    allowsEditing: <span class="kw">false</span>,
+    quality: <span class="num">0.8</span>,                    <span class="cmt">// 80% qualité (compression)</span>
+    base64: <span class="kw">true</span>,                    <span class="cmt">// Retourner aussi le base64</span>
+  });
+
+  <span class="kw">if</span> (!result.canceled) {
+    <span class="kw">for</span> (<span class="kw">const</span> asset <span class="kw">of</span> result.assets) {
+      <span class="cmt">// asset.uri : chemin local (file://...)</span>
+      <span class="cmt">// asset.base64 : données base64 (si base64: true)</span>
+      <span class="cmt">// asset.width, asset.height : dimensions</span>
+
+      <span class="kw">const</span> imageData = <span class="str">`data:image/jpeg;base64,</span>${asset.base64}<span class="str">`</span>;
+      <span class="fn">addImage</span>(imageData);
+    }
+  }
+};
+
+<span class="cmt">// Prendre une photo avec la caméra</span>
+<span class="kw">const</span> <span class="fn">takePhoto</span> = <span class="kw">async</span> () => {
+  <span class="kw">const</span> { status } = <span class="kw">await</span> <span class="cls">ImagePicker</span>.<span class="fn">requestCameraPermissionsAsync</span>();
+  <span class="kw">if</span> (status !== <span class="str">'granted'</span>) <span class="kw">return</span>;
+
+  <span class="kw">const</span> result = <span class="kw">await</span> <span class="cls">ImagePicker</span>.<span class="fn">launchCameraAsync</span>({
+    mediaTypes: <span class="cls">ImagePicker</span>.<span class="cls">MediaTypeOptions</span>.<span class="cls">Images</span>,
+    allowsEditing: <span class="kw">true</span>,   <span class="cmt">// Recadrer après capture</span>
+    aspect: [<span class="num">4</span>, <span class="num">3</span>],         <span class="cmt">// Ratio 4:3</span>
+    quality: <span class="num">0.8</span>,
+    base64: <span class="kw">true</span>,
+  });
+
+  <span class="kw">if</span> (!result.canceled &amp;&amp; result.assets[<span class="num">0</span>]) {
+    <span class="kw">const</span> imageData = <span class="str">`data:image/jpeg;base64,</span>${result.assets[<span class="num">0</span>].base64}<span class="str">`</span>;
+    <span class="fn">addImage</span>(imageData);
+  }
+};
+</code></pre>
+
+  <h2 class="section">9.3 — Importer des documents (expo-document-picker)</h2>
+
+<pre><code><span class="cmt">// app/home.tsx — Importer n'importe quel fichier</span>
+<span class="kw">import</span> * <span class="kw">as</span> <span class="cls">DocumentPicker</span> <span class="kw">from</span> <span class="str">'expo-document-picker'</span>;
+
+<span class="kw">const</span> <span class="fn">pickDocument</span> = <span class="kw">async</span> () => {
+  <span class="kw">const</span> result = <span class="kw">await</span> <span class="cls">DocumentPicker</span>.<span class="fn">getDocumentAsync</span>({
+    type: <span class="str">'*/*'</span>,              <span class="cmt">// Tous les types de fichiers</span>
+    copyToCacheDirectory: <span class="kw">true</span>,  <span class="cmt">// Copier dans le cache app</span>
+    multiple: <span class="kw">false</span>,
+  });
+
+  <span class="kw">if</span> (!result.canceled &amp;&amp; result.assets[<span class="num">0</span>]) {
+    <span class="kw">const</span> file = result.assets[<span class="num">0</span>];
+    <span class="cmt">// file.uri : chemin fichier (content:// sur Android)</span>
+    <span class="cmt">// file.name : nom du fichier</span>
+    <span class="cmt">// file.size : taille en bytes</span>
+    <span class="cmt">// file.mimeType : type MIME (ex: 'application/pdf')</span>
+
+    <span class="kw">await</span> <span class="fn">uploadDocument</span>(file.uri, file.name, file.mimeType);
+  }
+};
+</code></pre>
+
+  <h2 class="section">9.4 — Système de fichiers (expo-file-system)</h2>
+
+<pre><code><span class="cmt">// lib/sharePdf.ts — Lire, écrire, partager des fichiers</span>
+<span class="kw">import</span> * <span class="kw">as</span> <span class="cls">FileSystem</span> <span class="kw">from</span> <span class="str">'expo-file-system'</span>;
+
+<span class="cmt">// Chemin du cache de l'application</span>
+<span class="kw">const</span> cacheDir = <span class="cls">FileSystem</span>.cacheDirectory;
+<span class="cmt">// Android: file:///data/data/com.anonymous.senmoto/cache/</span>
+<span class="cmt">// iOS: file:///var/mobile/.../Library/Caches/</span>
+
+<span class="cmt">// Écrire un fichier</span>
+<span class="kw">await</span> <span class="cls">FileSystem</span>.<span class="fn">writeAsStringAsync</span>(
+  <span class="str">`</span>${cacheDir}<span class="str">recu-2025.pdf`</span>,
+  base64Content,
+  { encoding: <span class="cls">FileSystem</span>.<span class="cls">EncodingType</span>.<span class="cls">Base64</span> }
+);
+
+<span class="cmt">// Lire un fichier</span>
+<span class="kw">const</span> content = <span class="kw">await</span> <span class="cls">FileSystem</span>.<span class="fn">readAsStringAsync</span>(filePath, {
+  encoding: <span class="cls">FileSystem</span>.<span class="cls">EncodingType</span>.<span class="cls">Base64</span>,
+});
+
+<span class="cmt">// Vérifier si un fichier existe</span>
+<span class="kw">const</span> info = <span class="kw">await</span> <span class="cls">FileSystem</span>.<span class="fn">getInfoAsync</span>(filePath);
+<span class="kw">if</span> (info.exists) { <span class="cmt">/* ... */</span> }
+
+<span class="cmt">// Supprimer un fichier</span>
+<span class="kw">await</span> <span class="cls">FileSystem</span>.<span class="fn">deleteAsync</span>(filePath, { idempotent: <span class="kw">true</span> });
+</code></pre>
+
+  <h2 class="section">9.5 — Images base64 : format et taille</h2>
+
+<pre><code><span class="cmt">// Le projet stocke les images en base64 dans Supabase</span>
+<span class="cmt">// Format : data:image/jpeg;base64,/9j/4AAQSkZJRgAB...</span>
+
+<span class="cmt">// lib/storageUtils.ts — Calculer la taille d'une image base64</span>
+<span class="kw">function</span> <span class="fn">estimateBase64Size</span>(base64String: <span class="kw">string</span>): <span class="kw">number</span> {
+  <span class="kw">if</span> (!base64String) <span class="kw">return</span> <span class="num">0</span>;
+  <span class="cmt">// Supprimer le préfixe data:image/...;base64,</span>
+  <span class="kw">const</span> raw = base64String.<span class="fn">split</span>(<span class="str">','</span>)[<span class="num">1</span>] ?? base64String;
+  <span class="cmt">// base64 encode 3 bytes en 4 chars → taille réelle ≈ len * 3/4</span>
+  <span class="kw">return</span> <span class="cls">Math</span>.<span class="fn">round</span>(raw.length * <span class="num">3</span> / <span class="num">4</span>);
+}
+
+<span class="cmt">// Calculer la taille totale de toutes les images d'une entreprise</span>
+<span class="kw">export async function</span> <span class="fn">calculateTotalStorage</span>(
+  userId: <span class="kw">string</span>
+): Promise&lt;<span class="cls">StorageStats</span>&gt; {
+  <span class="cmt">// Récupérer images des motos</span>
+  <span class="kw">const</span> { data: motoImages } = <span class="kw">await</span> supabase
+    .<span class="fn">from</span>(<span class="str">'moto_images'</span>)
+    .<span class="fn">select</span>(<span class="str">'image_uri'</span>)
+    .<span class="fn">eq</span>(<span class="str">'enterprise_id'</span>, enterpriseId);
+
+  <span class="kw">const</span> motosSize = motoImages?.reduce(
+    (sum, img) => sum + <span class="fn">estimateBase64Size</span>(img.image_uri), <span class="num">0</span>
+  ) ?? <span class="num">0</span>;
+
+  <span class="kw">return</span> { total: motosSize, motos: motosSize, <span class="cmt">/* ... autres */</span> };
+}
+</code></pre>
+</div>
+
+<!-- ════════════════════════════════════════════
+     CHAPITRE 10 — PDF
+════════════════════════════════════════════ -->
+<div class="chapter" id="ch10">
+  <h1 class="ch-title"><span class="ch-num">Chapitre 10</span>Génération et partage de PDF</h1>
+  <p class="ch-intro">
+    SenMoto génère des reçus, décharges et registres en PDF. Le processus consiste à
+    construire du HTML, le convertir en PDF via <code>expo-print</code>, puis le partager
+    via <code>expo-sharing</code>.
+  </p>
+
+  <h2 class="section">10.1 — Le flux de génération PDF</h2>
+
+  <div class="diagram">
+    <div class="box box-blue">Données JS<br><small>(moto, vente, client)</small></div>
+    <span class="arrow">→</span>
+    <div class="box box-gray">Template HTML<br><small>(string avec CSS)</small></div>
+    <span class="arrow">→</span>
+    <div class="box box-green">expo-print<br><small>→ PDF binaire</small></div>
+    <span class="arrow">→</span>
+    <div class="box box-orange">expo-sharing<br><small>Partage natif</small></div>
+  </div>
+
+  <h2 class="section">10.2 — lib/sharePdf.ts</h2>
+
+<pre><code><span class="cmt">// lib/sharePdf.ts — Génération et partage PDF</span>
+<span class="kw">import</span> * <span class="kw">as</span> <span class="cls">Print</span> <span class="kw">from</span> <span class="str">'expo-print'</span>;
+<span class="kw">import</span> * <span class="kw">as</span> <span class="cls">Sharing</span> <span class="kw">from</span> <span class="str">'expo-sharing'</span>;
+<span class="kw">import</span> * <span class="kw">as</span> <span class="cls">FileSystem</span> <span class="kw">from</span> <span class="str">'expo-file-system'</span>;
+<span class="kw">import</span> { <span class="cls">Platform</span> } <span class="kw">from</span> <span class="str">'react-native'</span>;
+
+<span class="kw">export async function</span> <span class="fn">printAndSharePdf</span>(
+  html: <span class="kw">string</span>,
+  dialogTitle: <span class="kw">string</span>
+): Promise&lt;<span class="kw">void</span>&gt; {
+  <span class="kw">try</span> {
+    <span class="kw">if</span> (<span class="cls">Platform</span>.OS === <span class="str">'ios'</span>) {
+      <span class="cmt">// iOS : expo-print peut écrire directement dans le cache</span>
+      <span class="kw">const</span> { uri } = <span class="kw">await</span> <span class="cls">Print</span>.<span class="fn">printToFileAsync</span>({ html });
+      <span class="kw">await</span> <span class="cls">Sharing</span>.<span class="fn">shareAsync</span>(uri, {
+        mimeType: <span class="str">'application/pdf'</span>,
+        dialogTitle,
+        UTI: <span class="str">'com.adobe.pdf'</span>,
+      });
+
+    } <span class="kw">else</span> {
+      <span class="cmt">// Android : expo-print écrit dans un chemin inaccessible</span>
+      <span class="cmt">// Solution : récupérer le base64 et écrire manuellement</span>
+      <span class="kw">const</span> { base64 } = <span class="kw">await</span> <span class="cls">Print</span>.<span class="fn">printToFileAsync</span>({
+        html,
+        base64: <span class="kw">true</span>,  <span class="cmt">// Retourner base64 au lieu d'écrire</span>
+      });
+
+      <span class="kw">if</span> (!base64) <span class="kw">throw new</span> <span class="cls">Error</span>(<span class="str">'Pas de base64'</span>);
+
+      <span class="cmt">// Écrire dans le cache de l'application</span>
+      <span class="kw">const</span> fileName = <span class="str">`</span>${dialogTitle.<span class="fn">replace</span>(<span class="str">/\s+/g</span>, <span class="str">'-'</span>)}<span class="str">-</span>${<span class="cls">Date</span>.<span class="fn">now</span>()}<span class="str">.pdf`</span>;
+      <span class="kw">const</span> filePath = <span class="str">`</span>${<span class="cls">FileSystem</span>.cacheDirectory}<span class="str">`</span> + fileName;
+
+      <span class="kw">await</span> <span class="cls">FileSystem</span>.<span class="fn">writeAsStringAsync</span>(filePath, base64, {
+        encoding: <span class="cls">FileSystem</span>.<span class="cls">EncodingType</span>.<span class="cls">Base64</span>,
+      });
+
+      <span class="kw">await</span> <span class="cls">Sharing</span>.<span class="fn">shareAsync</span>(filePath, {
+        mimeType: <span class="str">'application/pdf'</span>,
+        dialogTitle,
+      });
+    }
+  } <span class="kw">catch</span> (error) {
+    console.<span class="fn">error</span>(<span class="str">'Erreur génération PDF:'</span>, error);
+    <span class="cls">Alert</span>.<span class="fn">alert</span>(<span class="str">'Erreur'</span>, <span class="str">'Impossible de générer le PDF'</span>);
+  }
+}
+</code></pre>
+
+  <h2 class="section">10.3 — Construire le HTML d'un reçu</h2>
+
+<pre><code><span class="cmt">// app/recu.tsx — Exemple de template HTML pour reçu</span>
+<span class="kw">function</span> <span class="fn">buildRecuHtml</span>(vente: <span class="cls">Vente</span>, moto: <span class="cls">Moto</span>): <span class="kw">string</span> {
+  <span class="kw">const</span> montantEnLettres = <span class="fn">nombreEnLettres</span>(vente.montant_paye);
+
+  <span class="kw">return</span> <span class="str">`
+    &lt;!DOCTYPE html&gt;
+    &lt;html lang="fr"&gt;
+    &lt;head&gt;
+      &lt;meta charset="UTF-8"&gt;
+      &lt;style&gt;
+        body { font-family: Arial; padding: 30px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .logo { width: 80px; height: 80px; }
+        h1 { font-size: 24px; color: #0A84FF; }
+        .info { display: flex; justify-content: space-between; }
+        .montant { font-size: 28px; font-weight: bold; color: #30D158; }
+        .signature { border-top: 1px solid #ccc; margin-top: 40px; padding-top: 20px; }
+        .sig-img { max-width: 200px; }
+      &lt;/style&gt;
+    &lt;/head&gt;
+    &lt;body&gt;
+      &lt;div class="header"&gt;
+        &lt;h1&gt;REÇU DE PAIEMENT&lt;/h1&gt;
+        &lt;p&gt;N° </span>${vente.numero}<span class="str"> | Date: </span>${vente.date_vente}<span class="str">&lt;/p&gt;
+      &lt;/div&gt;
+
+      &lt;div class="info"&gt;
+        &lt;div&gt;
+          &lt;strong&gt;Moto vendue :&lt;/strong&gt;
+          &lt;p&gt;</span>${moto.marque}<span class="str"> </span>${moto.modele}<span class="str">&lt;/p&gt;
+          &lt;p&gt;Châssis : </span>${moto.numero_chassis}<span class="str">&lt;/p&gt;
+        &lt;/div&gt;
+        &lt;div&gt;
+          &lt;strong&gt;Client :&lt;/strong&gt;
+          &lt;p&gt;</span>${vente.client_nom}<span class="str">&lt;/p&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+
+      &lt;div class="montant"&gt;
+        Montant : </span>${vente.montant_paye.toLocaleString()}<span class="str"> FCFA
+      &lt;/div&gt;
+      &lt;p&gt;&lt;em&gt;</span>${montantEnLettres}<span class="str">&lt;/em&gt;&lt;/p&gt;
+
+      &lt;div class="signature"&gt;
+        &lt;img class="sig-img" src="</span>${vente.signature_vendeur}<span class="str">" /&gt;
+        &lt;p&gt;Signature du vendeur&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/body&gt;
+    &lt;/html&gt;
+  `</span>;
+}
+
+<span class="cmt">// Utilisation</span>
+<span class="kw">const</span> html = <span class="fn">buildRecuHtml</span>(vente, moto);
+<span class="kw">await</span> <span class="fn">printAndSharePdf</span>(html, <span class="str">`Reçu-</span>${vente.numero}<span class="str">`</span>);
+</code></pre>
+
+  <div class="note">
+    <strong>📌 nombreEnLettres() — lib/nombreEnLettres.ts</strong>
+<pre><code><span class="kw">import</span> { <span class="fn">nombreEnLettres</span> } <span class="kw">from</span> <span class="str">'@/lib/nombreEnLettres'</span>;
+
+<span class="fn">nombreEnLettres</span>(<span class="num">42500</span>);
+<span class="cmt">// → "Quarante-deux mille cinq cents FCFA"</span>
+
+<span class="fn">nombreEnLettres</span>(<span class="num">1000000</span>);
+<span class="cmt">// → "Un million FCFA"</span></code></pre>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     CHAPITRE 11 — GÉOLOCALISATION ET CARTE
+════════════════════════════════════════════ -->
+<div class="chapter" id="ch11">
+  <h1 class="ch-title"><span class="ch-num">Chapitre 11</span>Géolocalisation et Carte</h1>
+  <p class="ch-intro">
+    Le <code>MapPickerModal</code> permet de choisir la localisation d'une boutique sur une carte.
+    Il combine <code>expo-location</code> pour le GPS natif et une carte Leaflet dans une WebView.
+    C'est un excellent exemple d'intégration React Native ↔ Web.
+  </p>
+
+  <h2 class="section">11.1 — expo-location : position GPS</h2>
+
+<pre><code><span class="kw">import</span> * <span class="kw">as</span> <span class="cls">Location</span> <span class="kw">from</span> <span class="str">'expo-location'</span>;
+
+<span class="cmt">// Demander la permission</span>
+<span class="kw">const</span> { status } = <span class="kw">await</span> <span class="cls">Location</span>.<span class="fn">requestForegroundPermissionsAsync</span>();
+
+<span class="kw">if</span> (status !== <span class="str">'granted'</span>) {
+  <span class="cmt">// L'utilisateur a refusé</span>
+  webViewRef.current?.<span class="fn">injectJavaScript</span>(
+    <span class="str">`locateError("Permission refusée. Activez dans Paramètres."); true;`</span>
+  );
+  <span class="kw">return</span>;
+}
+
+<span class="cmt">// Obtenir la position actuelle</span>
+<span class="kw">const</span> position = <span class="kw">await</span> <span class="cls">Location</span>.<span class="fn">getCurrentPositionAsync</span>({
+  accuracy: <span class="cls">Location</span>.<span class="cls">Accuracy</span>.<span class="cls">High</span>,  <span class="cmt">// GPS précis</span>
+});
+
+<span class="kw">const</span> { latitude, longitude } = position.coords;
+<span class="cmt">// latitude: 12.3647, longitude: -1.5330 (exemple : Ouagadougou)</span>
+</code></pre>
+
+  <h3 class="subsection">Niveaux de précision</h3>
+  <table>
+    <tr><th>Accuracy</th><th>Description</th><th>Batterie</th></tr>
+    <tr><td><code>Lowest</code></td><td>Imprécis (~3000m)</td><td>Très faible</td></tr>
+    <tr><td><code>Low</code></td><td>~1000m</td><td>Faible</td></tr>
+    <tr><td><code>Balanced</code></td><td>~100m</td><td>Modérée</td></tr>
+    <tr><td><code>High</code></td><td>~10m</td><td>Élevée</td></tr>
+    <tr><td><code>Highest</code></td><td>~3m (GPS pur)</td><td>Très élevée</td></tr>
+    <tr><td><code>BestForNavigation</code></td><td>&lt;1m</td><td>Maximale</td></tr>
+  </table>
+
+  <h2 class="section">11.2 — WebView + Leaflet</h2>
+
+<pre><code><span class="cmt">// components/MapPickerModal.tsx</span>
+<span class="cmt">// La carte est construite en HTML pur avec Leaflet (bibliothèque JS de cartographie)</span>
+
+<span class="kw">const</span> <span class="fn">buildMapHtml</span> = (lat: <span class="kw">number</span>, lng: <span class="kw">number</span>): <span class="kw">string</span> => <span class="str">`
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+  &lt;!-- Charger Leaflet depuis CDN --&gt;
+  &lt;link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/&gt;
+  &lt;script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"&gt;&lt;/script&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;div id="map"&gt;&lt;/div&gt;
+  &lt;script&gt;
+    // Initialiser la carte centrée sur lat/lng
+    var map = L.map('map').setView([</span>${lat}<span class="str">, </span>${lng}<span class="str">], 13);
+
+    // Fond de carte OpenStreetMap
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    // Clic sur la carte → placer marqueur
+    map.on('click', function(e) {
+      placeMarker(e.latlng.lat, e.latlng.lng);
+    });
+
+    function placeMarker(lat, lng) {
+      // ... positionner marqueur
+    }
+
+    // Bouton "Ma position" → envoyer message à React Native
+    function locateMe() {
+      window.ReactNativeWebView.postMessage(
+        JSON.stringify({ type: 'LOCATE_ME' })
+      );
+    }
+
+    // Recevoir position de React Native
+    function receiveLocation(lat, lng) {
+      map.setView([lat, lng], 17);
+      placeMarker(lat, lng);
+    }
+
+    // Confirmer la sélection → envoyer coordonnées à React Native
+    function confirmSelection() {
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        latitude: selectedLat,
+        longitude: selectedLng,
+        label: selectedLat.toFixed(6) + ', ' + selectedLng.toFixed(6)
+      }));
+    }
+  &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+`</span>;
+</code></pre>
+
+  <h2 class="section">11.3 — Communication React Native ↔ WebView</h2>
+
+<pre><code><span class="cmt">// Flux de communication complet</span>
+
+<span class="cmt">// 1. Utilisateur clique "Ma position" dans la WebView</span>
+<span class="cmt">// 2. WebView envoie message à React Native</span>
+window.ReactNativeWebView.<span class="fn">postMessage</span>(<span class="cls">JSON</span>.<span class="fn">stringify</span>({ type: <span class="str">'LOCATE_ME'</span> }));
+
+<span class="cmt">// 3. React Native reçoit le message dans onMessage</span>
+<span class="kw">const</span> <span class="fn">handleMessage</span> = <span class="kw">async</span> (event) => {
+  <span class="kw">const</span> raw = <span class="cls">JSON</span>.<span class="fn">parse</span>(event.nativeEvent.data);
+
+  <span class="kw">if</span> (raw.type === <span class="str">'LOCATE_ME'</span>) {
+    <span class="cmt">// 4. React Native demande la permission GPS native</span>
+    <span class="kw">const</span> { status } = <span class="kw">await</span> <span class="cls">Location</span>.<span class="fn">requestForegroundPermissionsAsync</span>();
+
+    <span class="kw">if</span> (status !== <span class="str">'granted'</span>) {
+      <span class="cmt">// 5a. Échec → injecter JS d'erreur dans WebView</span>
+      webViewRef.current?.<span class="fn">injectJavaScript</span>(
+        <span class="str">`locateError("Permission refusée"); true;`</span>
+      );
+      <span class="kw">return</span>;
+    }
+
+    <span class="cmt">// 5b. Succès → obtenir position et l'injecter dans WebView</span>
+    <span class="kw">const</span> pos = <span class="kw">await</span> <span class="cls">Location</span>.<span class="fn">getCurrentPositionAsync</span>({
+      accuracy: <span class="cls">Location</span>.<span class="cls">Accuracy</span>.<span class="cls">High</span>
+    });
+    <span class="kw">const</span> { latitude, longitude } = pos.coords;
+
+    webViewRef.current?.<span class="fn">injectJavaScript</span>(
+      <span class="str">`receiveLocation(</span>${latitude}<span class="str">, </span>${longitude}<span class="str">); true;`</span>
+    );
+    <span class="kw">return</span>;
+  }
+
+  <span class="cmt">// 6. Utilisateur confirme position → onLocationSelected</span>
+  <span class="kw">if</span> (raw.latitude &amp;&amp; raw.longitude) {
+    <span class="fn">onLocationSelected</span>(raw);
+    <span class="fn">onClose</span>();
+  }
+};
+
+<span class="cmt">// Composant WebView dans le rendu</span>
+&lt;<span class="cls">WebView</span>
+  ref={webViewRef}
+  source={{ html: <span class="fn">buildMapHtml</span>(lat, lng) }}
+  javaScriptEnabled
+  onMessage={handleMessage}    <span class="cmt">// Recevoir messages JS → RN</span>
+  originWhitelist={[<span class="str">'*'</span>]}
+/&gt;
+</code></pre>
+
+  <div class="tip">
+    <strong>✅ Pattern WebView ↔ React Native</strong>
+    Ce pattern "pont" (bridge) est fondamental pour intégrer n'importe quelle bibliothèque web
+    dans React Native. Les bibliothèques de signature, graphiques D3.js, éditeurs rich-text,
+    etc. peuvent toutes être intégrées avec ce même pattern.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     CHAPITRE 12 — ANIMATIONS
+════════════════════════════════════════════ -->
+<div class="chapter" id="ch12">
+  <h1 class="ch-title"><span class="ch-num">Chapitre 12</span>Animations</h1>
+  <p class="ch-intro">
+    SenMoto utilise les animations pour le menu hamburger et les transitions de pages.
+    Il y a deux approches : l'API <code>Animated</code> native de React Native (simple)
+    et <code>react-native-reanimated</code> (performant, sur le thread natif).
+  </p>
+
+  <h2 class="section">12.1 — Animated API : menu hamburger</h2>
+
+<pre><code><span class="cmt">// components/HamburgerMenu.tsx — Menu slide-in animé</span>
+<span class="kw">import</span> { <span class="cls">Animated</span>, <span class="cls">Dimensions</span> } <span class="kw">from</span> <span class="str">'react-native'</span>;
+
+<span class="kw">const</span> MENU_WIDTH = <span class="cls">Dimensions</span>.<span class="fn">get</span>(<span class="str">'window'</span>).width * <span class="num">0.80</span>;  <span class="cmt">// 80% de l'écran</span>
+
+<span class="kw">function</span> <span class="fn">HamburgerMenu</span>() {
+  <span class="kw">const</span> [isOpen, setIsOpen] = <span class="fn">useState</span>(<span class="kw">false</span>);
+
+  <span class="cmt">// Valeur animée : position X du menu (-MENU_WIDTH quand fermé, 0 quand ouvert)</span>
+  <span class="kw">const</span> slideAnim = <span class="fn">useRef</span>(<span class="kw">new</span> <span class="cls">Animated</span>.<span class="cls">Value</span>(-MENU_WIDTH)).<span class="fn">current</span>;
+
+  <span class="cmt">// Valeur animée : opacité de l'overlay sombre derrière le menu</span>
+  <span class="kw">const</span> overlayOpacity = <span class="fn">useRef</span>(<span class="kw">new</span> <span class="cls">Animated</span>.<span class="cls">Value</span>(<span class="num">0</span>)).<span class="fn">current</span>;
+
+  <span class="kw">const</span> <span class="fn">openMenu</span> = () => {
+    <span class="fn">setIsOpen</span>(<span class="kw">true</span>);
+    <span class="cmt">// Animer les deux valeurs en parallèle</span>
+    <span class="cls">Animated</span>.<span class="fn">parallel</span>([
+      <span class="cls">Animated</span>.<span class="fn">timing</span>(slideAnim, {
+        toValue: <span class="num">0</span>,          <span class="cmt">// Glisser vers la droite (position 0)</span>
+        duration: <span class="num">280</span>,       <span class="cmt">// 280ms</span>
+        useNativeDriver: <span class="kw">true</span>,  <span class="cmt">// Exécute sur le thread natif (plus fluide)</span>
+      }),
+      <span class="cls">Animated</span>.<span class="fn">timing</span>(overlayOpacity, {
+        toValue: <span class="num">0.5</span>,        <span class="cmt">// Demi-transparent</span>
+        duration: <span class="num">280</span>,
+        useNativeDriver: <span class="kw">true</span>,
+      }),
+    ]).<span class="fn">start</span>();               <span class="cmt">// Démarrer l'animation</span>
+  };
+
+  <span class="kw">const</span> <span class="fn">closeMenu</span> = () => {
+    <span class="cls">Animated</span>.<span class="fn">parallel</span>([
+      <span class="cls">Animated</span>.<span class="fn">timing</span>(slideAnim, {
+        toValue: -MENU_WIDTH,   <span class="cmt">// Glisser vers la gauche (hors écran)</span>
+        duration: <span class="num">240</span>,
+        useNativeDriver: <span class="kw">true</span>,
+      }),
+      <span class="cls">Animated</span>.<span class="fn">timing</span>(overlayOpacity, {
+        toValue: <span class="num">0</span>,
+        duration: <span class="num">240</span>,
+        useNativeDriver: <span class="kw">true</span>,
+      }),
+    ]).<span class="fn">start</span>(() => <span class="fn">setIsOpen</span>(<span class="kw">false</span>));  <span class="cmt">// Callback après animation</span>
+  };
+
+  <span class="kw">return</span> (
+    &lt;&gt;
+      <span class="cmt">{/* Contenu principal */}</span>
+      {children}
+
+      <span class="cmt">{/* Overlay sombre (s'affiche quand menu ouvert) */}</span>
+      {isOpen &amp;&amp; (
+        &lt;<span class="cls">Animated</span>.<span class="cls">View</span>
+          style={{ opacity: overlayOpacity, ...StyleSheet.absoluteFill }}
+        &gt;
+          &lt;<span class="cls">TouchableOpacity</span>
+            style={{ flex: <span class="num">1</span>, backgroundColor: <span class="str">'black'</span> }}
+            onPress={closeMenu}
+          /&gt;
+        &lt;/<span class="cls">Animated</span>.<span class="cls">View</span>&gt;
+      )}
+
+      <span class="cmt">{/* Menu lui-même : glisse depuis la gauche */}</span>
+      &lt;<span class="cls">Animated</span>.<span class="cls">View</span>
+        style={{
+          position: <span class="str">'absolute'</span>,
+          top: <span class="num">0</span>, bottom: <span class="num">0</span>, left: <span class="num">0</span>,
+          width: MENU_WIDTH,
+          transform: [{ translateX: slideAnim }],  <span class="cmt">// Animation ici</span>
+          backgroundColor: <span class="str">'#1E1E1E'</span>,
+        }}
+      &gt;
+        <span class="cmt">{/* Contenu du menu */}</span>
+      &lt;/<span class="cls">Animated</span>.<span class="cls">View</span>&gt;
+    &lt;/&gt;
+  );
+}
+</code></pre>
+
+  <h3 class="subsection">Types d'animations Animated</h3>
+
+  <table>
+    <tr><th>Fonction</th><th>Description</th><th>Utilisation</th></tr>
+    <tr><td><code>Animated.timing()</code></td><td>Interpolation linéaire (ou easing)</td><td>Menu hamburger, fade</td></tr>
+    <tr><td><code>Animated.spring()</code></td><td>Rebond physique</td><td>Boutons, drag</td></tr>
+    <tr><td><code>Animated.decay()</code></td><td>Décélération</td><td>Scroll momentum</td></tr>
+    <tr><td><code>Animated.parallel()</code></td><td>Plusieurs animations en même temps</td><td>Menu + overlay</td></tr>
+    <tr><td><code>Animated.sequence()</code></td><td>Animations en série (une après l'autre)</td><td>Étapes d'onboarding</td></tr>
+    <tr><td><code>Animated.loop()</code></td><td>Répéter indéfiniment</td><td>Spinner, pulse</td></tr>
+  </table>
+
+  <h2 class="section">12.2 — react-native-reanimated</h2>
+
+<pre><code><span class="cmt">// Pour des animations haute performance (60fps garanti)</span>
+<span class="kw">import</span> Animated, { useSharedValue, useAnimatedStyle, withSpring }
+  <span class="kw">from</span> <span class="str">'react-native-reanimated'</span>;
+
+<span class="kw">function</span> <span class="fn">BoutonAnimé</span>() {
+  <span class="kw">const</span> scale = <span class="fn">useSharedValue</span>(<span class="num">1</span>);  <span class="cmt">// Valeur sur thread natif</span>
+
+  <span class="kw">const</span> animatedStyle = <span class="fn">useAnimatedStyle</span>(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  <span class="kw">return</span> (
+    &lt;<span class="cls">Animated</span>.<span class="cls">View</span> style={animatedStyle}&gt;
+      &lt;<span class="cls">TouchableOpacity</span>
+        onPressIn={() => { scale.value = <span class="fn">withSpring</span>(<span class="num">0.95</span>); }}
+        onPressOut={() => { scale.value = <span class="fn">withSpring</span>(<span class="num">1</span>); }}
+      &gt;
+        &lt;<span class="cls">Text</span>&gt;Appuyer&lt;/<span class="cls">Text</span>&gt;
+      &lt;/<span class="cls">TouchableOpacity</span>&gt;
+    &lt;/<span class="cls">Animated</span>.<span class="cls">View</span>&gt;
+  );
+}
+</code></pre>
+
+  <div class="tip">
+    <strong>✅ Quand utiliser quoi ?</strong>
+    <strong>Animated API</strong> : transitions simples, menu, fade. Facile à comprendre.
+    <strong>react-native-reanimated</strong> : animations liées aux gestes, 60fps garanti,
+    calculs complexes. Indispensable pour du scroll animé ou des drag &amp; drop.
+  </div>
+
+</div>
+
+<!-- FIN PARTIE 2 -->
+<div style="text-align:center;padding:60px;background:#e8fdf0;margin-top:40px">
+  <div style="font-size:40px;margin-bottom:16px">📖</div>
+  <h2 style="color:#30D158;font-size:24px;margin-bottom:8px">Fin de la Partie 2</h2>
+  <p style="color:#555;font-size:15px">
+    Chapitres 6–12 · Supabase, Multi-tenant, Notifications, Caméra, PDF, Géolocalisation, Animations
+  </p>
+  <p style="color:#888;font-size:13px;margin-top:16px">
+    → Continuer avec la <strong>Partie 3</strong> : Signatures, Audit, Builds, Sécurité, Conseils expert
+  </p>
+</div>
+
+</body>
+</html>

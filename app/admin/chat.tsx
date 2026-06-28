@@ -17,6 +17,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../lib/supabase";
 import { useTenant } from "../../context/TenantContext";
 import { useTheme } from "../../context/ThemeContext";
+import { FeatureGate } from "../../components/FeatureGate";
+import { notifyChatClientReply } from "../../lib/enterpriseNotifications";
 
 const GREEN = "#34C759";
 
@@ -39,7 +41,7 @@ interface Message {
   created_at: string;
 }
 
-export default function AdminChatScreen() {
+function AdminChatContent() {
   const { theme } = useTheme();
   const { tenant } = useTenant();
   const [chats, setChats] = useState<Chat[]>([]);
@@ -157,6 +159,13 @@ export default function AdminChatScreen() {
       .from("enterprise_chats")
       .update({ last_message: text, last_message_at: new Date().toISOString() })
       .eq("id", selectedChat.id);
+
+    // Notifier le client de la réponse (fire-and-forget, si le client a un token Expo)
+    notifyChatClientReply(
+      selectedChat.id,
+      tenant?.enterprise_name || "Admin",
+      text,
+    ).catch(console.error);
 
     setSending(false);
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
@@ -386,6 +395,14 @@ export default function AdminChatScreen() {
         />
       )}
     </SafeAreaView>
+  );
+}
+
+export default function AdminChatScreen() {
+  return (
+    <FeatureGate featureKey="chat.actif" featureName="Messages Clients">
+      <AdminChatContent />
+    </FeatureGate>
   );
 }
 

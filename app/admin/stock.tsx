@@ -20,6 +20,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../lib/supabase";
 import { useTenant } from "../../context/TenantContext";
+import { FeatureGate } from "../../components/FeatureGate";
 
 type Moto = {
   id: string;
@@ -325,7 +326,7 @@ function MotoStockCard({
 
 // ─── Écran principal ──────────────────────────────────────────────────────────
 
-export default function StockScreen() {
+function StockContent() {
   const router = useRouter();
   const { tenant } = useTenant();
   const [motos, setMotos] = useState<Moto[]>([]);
@@ -520,6 +521,14 @@ export default function StockScreen() {
         saving={saving}
       />
     </SafeAreaView>
+  );
+}
+
+export default function StockScreen() {
+  return (
+    <FeatureGate featureKey="stock.actif" featureName="Gestion du Stock">
+      <StockContent />
+    </FeatureGate>
   );
 }
 

@@ -1,5 +1,5 @@
 -- =====================================================================
--- docvault — Table pour la gestion des notifications
+-- SenMoto — Table pour la gestion des notifications
 -- (Notifications de modification + rappels J-3, J-2, Jour-J pour les RDV)
 -- À exécuter une seule fois dans l'éditeur SQL de Supabase.
 -- =====================================================================

@@ -1,5 +1,5 @@
 -- ============================================
--- MIGRATION MULTI-TENANT DOCVAULT
+-- MIGRATION MULTI-TENANT SENMOTO
 -- Exécuter sur Supabase SQL Editor
 -- ============================================
 

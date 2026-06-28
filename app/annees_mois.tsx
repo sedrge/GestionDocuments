@@ -17,8 +17,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
+import { FeatureGate } from '../components/FeatureGate';
 
-export default function AnneesMoisScreen() {
+function AnneesMoisContent() {
   const router = useRouter();
   const [dossiers, setDossiers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -126,6 +127,14 @@ export default function AnneesMoisScreen() {
         </View>
       </Modal>
     </SafeAreaView>
+  );
+}
+
+export default function AnneesMoisScreen() {
+  return (
+    <FeatureGate featureKey="registres.actif" featureName="Registres">
+      <AnneesMoisContent />
+    </FeatureGate>
   );
 }
 

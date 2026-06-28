@@ -22,6 +22,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../lib/supabase";
+import { FeatureGate } from "../components/FeatureGate";
 
 const { width } = Dimensions.get("window");
 const CARD_W = (width - 45) / 2;
@@ -133,7 +134,7 @@ const matchMoto = (m: Moto, q: string): boolean => {
     .some((v) => v!.toLowerCase().includes(s));
 };
 
-export default function MotosScreen() {
+function MotosContent() {
   const router = useRouter();
   const [allMotos, setAllMotos] = useState<Moto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -311,6 +312,14 @@ export default function MotosScreen() {
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
     </SafeAreaView>
+  );
+}
+
+export default function MotosScreen() {
+  return (
+    <FeatureGate featureKey="motos.liste" featureName="Gestion Motos">
+      <MotosContent />
+    </FeatureGate>
   );
 }
 

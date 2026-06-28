@@ -1,5 +1,5 @@
 -- =====================================================================
--- docvault — Table pour la gestion des rendez-vous (Gestion > Rendez-Vous)
+-- SenMoto — Table pour la gestion des rendez-vous (Gestion > Rendez-Vous)
 -- À exécuter une seule fois dans l'éditeur SQL de Supabase.
 -- =====================================================================
 

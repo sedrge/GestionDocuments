@@ -16,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { printAndSharePdf } from "../../lib/sharePdf";
 import { supabase } from "../../lib/supabase";
 import { useTenant } from "../../context/TenantContext";
+import { FeatureGate } from "../../components/FeatureGate";
 
 type Moto = {
   id: string;
@@ -452,7 +453,7 @@ function generateHtml(
 
 // ─── Écran principal ──────────────────────────────────────────────────────────
 
-export default function RapportsScreen() {
+function RapportsContent() {
   const { tenant } = useTenant();
   const [motos, setMotos] = useState<Moto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -715,6 +716,14 @@ export default function RapportsScreen() {
       <View style={{ height: 20 }} />
     </ScrollView>
     </SafeAreaView>
+  );
+}
+
+export default function RapportsScreen() {
+  return (
+    <FeatureGate featureKey="rapports.actif" featureName="Rapports & Export">
+      <RapportsContent />
+    </FeatureGate>
   );
 }
 

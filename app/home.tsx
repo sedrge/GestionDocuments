@@ -33,6 +33,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
+import { useFeatureFlags } from '../context/FeatureFlagsContext';
 import {
   countUnreadNotifications,
   ensureNotificationPermissions,
@@ -67,6 +68,7 @@ interface Category {
 function HomeScreenContent() {
   const { theme, toggleTheme, isDark } = useTheme();
   const { tenant, isEnterpriseAdmin, isSuperAdmin } = useTenant();
+  const { enabledFeatures } = useFeatureFlags();
   
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
@@ -427,6 +429,7 @@ const handleOpenDoc = async (doc: Doc) => {
         isEnterpriseAdmin={isEnterpriseAdmin}
         isSuper={isSuperAdmin}
         permittedKeys={permittedKeys}
+        enabledFeatures={enabledFeatures}
       >
         {/* RECHERCHE */}
         <View style={[styles.searchBox, { backgroundColor: theme.card }]}>

@@ -1,11 +1,11 @@
 module.exports = {
   expo: {
     name: "SenMoto",
-    slug: "docvault",
+    slug: "senmoto",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/SenMoto.png",
-    scheme: "docvault",
+    scheme: "senmoto",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
     ios: {

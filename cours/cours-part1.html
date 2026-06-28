@@ -1,0 +1,1459 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cours React Native Expo – SenMoto | Partie 1</title>
+<style>
+  :root { --primary:#0A84FF; --accent:#30D158; --warn:#FF9F0A; --danger:#FF453A; --bg:#0f0f0f; --card:#1a1a1a; --card2:#222; --text:#e8e8e8; --sub:#888; --border:#333; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#1a1a1a;line-height:1.7;font-size:15px}
+  @media print{body{font-size:12px}.no-print{display:none}pre{white-space:pre-wrap}}
+  /* COVER */
+  .cover{background:linear-gradient(135deg,#0a0a0a 0%,#1a1a2e 50%,#0a0a0a 100%);color:#fff;min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:40px;page-break-after:always}
+  .cover-logo{font-size:80px;margin-bottom:20px}
+  .cover h1{font-size:42px;font-weight:900;background:linear-gradient(90deg,#0A84FF,#30D158);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:10px}
+  .cover h2{font-size:22px;color:#aaa;font-weight:400;margin-bottom:40px}
+  .cover-badge{background:#0A84FF22;border:1px solid #0A84FF44;border-radius:30px;padding:8px 24px;color:#0A84FF;font-size:14px;margin:4px}
+  .cover-info{margin-top:60px;color:#555;font-size:13px}
+  /* TOC */
+  .toc{padding:60px 80px;page-break-after:always;background:#f9f9f9}
+  .toc h2{font-size:28px;font-weight:800;margin-bottom:30px;color:#1a1a1a;border-bottom:3px solid #0A84FF;padding-bottom:12px}
+  .toc-section{margin-bottom:8px}
+  .toc-section a{color:#0A84FF;text-decoration:none;font-size:15px}
+  .toc-chapter{font-size:18px;font-weight:700;color:#1a1a1a;margin-top:20px;margin-bottom:6px}
+  .toc-sub{margin-left:20px;color:#555;font-size:14px;list-style:none}
+  .toc-sub li{margin:3px 0}
+  /* CHAPTERS */
+  .chapter{padding:60px 80px;page-break-before:always}
+  .chapter:first-of-type{page-break-before:auto}
+  h1.ch-title{font-size:36px;font-weight:900;color:#0A84FF;margin-bottom:6px}
+  h1.ch-title .ch-num{font-size:14px;color:#888;display:block;font-weight:400;margin-bottom:4px}
+  .ch-intro{font-size:16px;color:#555;margin:16px 0 40px;padding:16px 20px;border-left:4px solid #0A84FF;background:#f0f7ff;border-radius:0 8px 8px 0}
+  h2.section{font-size:24px;font-weight:800;color:#1a1a1a;margin:40px 0 16px;padding-bottom:8px;border-bottom:2px solid #eee}
+  h3.subsection{font-size:18px;font-weight:700;color:#0A84FF;margin:28px 0 12px}
+  h4.point{font-size:15px;font-weight:700;color:#30D158;margin:20px 0 8px}
+  p{margin-bottom:14px;color:#333}
+  /* CODE */
+  pre{background:#0f1117;color:#abb2bf;border-radius:10px;padding:20px 24px;overflow-x:auto;margin:16px 0 24px;border:1px solid #2a2a3a;position:relative;font-size:13px;line-height:1.6}
+  pre .lang-label{position:absolute;top:8px;right:12px;font-size:11px;color:#555;font-family:monospace}
+  code{font-family:'Cascadia Code','Fira Code','Consolas',monospace}
+  p code,li code{background:#f0f0f0;padding:2px 6px;border-radius:4px;font-size:13px;color:#c0392b;font-family:monospace}
+  /* TOKENS */
+  .kw{color:#c678dd} .fn{color:#61afef} .str{color:#98c379} .num{color:#d19a66} .cmt{color:#5c6370;font-style:italic} .cls{color:#e5c07b} .prop{color:#e06c75} .op{color:#56b6c2}
+  /* CALLOUTS */
+  .note,.warn,.tip,.danger{border-radius:10px;padding:16px 20px;margin:20px 0;border-left:5px solid}
+  .note{background:#e8f4fd;border-color:#0A84FF;color:#1a4a6b}
+  .warn{background:#fff8e6;border-color:#FF9F0A;color:#6b4a1a}
+  .tip{background:#e8fdf0;border-color:#30D158;color:#1a4a2b}
+  .danger{background:#fde8e8;border-color:#FF453A;color:#6b1a1a}
+  .note strong,.warn strong,.tip strong,.danger strong{display:block;margin-bottom:6px;font-size:14px}
+  /* SCHEMA */
+  .schema{background:#f9f9f9;border:1px solid #ddd;border-radius:10px;padding:20px;font-family:monospace;font-size:13px;line-height:1.8;margin:16px 0 24px}
+  .schema .dir{color:#0A84FF;font-weight:700}
+  .schema .file{color:#30D158}
+  .schema .desc{color:#888;font-style:italic}
+  /* TABLE */
+  table{width:100%;border-collapse:collapse;margin:16px 0 24px;font-size:14px}
+  th{background:#0A84FF;color:#fff;padding:10px 14px;text-align:left;font-weight:600}
+  td{padding:10px 14px;border-bottom:1px solid #eee;color:#333}
+  tr:nth-child(even) td{background:#f9f9f9}
+  /* BADGE */
+  .badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;margin:0 3px}
+  .badge-blue{background:#dbeafe;color:#1d4ed8}
+  .badge-green{background:#dcfce7;color:#166534}
+  .badge-orange{background:#ffedd5;color:#9a3412}
+  .badge-red{background:#fee2e2;color:#991b1b}
+  /* DIAGRAM */
+  .diagram{text-align:center;padding:30px;background:#f5f5f5;border-radius:10px;margin:20px 0;font-size:13px}
+  .box{display:inline-block;padding:10px 18px;border-radius:8px;margin:6px;font-weight:600;font-size:13px}
+  .box-blue{background:#dbeafe;color:#1d4ed8;border:2px solid #93c5fd}
+  .box-green{background:#dcfce7;color:#166534;border:2px solid #86efac}
+  .box-gray{background:#f3f4f6;color:#374151;border:2px solid #d1d5db}
+  .arrow{font-size:18px;color:#888;vertical-align:middle}
+  /* STEPS */
+  .steps{counter-reset:step}
+  .step{counter-increment:step;display:flex;gap:16px;margin:16px 0;align-items:flex-start}
+  .step::before{content:counter(step);background:#0A84FF;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;margin-top:2px}
+  .step-body{flex:1}
+  .step-body strong{display:block;margin-bottom:4px;color:#1a1a1a}
+  /* PAGE BREAK */
+  .pb{page-break-after:always}
+  /* HIGHLIGHT LINE */
+  .hl{background:#2a3a2a;display:block}
+  .quote{border-left:4px solid #0A84FF;padding:12px 20px;background:#f0f7ff;border-radius:0 8px 8px 0;font-style:italic;color:#1a4a6b;margin:16px 0}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════ COVER ═══════════════════════════════ -->
+<div class="cover">
+  <div class="cover-logo">🏍️</div>
+  <h1>Maîtriser React Native Expo</h1>
+  <h2>De zéro à expert — à travers un vrai projet professionnel</h2>
+  <div style="margin:20px 0">
+    <span class="cover-badge">React Native 0.85</span>
+    <span class="cover-badge">Expo SDK 56</span>
+    <span class="cover-badge">TypeScript</span>
+    <span class="cover-badge">Supabase</span>
+    <span class="cover-badge">Expo Router</span>
+  </div>
+  <div style="max-width:600px;margin:30px auto;color:#aaa;font-size:15px;line-height:1.8">
+    Ce cours utilise le projet <strong style="color:#fff">SenMoto</strong> — une application mobile réelle
+    de gestion de concessionnaires moto — pour enseigner chaque concept de React Native Expo
+    de façon progressive et concrète.
+  </div>
+  <div class="cover-info">Projet · senmoto · Expo SDK 56 · React 19 · TypeScript</div>
+</div>
+
+<!-- ═══════════════════════════════ TABLE DES MATIÈRES ═══════════════════════════════ -->
+<div class="toc">
+  <h2>📋 Table des Matières — Partie 1</h2>
+
+  <div class="toc-chapter">Chapitre 1 · Les fondations</div>
+  <ul class="toc-sub">
+    <li>1.1 — Qu'est-ce que React Native ?</li>
+    <li>1.2 — Qu'est-ce qu'Expo ?</li>
+    <li>1.3 — Structure d'un projet Expo</li>
+    <li>1.4 — Comprendre <code>package.json</code> et <code>app.config.js</code></li>
+    <li>1.5 — TypeScript dans React Native</li>
+  </ul>
+
+  <div class="toc-chapter">Chapitre 2 · Les composants de base</div>
+  <ul class="toc-sub">
+    <li>2.1 — View, Text, Image, ScrollView</li>
+    <li>2.2 — StyleSheet et Flexbox</li>
+    <li>2.3 — Interactions : TouchableOpacity, Pressable</li>
+    <li>2.4 — Inputs : TextInput</li>
+    <li>2.5 — Listes : FlatList, SectionList</li>
+  </ul>
+
+  <div class="toc-chapter">Chapitre 3 · React — Hooks essentiels</div>
+  <ul class="toc-sub">
+    <li>3.1 — useState</li>
+    <li>3.2 — useEffect</li>
+    <li>3.3 — useRef</li>
+    <li>3.4 — useMemo &amp; useCallback</li>
+    <li>3.5 — useContext</li>
+  </ul>
+
+  <div class="toc-chapter">Chapitre 4 · Navigation avec Expo Router</div>
+  <ul class="toc-sub">
+    <li>4.1 — Principe du file-based routing</li>
+    <li>4.2 — Layouts et groupes de routes</li>
+    <li>4.3 — Navigation programmatique</li>
+    <li>4.4 — Paramètres de route</li>
+    <li>4.5 — Route guard (protection des routes)</li>
+  </ul>
+
+  <div class="toc-chapter">Chapitre 5 · State global avec Context API</div>
+  <ul class="toc-sub">
+    <li>5.1 — Problème du prop drilling</li>
+    <li>5.2 — Créer un Context : TenantContext</li>
+    <li>5.3 — ThemeContext : mode sombre/clair</li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     CHAPITRE 1 — LES FONDATIONS
+═══════════════════════════════════════════════════════ -->
+<div class="chapter" id="ch1">
+  <h1 class="ch-title"><span class="ch-num">Chapitre 1</span>Les fondations</h1>
+  <p class="ch-intro">
+    Avant d'écrire une seule ligne de code, tu dois comprendre <em>pourquoi</em> React Native existe,
+    ce qu'Expo y ajoute, et comment le projet SenMoto est organisé. Ce chapitre pose les bases mentales
+    indispensables pour tout ce qui suit.
+  </p>
+
+  <!-- 1.1 -->
+  <h2 class="section">1.1 — Qu'est-ce que React Native ?</h2>
+
+  <p>
+    Quand tu veux créer une application mobile, tu as deux options classiques :
+  </p>
+  <table>
+    <tr><th>Approche</th><th>Description</th><th>Avantages</th><th>Inconvénients</th></tr>
+    <tr><td><strong>Natif pur</strong></td><td>Swift/Kotlin pour iOS/Android</td><td>Performances maximales</td><td>Deux codebases à maintenir</td></tr>
+    <tr><td><strong>Hybride (WebView)</strong></td><td>HTML/CSS/JS affiché dans WebView</td><td>Un seul code</td><td>Lent, look pas natif</td></tr>
+    <tr><td><strong>React Native ✅</strong></td><td>JavaScript qui compile en composants natifs</td><td>Un code → vrai natif</td><td>Quelques limites de perf</td></tr>
+  </table>
+
+  <p>
+    React Native (créé par Meta en 2015) utilise JavaScript pour décrire votre interface,
+    mais le moteur React Native <strong>traduit chaque composant en widget natif réel</strong> :
+    un <code>&lt;View&gt;</code> devient un <code>UIView</code> sur iOS et un <code>android.view.View</code> sur Android.
+  </p>
+
+  <div class="diagram">
+    <div class="box box-blue">Code JavaScript<br><small>React Native</small></div>
+    <span class="arrow">→</span>
+    <div class="box box-gray">Bridge / JSI<br><small>communication</small></div>
+    <span class="arrow">→</span>
+    <div style="display:inline-flex;flex-direction:column;gap:8px">
+      <div class="box box-green">UIKit (iOS)</div>
+      <div class="box box-green">Android Views</div>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>💡 Concept clé : "Learn Once, Write Anywhere"</strong>
+    Le slogan de React Native. Tu apprends un seul paradigme (React + composants)
+    et tu cibles iOS, Android et même le Web avec le même code.
+  </div>
+
+  <!-- 1.2 -->
+  <h2 class="section">1.2 — Qu'est-ce qu'Expo ?</h2>
+
+  <p>
+    React Native seul est puissant mais complexe à configurer. Expo est un <strong>framework et une plateforme</strong>
+    construits par-dessus React Native pour simplifier le développement.
+  </p>
+
+  <table>
+    <tr><th>Ce qu'Expo apporte</th><th>Sans Expo</th><th>Avec Expo</th></tr>
+    <tr><td>Démarrer un projet</td><td>Xcode + Android Studio requis</td><td><code>npx create-expo-app</code> suffit</td></tr>
+    <tr><td>Caméra</td><td>Code natif Swift/Kotlin</td><td><code>expo-camera</code></td></tr>
+    <tr><td>Notifications</td><td>Firebase/APNs manuellement</td><td><code>expo-notifications</code></td></tr>
+    <tr><td>Build</td><td>Machines macOS/Linux requises</td><td>EAS Build (cloud)</td></tr>
+    <tr><td>Test</td><td>Simulateur ou vrai appareil</td><td>Expo Go (app) ou Dev Build</td></tr>
+  </table>
+
+  <h3 class="subsection">SDK Expo 56 — Pourquoi ce numéro de version ?</h3>
+  <p>
+    Le SDK Expo suit un cycle de versions. Le projet SenMoto utilise <strong>SDK 56</strong>,
+    qui correspond à React Native 0.85. Chaque bibliothèque Expo (<code>expo-camera</code>,
+    <code>expo-notifications</code>, etc.) a une version compatible avec le SDK.
+  </p>
+
+  <div class="warn">
+    <strong>⚠️ Règle d'or des versions</strong>
+    Toujours utiliser <code>npx expo install nom-du-package</code> au lieu de <code>npm install</code>
+    pour les packages Expo. La commande choisit automatiquement la version compatible avec ton SDK.
+  </div>
+
+  <!-- 1.3 -->
+  <h2 class="section">1.3 — Structure du projet SenMoto</h2>
+
+  <div class="schema">
+<pre style="background:transparent;color:#333;padding:0;margin:0;border:none;font-size:13px">
+<span class="dir">senmoto/                        </span><span class="desc">← Racine du projet</span>
+├── <span class="dir">app/                           </span><span class="desc">← Toutes les pages (Expo Router)</span>
+│   ├── <span class="dir">(tabs)/                    </span><span class="desc">← Groupe : onglets en bas</span>
+│   │   ├── _layout.tsx            <span class="desc">← Définit les onglets</span>
+│   │   └── index.tsx              <span class="desc">← Onglet 1 (Feed public)</span>
+│   ├── <span class="dir">admin/                     </span><span class="desc">← Pages administrateur</span>
+│   │   ├── dashboard.tsx
+│   │   ├── users.tsx
+│   │   └── stock.tsx
+│   ├── <span class="dir">onboarding/                </span><span class="desc">← Inscription / Création compte</span>
+│   │   ├── index.tsx
+│   │   ├── create-enterprise.tsx
+│   │   └── join-enterprise.tsx
+│   ├── <span class="dir">auth/</span>
+│   │   └── login.tsx              <span class="desc">← Page de connexion</span>
+│   ├── _layout.tsx                <span class="desc">← Layout racine (Providers)</span>
+│   ├── home.tsx
+│   ├── moto.tsx
+│   └── vente.tsx
+│
+├── <span class="dir">components/                    </span><span class="desc">← Composants réutilisables</span>
+│   ├── HamburgerMenu.tsx
+│   ├── MapPickerModal.tsx
+│   └── FileExplorer.tsx
+│
+├── <span class="dir">context/                       </span><span class="desc">← State global (Context API)</span>
+│   ├── TenantContext.tsx          <span class="desc">← Qui est connecté, son rôle</span>
+│   └── ThemeContext.tsx           <span class="desc">← Mode sombre / clair</span>
+│
+├── <span class="dir">lib/                           </span><span class="desc">← Logique métier et utilitaires</span>
+│   ├── supabase.js                <span class="desc">← Client base de données</span>
+│   ├── multitenant.ts             <span class="desc">← Fonctions enterprise</span>
+│   ├── notifications.ts           <span class="desc">← Gestion notifications</span>
+│   └── auditLog.ts                <span class="desc">← Journal d'activité</span>
+│
+├── <span class="dir">hooks/                         </span><span class="desc">← Hooks React personnalisés</span>
+│   └── use-theme-color.ts
+│
+├── <span class="dir">constants/</span>
+│   └── theme.ts                   <span class="desc">← Couleurs, typographie</span>
+│
+├── app.config.js                  <span class="desc">← ⚙️ Config principale Expo</span>
+├── package.json                   <span class="desc">← Dépendances npm</span>
+├── tsconfig.json                  <span class="desc">← Config TypeScript</span>
+└── eas.json                       <span class="desc">← Config builds cloud</span>
+</pre>
+  </div>
+
+  <div class="tip">
+    <strong>✅ Bonne pratique</strong>
+    Cette organisation suit le principe de <strong>séparation des responsabilités</strong> :
+    <code>app/</code> = pages, <code>components/</code> = UI réutilisable, <code>lib/</code> = logique,
+    <code>context/</code> = state global. Chaque dossier a un rôle clair.
+  </div>
+
+  <!-- 1.4 -->
+  <h2 class="section">1.4 — Comprendre <code>app.config.js</code></h2>
+
+  <p>
+    C'est le <strong>cerveau de configuration</strong> de ton application Expo.
+    Voici le fichier complet du projet SenMoto annoté ligne par ligne :
+  </p>
+
+<pre><code><span class="cmt">// app.config.js — Lu par Expo au build et au démarrage</span>
+module.exports = {
+  expo: {
+    <span class="cmt">// Nom affiché sur l'écran d'accueil du téléphone</span>
+    <span class="prop">name</span>: <span class="str">"SenMoto"</span>,
+
+    <span class="cmt">// Identifiant unique du projet sur expo.dev (kebab-case)</span>
+    <span class="prop">slug</span>: <span class="str">"senmoto"</span>,
+
+    <span class="prop">version</span>: <span class="str">"1.0.0"</span>,
+
+    <span class="cmt">// Forcer l'orientation portrait (pas de rotation)</span>
+    <span class="prop">orientation</span>: <span class="str">"portrait"</span>,
+
+    <span class="cmt">// Chemin vers l'icône principale</span>
+    <span class="prop">icon</span>: <span class="str">"./assets/images/SenMoto.png"</span>,
+
+    <span class="cmt">// Deep linking : senmoto://ma-page ouvre l'app</span>
+    <span class="prop">scheme</span>: <span class="str">"senmoto"</span>,
+
+    <span class="cmt">// Suit le mode sombre/clair du système automatiquement</span>
+    <span class="prop">userInterfaceStyle</span>: <span class="str">"automatic"</span>,
+
+    <span class="cmt">// Active la nouvelle architecture RN (Fabric + TurboModules)</span>
+    <span class="prop">newArchEnabled</span>: <span class="kw">true</span>,
+
+    <span class="prop">ios</span>: {
+      <span class="prop">supportsTablet</span>: <span class="kw">true</span>,
+      <span class="cmt">// Identifiant unique App Store (format Java)</span>
+      <span class="prop">bundleIdentifier</span>: <span class="str">"com.anonymous.senmoto"</span>,
+    },
+
+    <span class="prop">android</span>: {
+      <span class="cmt">// Icône adaptative Android (fond + premier plan séparés)</span>
+      <span class="prop">adaptiveIcon</span>: {
+        <span class="prop">backgroundColor</span>: <span class="str">"#121212"</span>,
+        <span class="prop">foregroundImage</span>: <span class="str">"./assets/images/SenMoto.png"</span>,
+      },
+      <span class="cmt">// App plein écran (barre de statut transparente)</span>
+      <span class="prop">edgeToEdgeEnabled</span>: <span class="kw">true</span>,
+      <span class="cmt">// Identifiant unique Play Store</span>
+      <span class="prop">package</span>: <span class="str">"com.anonymous.senmoto"</span>,
+      <span class="cmt">// Google Services pour Firebase (EAS file secret)</span>
+      <span class="prop">googleServicesFile</span>: process.env.<span class="cls">GOOGLE_SERVICES_JSON</span>
+        ?? <span class="str">"./google-services.json"</span>,
+      <span class="cmt">// Permissions Android déclarées dans AndroidManifest.xml</span>
+      <span class="prop">permissions</span>: [
+        <span class="str">"ACCESS_FINE_LOCATION"</span>,   <span class="cmt">// GPS haute précision</span>
+        <span class="str">"ACCESS_COARSE_LOCATION"</span>, <span class="cmt">// GPS approximatif (WiFi)</span>
+        <span class="str">"CAMERA"</span>,                  <span class="cmt">// Scanner QR codes</span>
+      ],
+    },
+
+    <span class="cmt">// Plugins : modules natifs qui modifient le code natif au build</span>
+    <span class="prop">plugins</span>: [
+      <span class="str">"expo-router"</span>,          <span class="cmt">// Navigation file-based</span>
+      <span class="str">"expo-sqlite"</span>,          <span class="cmt">// Base de données locale SQLite</span>
+      <span class="str">"expo-secure-store"</span>,    <span class="cmt">// Stockage sécurisé (Keychain/Keystore)</span>
+      [<span class="str">"expo-notifications"</span>, { <span class="prop">color</span>: <span class="str">"#5856D6"</span> }],
+      [<span class="str">"expo-camera"</span>, { <span class="prop">cameraPermission</span>: <span class="str">"Accès caméra..."</span> }],
+      [<span class="str">"expo-location"</span>, { <span class="prop">locationWhenInUsePermission</span>: <span class="str">"..."</span> }],
+    ],
+
+    <span class="prop">experiments</span>: {
+      <span class="cmt">// Routes TypeScript avec typage fort</span>
+      <span class="prop">typedRoutes</span>: <span class="kw">true</span>,
+      <span class="cmt">// Compilateur React (optimisations auto)</span>
+      <span class="prop">reactCompiler</span>: <span class="kw">true</span>,
+    },
+
+    <span class="cmt">// Variables accessibles dans le code via expo-constants</span>
+    <span class="prop">extra</span>: {
+      <span class="prop">supabaseUrl</span>: <span class="str">"https://cxjqzbyhilrimjbnqjjf.supabase.co"</span>,
+      <span class="prop">supabaseAnonKey</span>: <span class="str">"sb_publishable_..."</span>,
+      <span class="prop">eas</span>: { <span class="prop">projectId</span>: <span class="str">"9cf8bec5-..."</span> },
+    },
+  },
+};
+</code></pre>
+
+  <div class="note">
+    <strong>📌 Comment lire les variables "extra" dans le code</strong>
+<pre><code><span class="kw">import</span> <span class="cls">Constants</span> <span class="kw">from</span> <span class="str">'expo-constants'</span>;
+
+<span class="cmt">// Dans lib/supabase.js :</span>
+<span class="kw">const</span> supabaseUrl = <span class="cls">Constants</span>.expoConfig.extra.supabaseUrl;
+<span class="kw">const</span> supabaseKey = <span class="cls">Constants</span>.expoConfig.extra.supabaseAnonKey;</code></pre>
+  </div>
+
+  <!-- 1.5 -->
+  <h2 class="section">1.5 — TypeScript dans React Native</h2>
+
+  <p>
+    SenMoto est écrit en <strong>TypeScript</strong> (fichiers <code>.tsx</code> et <code>.ts</code>).
+    TypeScript ajoute des <em>types</em> à JavaScript pour détecter les erreurs avant l'exécution.
+  </p>
+
+  <h3 class="subsection">Syntaxe TypeScript utilisée dans le projet</h3>
+
+<pre><code><span class="cmt">// 1. Interface : définir la forme d'un objet</span>
+<span class="kw">interface</span> <span class="cls">Moto</span> {
+  id: <span class="kw">string</span>;
+  marque: <span class="kw">string</span>;
+  prix_vente: <span class="kw">number</span> | <span class="kw">null</span>; <span class="cmt">// peut être null</span>
+  etat: <span class="str">'Neuve'</span> | <span class="str">'Occasion'</span>;  <span class="cmt">// type union (enum)</span>
+  images?: <span class="cls">MotoImage</span>[];         <span class="cmt">// optionnel (le ? le dit)</span>
+}
+
+<span class="cmt">// 2. Props d'un composant</span>
+<span class="kw">interface</span> <span class="cls">MapPickerModalProps</span> {
+  visible: <span class="kw">boolean</span>;
+  onClose: () => <span class="kw">void</span>;           <span class="cmt">// fonction sans retour</span>
+  onLocationSelected: (location: <span class="cls">LocationResult</span>) => <span class="kw">void</span>;
+  initialLatitude?: <span class="kw">number</span>;      <span class="cmt">// paramètre optionnel</span>
+}
+
+<span class="cmt">// 3. Type alias</span>
+<span class="kw">type</span> <span class="cls">UserRole</span> = <span class="str">'super_admin'</span> | <span class="str">'enterprise_admin'</span> | <span class="str">'user'</span>;
+<span class="kw">type</span> <span class="cls">PendingState</span> = <span class="str">'enterprise_pending'</span> | <span class="str">'user_pending'</span> | <span class="kw">null</span>;
+
+<span class="cmt">// 4. Générique : fonction qui travaille sur n'importe quel type</span>
+<span class="kw">const</span> <span class="fn">getFirst</span> = &lt;<span class="cls">T</span>&gt;(items: <span class="cls">T</span>[]) : <span class="cls">T</span> | <span class="kw">undefined</span> => items[<span class="num">0</span>];
+
+<span class="cmt">// 5. useState avec type explicite</span>
+<span class="kw">const</span> [location, setLocation] = useState&lt;<span class="cls">LocationResult</span> | <span class="kw">null</span>&gt;(<span class="kw">null</span>);
+</code></pre>
+
+  <h3 class="subsection">tsconfig.json du projet</h3>
+<pre><code>{
+  <span class="prop">"extends"</span>: <span class="str">"expo/tsconfig.base"</span>,   <span class="cmt">// Config Expo recommandée</span>
+  <span class="prop">"compilerOptions"</span>: {
+    <span class="prop">"strict"</span>: <span class="kw">true</span>,                  <span class="cmt">// Mode strict (recommandé)</span>
+    <span class="prop">"paths"</span>: {
+      <span class="prop">"@/*"</span>: [<span class="str">"."</span>]                   <span class="cmt">// @/lib/... = ./lib/...</span>
+    }
+  }
+}
+</code></pre>
+
+  <div class="tip">
+    <strong>✅ L'alias @/</strong>
+    Dans tout le projet, <code>@/lib/supabase</code> pointe vers <code>./lib/supabase.js</code>.
+    C'est plus propre que des chemins relatifs <code>../../lib/supabase</code>.
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     CHAPITRE 2 — COMPOSANTS DE BASE
+═══════════════════════════════════════════════════════ -->
+<div class="chapter" id="ch2">
+  <h1 class="ch-title"><span class="ch-num">Chapitre 2</span>Les composants de base</h1>
+  <p class="ch-intro">
+    React Native ne dispose pas de <code>&lt;div&gt;</code>, <code>&lt;p&gt;</code> ou <code>&lt;button&gt;</code>.
+    Il a ses propres composants primitifs qui se mappent aux éléments natifs iOS et Android.
+    Ce chapitre couvre chaque primitif avec des exemples tirés de SenMoto.
+  </p>
+
+  <h2 class="section">2.1 — View, Text, Image, ScrollView</h2>
+
+  <h3 class="subsection">View — Le conteneur universel</h3>
+  <p>
+    <code>View</code> est l'équivalent de <code>&lt;div&gt;</code>. C'est un rectangle qui contient d'autres éléments.
+    Il n'affiche rien par lui-même — il sert à structurer et styler.
+  </p>
+
+<pre><code><span class="kw">import</span> { <span class="cls">View</span>, <span class="cls">Text</span> } <span class="kw">from</span> <span class="str">'react-native'</span>;
+
+<span class="cmt">// Exemple réel : en-tête du menu hamburger (HamburgerMenu.tsx)</span>
+<span class="kw">function</span> <span class="fn">MenuHeader</span>() {
+  <span class="kw">return</span> (
+    <span class="cmt">{/* View principale : colonne verticale */}</span>
+    &lt;<span class="cls">View</span> style={{ flex: <span class="num">1</span>, backgroundColor: <span class="str">'#121212'</span> }}&gt;
+
+      <span class="cmt">{/* View enfant : ligne horizontale */}</span>
+      &lt;<span class="cls">View</span> style={{ flexDirection: <span class="str">'row'</span>, padding: <span class="num">16</span> }}&gt;
+        &lt;<span class="cls">Text</span> style={{ color: <span class="str">'#fff'</span> }}&gt;SenMoto&lt;/<span class="cls">Text</span>&gt;
+      &lt;/<span class="cls">View</span>&gt;
+
+    &lt;/<span class="cls">View</span>&gt;
+  );
+}
+</code></pre>
+
+  <h3 class="subsection">Text — Tout texte doit être dans Text</h3>
+  <p>En React Native, tu <strong>ne peux pas</strong> mettre du texte directement dans une <code>View</code>.
+  Il doit toujours être dans un composant <code>Text</code>.</p>
+
+<pre><code><span class="cmt">// ❌ FAUX — Crash !</span>
+&lt;<span class="cls">View</span>&gt;Bonjour&lt;/<span class="cls">View</span>&gt;
+
+<span class="cmt">// ✅ CORRECT</span>
+&lt;<span class="cls">View</span>&gt;
+  &lt;<span class="cls">Text</span>&gt;Bonjour&lt;/<span class="cls">Text</span>&gt;
+&lt;/<span class="cls">View</span>&gt;
+
+<span class="cmt">// Exemples de style de texte (admin/dashboard.tsx)</span>
+&lt;<span class="cls">Text</span> style={{
+  fontSize: <span class="num">28</span>,
+  fontWeight: <span class="str">'bold'</span>,
+  color: <span class="str">'#FFFFFF'</span>,
+  letterSpacing: <span class="num">0.5</span>,
+}}&gt;
+  Tableau de bord
+&lt;/<span class="cls">Text</span>&gt;
+
+<span class="cmt">// Texte tronqué (très utilisé dans les listes)</span>
+&lt;<span class="cls">Text</span> numberOfLines={<span class="num">1</span>} ellipsizeMode=<span class="str">"tail"</span>&gt;
+  Nom très long qui sera tronqué avec ...
+&lt;/<span class="cls">Text</span>&gt;
+</code></pre>
+
+  <h3 class="subsection">Image — Afficher une image</h3>
+
+<pre><code><span class="kw">import</span> { <span class="cls">Image</span> } <span class="kw">from</span> <span class="str">'react-native'</span>;
+
+<span class="cmt">// Image depuis l'internet</span>
+&lt;<span class="cls">Image</span>
+  source={{ uri: <span class="str">'https://exemple.com/moto.jpg'</span> }}
+  style={{ width: <span class="num">200</span>, height: <span class="num">150</span> }}
+/&gt;
+
+<span class="cmt">// Image base64 (utilisé dans SenMoto pour les photos de motos)</span>
+&lt;<span class="cls">Image</span>
+  source={{ uri: <span class="str">'data:image/jpeg;base64,/9j/4AAQ...'</span> }}
+  style={{ width: <span class="num">300</span>, height: <span class="num">200</span>, borderRadius: <span class="num">12</span> }}
+  resizeMode=<span class="str">"cover"</span>
+/&gt;
+
+<span class="cmt">// Image locale (dans les assets)</span>
+&lt;<span class="cls">Image</span>
+  source={require(<span class="str">'./assets/images/SenMoto.png'</span>)}
+  style={{ width: <span class="num">80</span>, height: <span class="num">80</span> }}
+/&gt;
+</code></pre>
+
+  <div class="note">
+    <strong>📌 expo-image vs Image</strong>
+    SenMoto utilise aussi <code>expo-image</code> (importé de <code>'expo-image'</code>).
+    C'est une version améliorée avec cache mémoire+disque, transitions animées, et meilleure performance.
+    Préfère-la pour les listes avec beaucoup d'images.
+  </div>
+
+  <h3 class="subsection">ScrollView — Zone défilante</h3>
+
+<pre><code><span class="kw">import</span> { <span class="cls">ScrollView</span> } <span class="kw">from</span> <span class="str">'react-native'</span>;
+
+<span class="cmt">// Exemple : formulaire de création d'entreprise (create-enterprise.tsx)</span>
+<span class="kw">return</span> (
+  &lt;<span class="cls">SafeAreaView</span> style={{ flex: <span class="num">1</span> }}&gt;
+    &lt;<span class="cls">ScrollView</span>
+      style={{ flex: <span class="num">1</span> }}
+      contentContainerStyle={{ padding: <span class="num">20</span>, paddingBottom: <span class="num">40</span> }}
+      <span class="cmt">// Ferme le clavier quand l'utilisateur scroll</span>
+      keyboardShouldPersistTaps=<span class="str">"handled"</span>
+    &gt;
+      <span class="cmt">{/* Contenu long */}</span>
+    &lt;/<span class="cls">ScrollView</span>&gt;
+  &lt;/<span class="cls">SafeAreaView</span>&gt;
+);
+</code></pre>
+
+  <div class="warn">
+    <strong>⚠️ ScrollView charge tout en mémoire</strong>
+    Pour une liste de 1000 éléments, utilise <code>FlatList</code> à la place.
+    <code>ScrollView</code> est OK pour des formulaires ou du contenu fixe.
+  </div>
+
+  <!-- 2.2 -->
+  <h2 class="section">2.2 — StyleSheet et Flexbox</h2>
+
+  <h3 class="subsection">StyleSheet.create() — Définir les styles</h3>
+
+<pre><code><span class="kw">import</span> { <span class="cls">StyleSheet</span>, <span class="cls">View</span>, <span class="cls">Text</span> } <span class="kw">from</span> <span class="str">'react-native'</span>;
+
+<span class="kw">export default function</span> <span class="fn">MaPage</span>() {
+  <span class="kw">return</span> (
+    &lt;<span class="cls">View</span> style={styles.container}&gt;
+      &lt;<span class="cls">Text</span> style={styles.titre}&gt;SenMoto&lt;/<span class="cls">Text</span>&gt;
+    &lt;/<span class="cls">View</span>&gt;
+  );
+}
+
+<span class="cmt">// Toujours définir les styles à la fin du fichier</span>
+<span class="kw">const</span> styles = <span class="cls">StyleSheet</span>.<span class="fn">create</span>({
+  container: {
+    flex: <span class="num">1</span>,                      <span class="cmt">// Prend tout l'espace disponible</span>
+    backgroundColor: <span class="str">'#121212'</span>,
+    padding: <span class="num">20</span>,
+  },
+  titre: {
+    fontSize: <span class="num">28</span>,
+    fontWeight: <span class="str">'bold'</span>,
+    color: <span class="str">'#FFFFFF'</span>,
+    marginBottom: <span class="num">16</span>,            <span class="cmt">// Espacement en bas (pas de px !)</span>
+  },
+});
+</code></pre>
+
+  <div class="tip">
+    <strong>✅ Pourquoi StyleSheet.create() et pas des objets inline ?</strong>
+    <code>StyleSheet.create()</code> optimise les styles (validation au démarrage, envoi natif une seule fois).
+    Les objets inline <code>style={{ color: 'red' }}</code> recrées un objet à chaque rendu — moins efficace.
+  </div>
+
+  <h3 class="subsection">Flexbox — La mise en page en React Native</h3>
+  <p>
+    React Native utilise <strong>Flexbox par défaut</strong> pour tous les layouts.
+    La différence avec le web : la direction par défaut est <strong>column</strong> (vertical)
+    et non <code>row</code>.
+  </p>
+
+<pre><code><span class="cmt">// Exemple concret : toolbar du MapPickerModal</span>
+<span class="kw">const</span> styles = <span class="cls">StyleSheet</span>.<span class="fn">create</span>({
+  toolbar: {
+    <span class="cmt">// Aligner les boutons horizontalement</span>
+    flexDirection: <span class="str">'row'</span>,
+    <span class="cmt">// Centrer verticalement</span>
+    alignItems: <span class="str">'center'</span>,
+    <span class="cmt">// Espace entre les boutons</span>
+    gap: <span class="num">10</span>,
+    padding: <span class="num">12</span>,
+  },
+
+  btnLocate: {
+    <span class="cmt">// Prend 1 part de l'espace</span>
+    flex: <span class="num">1</span>,
+    height: <span class="num">42</span>,
+    borderRadius: <span class="num">10</span>,
+    backgroundColor: <span class="str">'#0A84FF'</span>,
+    justifyContent: <span class="str">'center'</span>,  <span class="cmt">// Centre le texte verticalement</span>
+    alignItems: <span class="str">'center'</span>,       <span class="cmt">// Centre le texte horizontalement</span>
+  },
+
+  btnConfirm: {
+    <span class="cmt">// Prend 1.2 parts (un peu plus large)</span>
+    flex: <span class="num">1.2</span>,
+    height: <span class="num">42</span>,
+    backgroundColor: <span class="str">'#30D158'</span>,
+  },
+});
+</code></pre>
+
+  <table>
+    <tr><th>Propriété Flexbox</th><th>Valeurs courantes</th><th>Utilisation dans SenMoto</th></tr>
+    <tr><td><code>flexDirection</code></td><td>column (défaut), row</td><td>Lignes du menu, toolbar</td></tr>
+    <tr><td><code>flex</code></td><td>1, 2, 0.5...</td><td>Partager l'espace disponible</td></tr>
+    <tr><td><code>justifyContent</code></td><td>center, space-between, flex-end</td><td>Espacer boutons dans toolbar</td></tr>
+    <tr><td><code>alignItems</code></td><td>center, stretch, flex-start</td><td>Centrer icône + texte</td></tr>
+    <tr><td><code>gap</code></td><td>nombre</td><td>Espace entre éléments (flex)</td></tr>
+    <tr><td><code>position: 'absolute'</code></td><td>—</td><td>Overlay, badges</td></tr>
+  </table>
+
+  <!-- 2.3 -->
+  <h2 class="section">2.3 — Interactions : TouchableOpacity, Pressable</h2>
+
+<pre><code><span class="kw">import</span> { <span class="cls">TouchableOpacity</span>, <span class="cls">Pressable</span>, <span class="cls">Text</span> } <span class="kw">from</span> <span class="str">'react-native'</span>;
+
+<span class="cmt">// TouchableOpacity : s'opacifie au toucher (le plus courant)</span>
+&lt;<span class="cls">TouchableOpacity</span>
+  style={styles.bouton}
+  onPress={() => router.<span class="fn">push</span>(<span class="str">'/moto'</span>)}
+  activeOpacity={<span class="num">0.7</span>}          <span class="cmt">// Opacité lors du toucher (0-1)</span>
+  disabled={loading}             <span class="cmt">// Désactiver pendant chargement</span>
+&gt;
+  &lt;<span class="cls">Text</span>&gt;Voir la moto&lt;/<span class="cls">Text</span>&gt;
+&lt;/<span class="cls">TouchableOpacity</span>&gt;
+
+<span class="cmt">// Pressable : plus flexible, états pressed/hovered</span>
+&lt;<span class="cls">Pressable</span>
+  onPress={handlePress}
+  style={({ pressed }) => [
+    styles.bouton,
+    pressed &amp;&amp; { backgroundColor: <span class="str">'#005bcc'</span> }  <span class="cmt">// Style quand pressé</span>
+  ]}
+&gt;
+  &lt;<span class="cls">Text</span>&gt;Action&lt;/<span class="cls">Text</span>&gt;
+&lt;/<span class="cls">Pressable</span>&gt;
+
+<span class="cmt">// Exemple réel (create-enterprise.tsx) : bouton de soumission</span>
+&lt;<span class="cls">TouchableOpacity</span>
+  style={[
+    styles.submitButton,
+    { backgroundColor: theme.primary, opacity: loading ? <span class="num">0.6</span> : <span class="num">1</span> }
+  ]}
+  onPress={handleSubmit}
+  disabled={loading}
+&gt;
+  {loading
+    ? &lt;<span class="cls">ActivityIndicator</span> color=<span class="str">"#fff"</span> /&gt;
+    : &lt;<span class="cls">Text</span> style={styles.buttonText}&gt;Créer l'entreprise&lt;/<span class="cls">Text</span>&gt;
+  }
+&lt;/<span class="cls">TouchableOpacity</span>&gt;
+</code></pre>
+
+  <!-- 2.4 -->
+  <h2 class="section">2.4 — Saisie : TextInput</h2>
+
+<pre><code><span class="kw">import</span> { <span class="cls">TextInput</span>, useState } <span class="kw">from</span> <span class="str">'react-native'</span>;
+
+<span class="kw">function</span> <span class="fn">Formulaire</span>() {
+  <span class="kw">const</span> [email, setEmail] = <span class="fn">useState</span>(<span class="str">''</span>);
+  <span class="kw">const</span> [password, setPassword] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+  <span class="kw">return</span> (
+    &lt;&gt;
+      <span class="cmt">{/* Champ email (auth/login.tsx) */}</span>
+      &lt;<span class="cls">TextInput</span>
+        style={styles.input}
+        placeholder=<span class="str">"jean@exemple.com"</span>
+        placeholderTextColor=<span class="str">"#888"</span>
+        keyboardType=<span class="str">"email-address"</span>  <span class="cmt">// Clavier avec @</span>
+        autoCapitalize=<span class="str">"none"</span>          <span class="cmt">// Pas de majuscule auto</span>
+        autoCorrect={<span class="kw">false</span>}           <span class="cmt">// Pas d'autocorrect</span>
+        value={email}
+        onChangeText={setEmail}         <span class="cmt">// Met à jour le state</span>
+      /&gt;
+
+      <span class="cmt">{/* Champ mot de passe */}</span>
+      &lt;<span class="cls">TextInput</span>
+        style={styles.input}
+        placeholder=<span class="str">"••••••••"</span>
+        secureTextEntry={<span class="kw">true</span>}        <span class="cmt">// Masque le texte</span>
+        value={password}
+        onChangeText={setPassword}
+      /&gt;
+    &lt;/&gt;
+  );
+}
+</code></pre>
+
+  <table>
+    <tr><th>Prop TextInput</th><th>Valeur</th><th>Utilisation</th></tr>
+    <tr><td><code>keyboardType</code></td><td>email-address, numeric, phone-pad</td><td>Champs email, prix, téléphone</td></tr>
+    <tr><td><code>secureTextEntry</code></td><td>true/false</td><td>Mots de passe</td></tr>
+    <tr><td><code>autoCapitalize</code></td><td>none, sentences, words</td><td>Emails (none), noms (words)</td></tr>
+    <tr><td><code>multiline</code></td><td>true/false</td><td>Descriptions, notes</td></tr>
+    <tr><td><code>returnKeyType</code></td><td>done, next, search</td><td>Bouton "Entrée" du clavier</td></tr>
+    <tr><td><code>onSubmitEditing</code></td><td>fonction</td><td>Soumettre au "Entrée"</td></tr>
+  </table>
+
+  <!-- 2.5 -->
+  <h2 class="section">2.5 — Listes : FlatList</h2>
+
+  <p>
+    <code>FlatList</code> est le composant pour afficher de longues listes efficacement.
+    Il ne rend que les éléments visibles à l'écran (virtualisation).
+  </p>
+
+<pre><code><span class="kw">import</span> { <span class="cls">FlatList</span>, <span class="cls">View</span>, <span class="cls">Text</span> } <span class="kw">from</span> <span class="str">'react-native'</span>;
+
+<span class="cmt">// Exemple : liste de motos dans le feed public (app/(tabs)/index.tsx)</span>
+<span class="kw">type</span> <span class="cls">Moto</span> = {
+  id: <span class="kw">string</span>;
+  marque: <span class="kw">string</span>;
+  prix_vente: <span class="kw">number</span> | <span class="kw">null</span>;
+};
+
+<span class="kw">function</span> <span class="fn">ListeMotos</span>({ motos }: { motos: <span class="cls">Moto</span>[] }) {
+  <span class="kw">return</span> (
+    &lt;<span class="cls">FlatList</span>&lt;<span class="cls">Moto</span>&gt;
+      data={motos}                              <span class="cmt">// Tableau de données</span>
+      keyExtractor={(item) => item.id}          <span class="cmt">// Clé unique (obligatoire)</span>
+      renderItem={({ item }) => (               <span class="cmt">// Rendu de chaque élément</span>
+        &lt;<span class="cls">View</span> style={styles.card}&gt;
+          &lt;<span class="cls">Text</span>&gt;{item.marque}&lt;/<span class="cls">Text</span>&gt;
+          &lt;<span class="cls">Text</span>&gt;{item.prix_vente?.toLocaleString()} FCFA&lt;/<span class="cls">Text</span>&gt;
+        &lt;/<span class="cls">View</span>&gt;
+      )}
+      <span class="cmt">// Afficher un loader en bas pendant chargement</span>
+      ListFooterComponent={loading ? &lt;<span class="cls">ActivityIndicator</span> /&gt; : <span class="kw">null</span>}
+      <span class="cmt">// Afficher quand la liste est vide</span>
+      ListEmptyComponent={
+        &lt;<span class="cls">Text</span> style={styles.empty}&gt;Aucune moto disponible&lt;/<span class="cls">Text</span>&gt;
+      }
+      <span class="cmt">// Charger plus quand l'utilisateur arrive en bas</span>
+      onEndReached={loadMore}
+      onEndReachedThreshold={<span class="num">0.3</span>}             <span class="cmt">// Déclenche à 30% avant la fin</span>
+      <span class="cmt">// Espacement entre items</span>
+      ItemSeparatorComponent={() => &lt;<span class="cls">View</span> style={{ height: <span class="num">12</span> }} /&gt;}
+    /&gt;
+  );
+}
+</code></pre>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     CHAPITRE 3 — HOOKS REACT
+═══════════════════════════════════════════════════════ -->
+<div class="chapter" id="ch3">
+  <h1 class="ch-title"><span class="ch-num">Chapitre 3</span>React — Les Hooks essentiels</h1>
+  <p class="ch-intro">
+    Les Hooks sont des fonctions spéciales de React qui permettent d'ajouter de la logique
+    (état, effets, références) à des composants fonctionnels. SenMoto les utilise massivement —
+    on va voir chacun avec son exemple concret du projet.
+  </p>
+
+  <h2 class="section">3.1 — useState : gérer l'état local</h2>
+
+  <p>
+    <code>useState</code> ajoute une variable qui, quand elle change, <strong>force le composant à se re-rendre</strong>.
+    C'est la base de l'interactivité.
+  </p>
+
+<pre><code><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="cmt">// Syntaxe : [valeur, setValeur] = useState(valeurInitiale)</span>
+
+<span class="cmt">// Exemple 1 : loading spinner (create-enterprise.tsx)</span>
+<span class="kw">const</span> [loading, setLoading] = <span class="fn">useState</span>(<span class="kw">false</span>);
+
+<span class="kw">const</span> <span class="fn">handleSubmit</span> = <span class="kw">async</span> () => {
+  <span class="fn">setLoading</span>(<span class="kw">true</span>);       <span class="cmt">// Affiche ActivityIndicator</span>
+  <span class="kw">try</span> {
+    <span class="kw">await</span> <span class="fn">createEnterprise</span>(formData);
+  } <span class="kw">finally</span> {
+    <span class="fn">setLoading</span>(<span class="kw">false</span>);    <span class="cmt">// Cache ActivityIndicator</span>
+  }
+};
+
+<span class="cmt">// Exemple 2 : formulaire avec plusieurs champs</span>
+<span class="kw">const</span> [formData, setFormData] = <span class="fn">useState</span>({
+  enterpriseName: <span class="str">''</span>,
+  adminEmail: <span class="str">''</span>,
+  adminPassword: <span class="str">''</span>,
+});
+
+<span class="cmt">// Met à jour UN champ sans écraser les autres (spread ...)</span>
+<span class="kw">const</span> <span class="fn">handleChange</span> = (field: <span class="kw">string</span>, value: <span class="kw">string</span>) => {
+  <span class="fn">setFormData</span>(prev => ({ ...prev, [field]: value }));
+};
+
+<span class="cmt">// Exemple 3 : liste de données</span>
+<span class="kw">const</span> [motos, setMotos] = <span class="fn">useState</span>&lt;<span class="cls">Moto</span>[]&gt;([]);
+
+<span class="cmt">// Ajouter un élément à la liste</span>
+<span class="kw">const</span> <span class="fn">addMoto</span> = (moto: <span class="cls">Moto</span>) => {
+  <span class="fn">setMotos</span>(prev => [...prev, moto]);
+};
+</code></pre>
+
+  <div class="note">
+    <strong>📌 Règle importante : ne jamais muter directement le state</strong>
+<pre><code><span class="cmt">// ❌ Faux : mutation directe</span>
+motos.push(nouvelleMoto);       <span class="cmt">// React ne voit PAS le changement</span>
+
+<span class="cmt">// ✅ Correct : nouveau tableau</span>
+<span class="fn">setMotos</span>([...motos, nouvelleMoto]);  <span class="cmt">// React re-rend le composant</span>
+</code></pre>
+  </div>
+
+  <h2 class="section">3.2 — useEffect : effets de bord</h2>
+
+  <p>
+    <code>useEffect</code> exécute du code <em>après</em> le rendu du composant.
+    Utilisé pour : charger des données, s'abonner à des événements, configurer des timers.
+  </p>
+
+<pre><code><span class="kw">import</span> { useState, useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="cmt">// Syntaxe : useEffect(fonction, [dépendances])</span>
+
+<span class="cmt">// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Cas 1 : Charger données au montage (admin/users.tsx)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+<span class="kw">const</span> [users, setUsers] = <span class="fn">useState</span>([]);
+
+<span class="fn">useEffect</span>(() => {
+  <span class="kw">const</span> <span class="fn">fetchUsers</span> = <span class="kw">async</span> () => {
+    <span class="kw">const</span> data = <span class="kw">await</span> <span class="fn">getActiveUsers</span>(enterpriseId);
+    <span class="fn">setUsers</span>(data);
+  };
+  <span class="fn">fetchUsers</span>();
+}, []);  <span class="cmt">// [] = exécute UNE SEULE FOIS au montage</span>
+
+<span class="cmt">// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Cas 2 : Réagir à un changement (notifications.tsx)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+<span class="fn">useEffect</span>(() => {
+  <span class="cmt">// Recharge les notifs quand l'ID change</span>
+  <span class="fn">loadNotifications</span>(userId);
+}, [userId]);  <span class="cmt">// Exécute chaque fois que userId change</span>
+
+<span class="cmt">// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Cas 3 : Nettoyage (lib/firebase.ts)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+<span class="fn">useEffect</span>(() => {
+  <span class="cmt">// S'abonner aux notifications</span>
+  <span class="kw">const</span> subscription = <span class="fn">setupNotificationListeners</span>();
+
+  <span class="cmt">// Retourner une fonction de nettoyage</span>
+  <span class="kw">return</span> () => {
+    subscription.<span class="fn">remove</span>();  <span class="cmt">// Désabonner quand composant démonté</span>
+  };
+}, []);
+
+<span class="cmt">// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Cas 4 : Pas de dépendances = exécute à CHAQUE rendu
+// (éviter généralement)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+<span class="fn">useEffect</span>(() => {
+  console.<span class="fn">log</span>(<span class="str">'Rendu!'</span>);
+});  <span class="cmt">// Aucun tableau = à chaque rendu</span>
+</code></pre>
+
+  <h2 class="section">3.3 — useRef : référence sans re-rendu</h2>
+
+  <p>
+    <code>useRef</code> crée une référence persistante entre les rendus qui <strong>ne déclenche PAS de re-rendu</strong>
+    quand elle change. Utilisé pour : accéder à un élément DOM/natif, stocker une valeur mutable.
+  </p>
+
+<pre><code><span class="kw">import</span> { useRef } <span class="kw">from</span> <span class="str">'react'</span>;
+<span class="kw">import</span> { <span class="cls">WebView</span> } <span class="kw">from</span> <span class="str">'react-native-webview'</span>;
+
+<span class="cmt">// Exemple réel : injecter du JavaScript dans la WebView (MapPickerModal.tsx)</span>
+<span class="kw">function</span> <span class="fn">MapPickerModal</span>() {
+  <span class="cmt">// Référence vers le composant WebView</span>
+  <span class="kw">const</span> webViewRef = <span class="fn">useRef</span>&lt;<span class="cls">WebView</span>&gt;(<span class="kw">null</span>);
+
+  <span class="kw">const</span> <span class="fn">sendLocationToMap</span> = (lat: <span class="kw">number</span>, lng: <span class="kw">number</span>) => {
+    <span class="cmt">// Accès direct au composant WebView sans re-rendre</span>
+    webViewRef.current?.<span class="fn">injectJavaScript</span>(
+      <span class="str">`receiveLocation(</span>${lat}<span class="str">, </span>${lng}<span class="str">); true;`</span>
+    );
+  };
+
+  <span class="kw">return</span> (
+    &lt;<span class="cls">WebView</span>
+      ref={webViewRef}      <span class="cmt">// Attache la référence</span>
+      source={{ html: mapHtml }}
+    /&gt;
+  );
+}
+
+<span class="cmt">// Autre usage : stocker une valeur sans re-rendre</span>
+<span class="kw">const</span> previousCount = <span class="fn">useRef</span>(<span class="num">0</span>);
+previousCount.current = count;  <span class="cmt">// Mutation directe OK pour useRef</span>
+</code></pre>
+
+  <h2 class="section">3.4 — useMemo &amp; useCallback : optimisations</h2>
+
+<pre><code><span class="kw">import</span> { useMemo, useCallback } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="cmt">// useMemo : mémoïse un CALCUL coûteux</span>
+<span class="kw">const</span> filteredMotos = <span class="fn">useMemo</span>(() => {
+  <span class="kw">return</span> motos.<span class="fn">filter</span>(m =>
+    m.marque.<span class="fn">toLowerCase</span>().<span class="fn">includes</span>(searchText.<span class="fn">toLowerCase</span>())
+  );
+}, [motos, searchText]);  <span class="cmt">// Recalcule seulement si ces valeurs changent</span>
+
+<span class="cmt">// useCallback : mémoïse une FONCTION</span>
+<span class="kw">const</span> <span class="fn">handlePress</span> = <span class="fn">useCallback</span>((motoId: <span class="kw">string</span>) => {
+  router.<span class="fn">push</span>(<span class="str">`/moto?id=</span>${motoId}<span class="str">`</span>);
+}, [router]);  <span class="cmt">// Même fonction entre rendus si router n'a pas changé</span>
+
+<span class="cmt">// Utile pour éviter de recréer des fonctions passées en props</span>
+</code></pre>
+
+  <h2 class="section">3.5 — useContext : lire le state global</h2>
+
+<pre><code><span class="kw">import</span> { useContext } <span class="kw">from</span> <span class="str">'react'</span>;
+<span class="kw">import</span> { <span class="fn">useTenant</span> } <span class="kw">from</span> <span class="str">'@/context/TenantContext'</span>;
+
+<span class="cmt">// Dans n'importe quelle page ou composant :</span>
+<span class="kw">function</span> <span class="fn">Dashboard</span>() {
+  <span class="kw">const</span> {
+    tenant,
+    isEnterpriseAdmin,
+    isSuperAdmin,
+    refreshTenant
+  } = <span class="fn">useTenant</span>();
+
+  <span class="kw">if</span> (!tenant) <span class="kw">return null</span>;
+
+  <span class="kw">return</span> (
+    &lt;<span class="cls">Text</span>&gt;Bienvenue, {tenant.enterprise_name}&lt;/<span class="cls">Text</span>&gt;
+  );
+}
+</code></pre>
+
+  <p>La création du Context est détaillée au Chapitre 5.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     CHAPITRE 4 — NAVIGATION EXPO ROUTER
+═══════════════════════════════════════════════════════ -->
+<div class="chapter" id="ch4">
+  <h1 class="ch-title"><span class="ch-num">Chapitre 4</span>Navigation avec Expo Router</h1>
+  <p class="ch-intro">
+    Expo Router est le système de navigation de SenMoto. Il transforme automatiquement
+    chaque fichier dans le dossier <code>app/</code> en une route accessible.
+    C'est la même philosophie que Next.js App Router, mais pour mobile.
+  </p>
+
+  <h2 class="section">4.1 — Principe du file-based routing</h2>
+
+<pre><code><span class="cmt">// La structure des fichiers DEVIENT la navigation :</span>
+
+app/
+  _layout.tsx         → Layout racine (toujours chargé)
+  home.tsx            → Route /home
+  moto.tsx            → Route /moto
+  auth/
+    login.tsx         → Route /auth/login
+  admin/
+    dashboard.tsx     → Route /admin/dashboard
+  (tabs)/
+    index.tsx         → Route / (onglet 1)
+    explore.tsx       → Route /explore (onglet 2)
+</code></pre>
+
+  <div class="note">
+    <strong>📌 Parenthèses dans les noms de dossier</strong>
+    <code>(tabs)</code> est un "route group" — les parenthèses disparaissent de l'URL.
+    <code>app/(tabs)/index.tsx</code> correspond à la route <code>/</code>, pas <code>/(tabs)/</code>.
+    C'est utile pour organiser les fichiers sans affecter les URLs.
+  </div>
+
+  <h2 class="section">4.2 — Layouts (_layout.tsx)</h2>
+
+  <p>
+    Un fichier <code>_layout.tsx</code> définit la <strong>structure commune</strong> de toutes les routes
+    dans son dossier. Il reste monté pendant la navigation entre ses enfants.
+  </p>
+
+<pre><code><span class="cmt">// app/_layout.tsx — Layout racine du projet SenMoto</span>
+<span class="kw">import</span> { <span class="cls">Stack</span> } <span class="kw">from</span> <span class="str">'expo-router'</span>;
+
+<span class="kw">export default function</span> <span class="fn">RootLayout</span>() {
+  <span class="kw">return</span> (
+    <span class="cmt">{/* Providers globaux */}</span>
+    &lt;<span class="cls">SafeAreaProvider</span>&gt;
+      &lt;<span class="cls">ThemeProvider</span>&gt;
+        &lt;<span class="cls">TenantProvider</span>&gt;
+          <span class="cmt">{/* Stack = navigation en pile (une page par-dessus l'autre) */}</span>
+          &lt;<span class="cls">Stack</span>&gt;
+            <span class="cmt">{/* Configurer l'affichage de chaque route */}</span>
+            &lt;<span class="cls">Stack</span>.<span class="cls">Screen</span>
+              name=<span class="str">"home"</span>
+              options={{ headerShown: <span class="kw">false</span> }}  <span class="cmt">// Pas d'en-tête</span>
+            /&gt;
+            &lt;<span class="cls">Stack</span>.<span class="cls">Screen</span>
+              name=<span class="str">"auth/login"</span>
+              options={{ title: <span class="str">'Connexion'</span> }}
+            /&gt;
+          &lt;/<span class="cls">Stack</span>&gt;
+        &lt;/<span class="cls">TenantProvider</span>&gt;
+      &lt;/<span class="cls">ThemeProvider</span>&gt;
+    &lt;/<span class="cls">SafeAreaProvider</span>&gt;
+  );
+}
+
+<span class="cmt">// app/(tabs)/_layout.tsx — Layout des onglets</span>
+<span class="kw">import</span> { <span class="cls">Tabs</span> } <span class="kw">from</span> <span class="str">'expo-router'</span>;
+
+<span class="kw">export default function</span> <span class="fn">TabLayout</span>() {
+  <span class="kw">return</span> (
+    &lt;<span class="cls">Tabs</span> screenOptions={{ tabBarActiveTintColor: <span class="str">'#0A84FF'</span> }}&gt;
+      &lt;<span class="cls">Tabs</span>.<span class="cls">Screen</span>
+        name=<span class="str">"index"</span>
+        options={{
+          title: <span class="str">'Accueil'</span>,
+          tabBarIcon: ({ color }) =>
+            &lt;<span class="cls">Ionicons</span> name=<span class="str">"home"</span> color={color} size={<span class="num">24</span>} /&gt;
+        }}
+      /&gt;
+    &lt;/<span class="cls">Tabs</span>&gt;
+  );
+}
+</code></pre>
+
+  <h2 class="section">4.3 — Navigation programmatique</h2>
+
+<pre><code><span class="kw">import</span> { <span class="fn">useRouter</span>, <span class="fn">useSegments</span> } <span class="kw">from</span> <span class="str">'expo-router'</span>;
+
+<span class="kw">function</span> <span class="fn">MonComposant</span>() {
+  <span class="kw">const</span> router = <span class="fn">useRouter</span>();
+
+  <span class="cmt">// Naviguer vers une page (ajoute à l'historique)</span>
+  router.<span class="fn">push</span>(<span class="str">'/moto'</span>);
+
+  <span class="cmt">// Remplacer la page actuelle (efface l'historique à ce niveau)</span>
+  router.<span class="fn">replace</span>(<span class="str">'/onboarding'</span>);
+
+  <span class="cmt">// Retour en arrière</span>
+  router.<span class="fn">back</span>();
+
+  <span class="cmt">// Naviguer avec paramètres</span>
+  router.<span class="fn">push</span>({
+    pathname: <span class="str">'/moto'</span>,
+    params: { id: <span class="str">'abc-123'</span>, mode: <span class="str">'edit'</span> }
+  });
+}
+
+<span class="cmt">// Exemple réel : RouteGuard dans RootLayout (app/_layout.tsx)</span>
+<span class="fn">useEffect</span>(() => {
+  <span class="kw">if</span> (loading) <span class="kw">return</span>;
+
+  <span class="kw">if</span> (!isAuthenticated) {
+    router.<span class="fn">replace</span>(<span class="str">'/onboarding'</span>);    <span class="cmt">// Pas connecté → onboarding</span>
+  } <span class="kw">else if</span> (pendingState) {
+    router.<span class="fn">replace</span>(<span class="str">'/pending'</span>);        <span class="cmt">// En attente → pending</span>
+  } <span class="kw">else if</span> (isSuperAdmin) {
+    router.<span class="fn">replace</span>(<span class="str">'/admin/enterprises'</span>);
+  } <span class="kw">else if</span> (isEnterpriseAdmin) {
+    router.<span class="fn">replace</span>(<span class="str">'/admin/dashboard'</span>);
+  } <span class="kw">else</span> {
+    router.<span class="fn">replace</span>(<span class="str">'/home'</span>);            <span class="cmt">// User normal → home</span>
+  }
+}, [loading, isAuthenticated, pendingState, tenant]);
+</code></pre>
+
+  <h2 class="section">4.4 — Paramètres de route</h2>
+
+<pre><code><span class="kw">import</span> { <span class="fn">useLocalSearchParams</span> } <span class="kw">from</span> <span class="str">'expo-router'</span>;
+
+<span class="cmt">// Dans app/moto.tsx :</span>
+<span class="kw">export default function</span> <span class="fn">MotoScreen</span>() {
+  <span class="cmt">// Récupérer les paramètres de l'URL</span>
+  <span class="kw">const</span> { id, mode } = <span class="fn">useLocalSearchParams</span>&lt;{
+    id?: <span class="kw">string</span>;
+    mode?: <span class="str">'edit'</span> | <span class="str">'view'</span>;
+  }&gt;();
+
+  <span class="kw">const</span> isEditing = mode === <span class="str">'edit'</span> || !!id;
+
+  <span class="fn">useEffect</span>(() => {
+    <span class="kw">if</span> (id) {
+      <span class="fn">loadMoto</span>(id);  <span class="cmt">// Charger les données de la moto</span>
+    }
+  }, [id]);
+}
+</code></pre>
+
+  <h2 class="section">4.5 — Route Guard : protection des routes</h2>
+
+  <p>
+    Dans SenMoto, les utilisateurs non connectés ne doivent pas accéder aux pages privées.
+    Voici comment le <strong>RouteGuard</strong> est implémenté dans <code>app/_layout.tsx</code> :
+  </p>
+
+<pre><code><span class="cmt">// Pattern : RouteGuard dans le RootLayout</span>
+<span class="kw">function</span> <span class="fn">AppStack</span>() {
+  <span class="kw">const</span> { tenant, loading, isAuthenticated, pendingState,
+          isSuperAdmin, isEnterpriseAdmin } = <span class="fn">useTenant</span>();
+  <span class="kw">const</span> segments = <span class="fn">useSegments</span>(); <span class="cmt">// Chemin actuel ex: ['admin','dashboard']</span>
+  <span class="kw">const</span> router = <span class="fn">useRouter</span>();
+
+  <span class="fn">useEffect</span>(() => {
+    <span class="kw">if</span> (loading) <span class="kw">return</span>; <span class="cmt">// Attendre que le tenant soit chargé</span>
+
+    <span class="kw">const</span> inAuthGroup = segments[<span class="num">0</span>] === <span class="str">'auth'</span>;
+    <span class="kw">const</span> inOnboarding = segments[<span class="num">0</span>] === <span class="str">'onboarding'</span>;
+    <span class="kw">const</span> inAdmin = segments[<span class="num">0</span>] === <span class="str">'admin'</span>;
+
+    <span class="kw">if</span> (!isAuthenticated &amp;&amp; !inOnboarding &amp;&amp; !inAuthGroup) {
+      router.<span class="fn">replace</span>(<span class="str">'/onboarding'</span>);
+      <span class="kw">return</span>;
+    }
+
+    <span class="kw">if</span> (isAuthenticated &amp;&amp; inAdmin &amp;&amp; !isSuperAdmin &amp;&amp; !isEnterpriseAdmin) {
+      router.<span class="fn">replace</span>(<span class="str">'/home'</span>); <span class="cmt">// User normal essaie /admin → rediriger</span>
+    }
+  }, [loading, isAuthenticated, segments, tenant]);
+
+  <span class="kw">return</span> &lt;<span class="cls">Stack</span> screenOptions={{ headerShown: <span class="kw">false</span> }} /&gt;;
+}
+</code></pre>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     CHAPITRE 5 — CONTEXT API
+═══════════════════════════════════════════════════════ -->
+<div class="chapter" id="ch5">
+  <h1 class="ch-title"><span class="ch-num">Chapitre 5</span>State global avec Context API</h1>
+  <p class="ch-intro">
+    Quand plusieurs composants éloignés ont besoin des mêmes données (ex: l'entreprise connectée,
+    le thème sombre/clair), passer les props à travers chaque niveau devient impossible.
+    La Context API de React résout ce problème.
+  </p>
+
+  <h2 class="section">5.1 — Le problème du "prop drilling"</h2>
+
+<pre><code><span class="cmt">// ❌ Prop drilling : passer tenant à travers tous les niveaux</span>
+&lt;<span class="cls">RootLayout</span> tenant={tenant}&gt;
+  &lt;<span class="cls">HomeScreen</span> tenant={tenant}&gt;
+    &lt;<span class="cls">HamburgerMenu</span> tenant={tenant}&gt;
+      &lt;<span class="cls">MenuItem</span> tenant={tenant}&gt;  <span class="cmt">// ← problème ici</span>
+        ...
+      &lt;/<span class="cls">MenuItem</span>&gt;
+    &lt;/<span class="cls">HamburgerMenu</span>&gt;
+  &lt;/<span class="cls">HomeScreen</span>&gt;
+&lt;/<span class="cls">RootLayout</span>&gt;
+
+<span class="cmt">// ✅ Avec Context : accès direct depuis n'importe où</span>
+<span class="kw">const</span> { tenant } = <span class="fn">useTenant</span>(); <span class="cmt">// Dans MenuItem, sans props !</span>
+</code></pre>
+
+  <h2 class="section">5.2 — TenantContext : qui est connecté ?</h2>
+
+<pre><code><span class="cmt">// context/TenantContext.tsx — Code complet annoté</span>
+
+<span class="kw">import</span> { createContext, useContext, useEffect, useState } <span class="kw">from</span> <span class="str">'react'</span>;
+<span class="kw">import</span> { supabase } <span class="kw">from</span> <span class="str">'@/lib/supabase'</span>;
+
+<span class="cmt">// ━━━ 1. Types ━━━</span>
+<span class="kw">export interface</span> <span class="cls">TenantInfo</span> {
+  enterprise_id: <span class="kw">string</span>;
+  enterprise_name: <span class="kw">string</span>;
+  enterprise_code: <span class="kw">string</span>;
+  enterprise_logo_url: <span class="kw">string</span> | <span class="kw">null</span>;
+  user_id: <span class="kw">string</span>;
+  user_role: <span class="str">'super_admin'</span> | <span class="str">'enterprise_admin'</span> | <span class="str">'user'</span>;
+  is_enterprise_active: <span class="kw">boolean</span>;
+  is_user_active: <span class="kw">boolean</span>;
+}
+
+<span class="kw">export type</span> <span class="cls">PendingState</span> =
+  | <span class="str">'enterprise_pending'</span>  <span class="cmt">// L'entreprise attend validation super-admin</span>
+  | <span class="str">'user_pending'</span>        <span class="cmt">// L'user attend validation admin entreprise</span>
+  | <span class="str">'no_enterprise'</span>       <span class="cmt">// L'user n'appartient à aucune entreprise</span>
+  | <span class="kw">null</span>;
+
+<span class="kw">interface</span> <span class="cls">TenantContextType</span> {
+  tenant: <span class="cls">TenantInfo</span> | <span class="kw">null</span>;
+  loading: <span class="kw">boolean</span>;
+  isAuthenticated: <span class="kw">boolean</span>;
+  pendingState: <span class="cls">PendingState</span>;
+  refreshTenant: () => <span class="cls">Promise</span>&lt;<span class="kw">void</span>&gt;;
+  isSuperAdmin: <span class="kw">boolean</span>;
+  isEnterpriseAdmin: <span class="kw">boolean</span>;
+  isRegularUser: <span class="kw">boolean</span>;
+}
+
+<span class="cmt">// ━━━ 2. Créer le Context (valeur par défaut) ━━━</span>
+<span class="kw">const</span> TenantContext = <span class="fn">createContext</span>&lt;<span class="cls">TenantContextType</span>&gt;({
+  tenant: <span class="kw">null</span>,
+  loading: <span class="kw">true</span>,
+  isAuthenticated: <span class="kw">false</span>,
+  pendingState: <span class="kw">null</span>,
+  refreshTenant: <span class="kw">async</span> () => {},
+  isSuperAdmin: <span class="kw">false</span>,
+  isEnterpriseAdmin: <span class="kw">false</span>,
+  isRegularUser: <span class="kw">false</span>,
+});
+
+<span class="cmt">// ━━━ 3. Le Provider : enveloppe l'application ━━━</span>
+<span class="kw">export function</span> <span class="fn">TenantProvider</span>({ children }: { children: <span class="cls">React</span>.<span class="cls">ReactNode</span> }) {
+  <span class="kw">const</span> [tenant, setTenant] = <span class="fn">useState</span>&lt;<span class="cls">TenantInfo</span> | <span class="kw">null</span>&gt;(<span class="kw">null</span>);
+  <span class="kw">const</span> [loading, setLoading] = <span class="fn">useState</span>(<span class="kw">true</span>);
+  <span class="kw">const</span> [isAuthenticated, setIsAuthenticated] = <span class="fn">useState</span>(<span class="kw">false</span>);
+  <span class="kw">const</span> [pendingState, setPendingState] = <span class="fn">useState</span>&lt;<span class="cls">PendingState</span>&gt;(<span class="kw">null</span>);
+
+  <span class="kw">const</span> <span class="fn">loadTenant</span> = <span class="kw">async</span> () => {
+    <span class="kw">try</span> {
+      <span class="cmt">// Récupérer la session Supabase</span>
+      <span class="kw">const</span> { data: { session } } = <span class="kw">await</span> supabase.auth.<span class="fn">getSession</span>();
+
+      <span class="kw">if</span> (!session) {
+        <span class="fn">setIsAuthenticated</span>(<span class="kw">false</span>);
+        <span class="fn">setLoading</span>(<span class="kw">false</span>);
+        <span class="kw">return</span>;
+      }
+
+      <span class="fn">setIsAuthenticated</span>(<span class="kw">true</span>);
+      <span class="kw">const</span> userId = session.user.id;
+
+      <span class="cmt">// Étape 1 : Vérifier si super_admin</span>
+      <span class="kw">const</span> { data: superAdmin } = <span class="kw">await</span> supabase
+        .<span class="fn">from</span>(<span class="str">'super_admins'</span>)
+        .<span class="fn">select</span>(<span class="str">'user_id'</span>)
+        .<span class="fn">eq</span>(<span class="str">'user_id'</span>, userId)
+        .<span class="fn">single</span>();
+
+      <span class="kw">if</span> (superAdmin) {
+        <span class="fn">setTenant</span>({
+          enterprise_id: <span class="str">'super'</span>,
+          enterprise_name: <span class="str">'Super Admin'</span>,
+          enterprise_code: <span class="str">'SUPER'</span>,
+          enterprise_logo_url: <span class="kw">null</span>,
+          user_id: userId,
+          user_role: <span class="str">'super_admin'</span>,
+          is_enterprise_active: <span class="kw">true</span>,
+          is_user_active: <span class="kw">true</span>,
+        });
+        <span class="kw">return</span>;
+      }
+
+      <span class="cmt">// Étape 2 : Vérifier enterprise_admins</span>
+      <span class="kw">const</span> { data: adminRecord } = <span class="kw">await</span> supabase
+        .<span class="fn">from</span>(<span class="str">'enterprise_admins'</span>)
+        .<span class="fn">select</span>(<span class="str">`*, enterprises(*)`</span>)
+        .<span class="fn">eq</span>(<span class="str">'user_id'</span>, userId)
+        .<span class="fn">single</span>();
+
+      <span class="kw">if</span> (adminRecord) {
+        <span class="kw">const</span> enterprise = adminRecord.enterprises;
+        <span class="kw">if</span> (!enterprise.is_active) {
+          <span class="fn">setPendingState</span>(<span class="str">'enterprise_pending'</span>);
+          <span class="kw">return</span>;
+        }
+        <span class="fn">setTenant</span>({
+          enterprise_id: enterprise.id,
+          enterprise_name: enterprise.name,
+          enterprise_code: enterprise.code,
+          enterprise_logo_url: enterprise.logo_url,
+          user_id: userId,
+          user_role: <span class="str">'enterprise_admin'</span>,
+          is_enterprise_active: enterprise.is_active,
+          is_user_active: adminRecord.is_active,
+        });
+        <span class="kw">return</span>;
+      }
+
+      <span class="cmt">// Étape 3 : Vérifier enterprise_users</span>
+      <span class="kw">const</span> { data: userRecord } = <span class="kw">await</span> supabase
+        .<span class="fn">from</span>(<span class="str">'enterprise_users'</span>)
+        .<span class="fn">select</span>(<span class="str">`*, enterprises(*)`</span>)
+        .<span class="fn">eq</span>(<span class="str">'user_id'</span>, userId)
+        .<span class="fn">single</span>();
+
+      <span class="kw">if</span> (userRecord) {
+        <span class="kw">if</span> (!userRecord.is_active) {
+          <span class="fn">setPendingState</span>(<span class="str">'user_pending'</span>);
+        } <span class="kw">else</span> {
+          <span class="fn">setTenant</span>({ ...userRecord, user_role: <span class="str">'user'</span> });
+        }
+        <span class="kw">return</span>;
+      }
+
+      <span class="cmt">// Aucun rôle trouvé</span>
+      <span class="fn">setPendingState</span>(<span class="str">'no_enterprise'</span>);
+
+    } <span class="kw">finally</span> {
+      <span class="fn">setLoading</span>(<span class="kw">false</span>);
+    }
+  };
+
+  <span class="fn">useEffect</span>(() => {
+    <span class="fn">loadTenant</span>();
+
+    <span class="cmt">// Écouter les changements de session Supabase</span>
+    <span class="kw">const</span> { data: { subscription } } = supabase.auth.<span class="fn">onAuthStateChange</span>(
+      (event) => {
+        <span class="kw">if</span> (event === <span class="str">'SIGNED_OUT'</span>) {
+          <span class="fn">setTenant</span>(<span class="kw">null</span>);
+          <span class="fn">setIsAuthenticated</span>(<span class="kw">false</span>);
+        } <span class="kw">else</span> <span class="kw">if</span> (event === <span class="str">'SIGNED_IN'</span>) {
+          <span class="fn">loadTenant</span>();
+        }
+      }
+    );
+
+    <span class="kw">return</span> () => subscription.<span class="fn">unsubscribe</span>();
+  }, []);
+
+  <span class="cmt">// Valeurs calculées (dérivées du state)</span>
+  <span class="kw">const</span> isSuperAdmin = tenant?.user_role === <span class="str">'super_admin'</span>;
+  <span class="kw">const</span> isEnterpriseAdmin = tenant?.user_role === <span class="str">'enterprise_admin'</span>;
+  <span class="kw">const</span> isRegularUser = tenant?.user_role === <span class="str">'user'</span>;
+
+  <span class="kw">return</span> (
+    &lt;<span class="cls">TenantContext</span>.<span class="cls">Provider</span> value={{
+      tenant, loading, isAuthenticated, pendingState,
+      refreshTenant: loadTenant,
+      isSuperAdmin, isEnterpriseAdmin, isRegularUser
+    }}&gt;
+      {children}
+    &lt;/<span class="cls">TenantContext</span>.<span class="cls">Provider</span>&gt;
+  );
+}
+
+<span class="cmt">// ━━━ 4. Hook personnalisé pour consommer le Context ━━━</span>
+<span class="kw">export function</span> <span class="fn">useTenant</span>() {
+  <span class="kw">return</span> <span class="fn">useContext</span>(TenantContext);
+}
+</code></pre>
+
+  <h2 class="section">5.3 — ThemeContext : mode sombre/clair</h2>
+
+<pre><code><span class="cmt">// context/ThemeContext.tsx</span>
+<span class="kw">import</span> { createContext, useContext, useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">const</span> Themes = {
+  light: {
+    bg: <span class="str">'#F5F5F7'</span>, card: <span class="str">'#FFFFFF'</span>, text: <span class="str">'#1C1C1E'</span>,
+    subText: <span class="str">'#8E8E93'</span>, primary: <span class="str">'#007AFF'</span>, border: <span class="str">'#D1D1D6'</span>
+  },
+  dark: {
+    bg: <span class="str">'#121212'</span>, card: <span class="str">'#1E1E1E'</span>, text: <span class="str">'#FFFFFF'</span>,
+    subText: <span class="str">'#A1A1A1'</span>, primary: <span class="str">'#0A84FF'</span>, border: <span class="str">'#38383A'</span>
+  }
+};
+
+<span class="kw">const</span> ThemeContext = <span class="fn">createContext</span>({
+  theme: Themes.dark,
+  isDark: <span class="kw">true</span>,
+  toggleTheme: () => {}
+});
+
+<span class="kw">export function</span> <span class="fn">ThemeProvider</span>({ children }) {
+  <span class="kw">const</span> [isDark, setIsDark] = <span class="fn">useState</span>(<span class="kw">true</span>);  <span class="cmt">// Mode sombre par défaut</span>
+
+  <span class="kw">return</span> (
+    &lt;<span class="cls">ThemeContext</span>.<span class="cls">Provider</span> value={{
+      theme: isDark ? Themes.dark : Themes.light,
+      isDark,
+      toggleTheme: () => <span class="fn">setIsDark</span>(prev => !prev)
+    }}&gt;
+      {children}
+    &lt;/<span class="cls">ThemeContext</span>.<span class="cls">Provider</span>&gt;
+  );
+}
+
+<span class="kw">export const</span> <span class="fn">useTheme</span> = () => <span class="fn">useContext</span>(ThemeContext);
+
+<span class="cmt">// Usage dans n'importe quelle page :</span>
+<span class="kw">function</span> <span class="fn">MaPage</span>() {
+  <span class="kw">const</span> { theme, isDark, toggleTheme } = <span class="fn">useTheme</span>();
+
+  <span class="kw">return</span> (
+    &lt;<span class="cls">View</span> style={{ backgroundColor: theme.bg }}&gt;
+      &lt;<span class="cls">Text</span> style={{ color: theme.text }}&gt;Bonjour&lt;/<span class="cls">Text</span>&gt;
+      &lt;<span class="cls">TouchableOpacity</span> onPress={toggleTheme}&gt;
+        &lt;<span class="cls">Text</span>&gt;{isDark ? '☀️ Clair' : '🌙 Sombre'}&lt;/<span class="cls">Text</span>&gt;
+      &lt;/<span class="cls">TouchableOpacity</span>&gt;
+    &lt;/<span class="cls">View</span>&gt;
+  );
+}
+</code></pre>
+
+  <div class="tip">
+    <strong>✅ Résumé du pattern Context</strong>
+    <ol style="margin-top:8px;padding-left:20px;line-height:2">
+      <li>Créer le Context avec <code>createContext()</code></li>
+      <li>Créer un Provider qui gère le state</li>
+      <li>Envelopper l'app dans le Provider (dans <code>_layout.tsx</code>)</li>
+      <li>Créer un hook <code>useMonContext()</code> pour consommer proprement</li>
+      <li>Utiliser le hook dans n'importe quel composant</li>
+    </ol>
+  </div>
+
+</div>
+
+<!-- FIN PARTIE 1 -->
+<div style="text-align:center;padding:60px;background:#f0f7ff;margin-top:40px">
+  <div style="font-size:40px;margin-bottom:16px">📖</div>
+  <h2 style="color:#0A84FF;font-size:24px;margin-bottom:8px">Fin de la Partie 1</h2>
+  <p style="color:#555;font-size:15px">
+    Chapitres 1–5 · Fondations, Composants, Hooks, Navigation, Context API
+  </p>
+  <p style="color:#888;font-size:13px;margin-top:16px">
+    → Continuer avec la <strong>Partie 2</strong> : Supabase, Authentification, Formulaires avancés, Notifications
+  </p>
+</div>
+
+</body>
+</html>

@@ -11,7 +11,7 @@ export type InviteRole = "admin" | "user";
 
 const ACTIVE_ENTREPRISE_KEY = "ACTIVE_ENTREPRISE_ID";
 
-const DEFAULT_SUPER_ADMIN_EMAIL = "superadmin@docvault.local";
+const DEFAULT_SUPER_ADMIN_EMAIL = "superadmin@senmoto.local";
 
 export const getSuperAdminEmail = (): string => {
   const value = Constants.expoConfig?.extra?.superAdminEmail;

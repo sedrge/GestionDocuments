@@ -18,6 +18,7 @@ import { supabase } from "@/lib/supabase";
 import { useTenant } from "@/context/TenantContext";
 import { useTheme } from "@/context/ThemeContext";
 import MapPickerModal, { LocationResult } from "@/components/MapPickerModal";
+import { FeatureGate } from "../../components/FeatureGate";
 
 
 interface ContactForm {
@@ -103,7 +104,7 @@ const FIELDS: Field[] = [
   },
 ];
 
-export default function AdminContactScreen() {
+function AdminContactContent() {
   const { theme } = useTheme();
   const { tenant } = useTenant();
   const enterpriseId = tenant?.enterprise_id ?? null;
@@ -412,6 +413,14 @@ export default function AdminContactScreen() {
       </ScrollView>
     </KeyboardAvoidingView>
     </SafeAreaView>
+  );
+}
+
+export default function AdminContactScreen() {
+  return (
+    <FeatureGate featureKey="contacts.actif" featureName="Page de Contact">
+      <AdminContactContent />
+    </FeatureGate>
   );
 }
 

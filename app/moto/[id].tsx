@@ -216,7 +216,7 @@ export default function MotoDetail() {
     </div>
   </div>
 
-  <div class="footer">docvault — Imprimez et collez ce QR sur la moto.</div>
+  <div class="footer">SenMoto — Imprimez et collez ce QR sur la moto.</div>
 </body>
 </html>`;
 

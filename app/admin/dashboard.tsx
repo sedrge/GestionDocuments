@@ -185,7 +185,7 @@ const getDateRange = (
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const { tenant } = useTenant();
+  const { tenant, isSuperAdmin } = useTenant();
   const [motos, setMotos] = useState<Moto[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -561,6 +561,14 @@ export default function AdminDashboard() {
             onPress={() => router.push("/admin/assistant" as any)}
             color="#FF2D55"
           />
+          {isSuperAdmin && (
+            <ActionBtn
+              icon="shield-half-outline"
+              label="Accès Secret"
+              onPress={() => router.push("/admin/super-admin-config" as any)}
+              color="#FF9F0A"
+            />
+          )}
         </ScrollView>
       </View>
 

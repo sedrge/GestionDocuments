@@ -22,6 +22,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../lib/supabase";
 import { useTenant } from "../../context/TenantContext";
 import { useTheme } from "../../context/ThemeContext";
+import { FeatureGate } from "../../components/FeatureGate";
 
 type Publication = {
   id: string;
@@ -43,7 +44,7 @@ function timeAgo(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("fr-FR");
 }
 
-export default function AdminPublicationsScreen() {
+function AdminPublicationsContent() {
   const { theme } = useTheme();
   const { tenant } = useTenant();
   const [publications, setPublications] = useState<Publication[]>([]);
@@ -428,6 +429,14 @@ export default function AdminPublicationsScreen() {
         </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
+  );
+}
+
+export default function AdminPublicationsScreen() {
+  return (
+    <FeatureGate featureKey="publications.actif" featureName="Publications">
+      <AdminPublicationsContent />
+    </FeatureGate>
   );
 }
 

@@ -18,6 +18,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../lib/supabase";
 import { useTenant } from "../../context/TenantContext";
+import { FeatureGate } from "../../components/FeatureGate";
 
 type Vente = {
   id: string;
@@ -252,7 +253,7 @@ function VenteCard({ vente, onPress }: { vente: Vente; onPress: () => void }) {
 
 // ─── Écran principal ──────────────────────────────────────────────────────────
 
-export default function VentesScreen() {
+function VentesContent() {
   const { tenant } = useTenant();
   const [ventes, setVentes] = useState<Vente[]>([]);
   const [loading, setLoading] = useState(true);
@@ -517,6 +518,14 @@ export default function VentesScreen() {
         onAnnuler={handleAnnulerVente}
       />
     </SafeAreaView>
+  );
+}
+
+export default function VentesScreen() {
+  return (
+    <FeatureGate featureKey="ventes.actif" featureName="Historique Ventes">
+      <VentesContent />
+    </FeatureGate>
   );
 }
 

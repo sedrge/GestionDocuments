@@ -1,4 +1,9 @@
 import { supabase } from "./supabase";
+import {
+  notifySuperAdminNewEnterprise,
+  notifyEnterpriseAdminActivated,
+  notifyEnterpriseAdminDeactivated,
+} from "./enterpriseNotifications";
 
 /**
  * Génère un code unique pour une entreprise
@@ -91,6 +96,9 @@ export async function createEnterprise(params: {
         );
       }
     }
+
+    // Notifier les super admins (fire-and-forget, ne bloque pas la création)
+    notifySuperAdminNewEnterprise(params.name, code).catch(console.error);
 
     return {
       success: true,
@@ -299,7 +307,7 @@ export async function getActiveEnterprises() {
 /**
  * Active une entreprise (super-admin only)
  */
-export async function activateEnterprise(enterpriseId: string) {
+export async function activateEnterprise(enterpriseId: string, enterpriseName?: string) {
   try {
     const { error } = await supabase
       .from("enterprises")
@@ -307,6 +315,10 @@ export async function activateEnterprise(enterpriseId: string) {
       .eq("id", enterpriseId);
 
     if (error) throw error;
+
+    if (enterpriseName) {
+      notifyEnterpriseAdminActivated(enterpriseId, enterpriseName).catch(console.error);
+    }
 
     return { success: true, message: "Enterprise activated" };
   } catch (error: any) {
@@ -317,7 +329,7 @@ export async function activateEnterprise(enterpriseId: string) {
 /**
  * Désactive une entreprise (super-admin only)
  */
-export async function deactivateEnterprise(enterpriseId: string) {
+export async function deactivateEnterprise(enterpriseId: string, enterpriseName?: string) {
   try {
     const { error } = await supabase
       .from("enterprises")
@@ -325,6 +337,10 @@ export async function deactivateEnterprise(enterpriseId: string) {
       .eq("id", enterpriseId);
 
     if (error) throw error;
+
+    if (enterpriseName) {
+      notifyEnterpriseAdminDeactivated(enterpriseId, enterpriseName).catch(console.error);
+    }
 
     return { success: true, message: "Enterprise deactivated" };
   } catch (error: any) {
