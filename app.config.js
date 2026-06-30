@@ -1,11 +1,11 @@
 module.exports = {
   expo: {
     name: "SenMoto",
-    slug: "senmoto",
+    slug: "docvault",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/SenMoto.png",
-    scheme: "senmoto",
+    scheme: "docvault",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
     ios: {
@@ -21,12 +21,9 @@ module.exports = {
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
       package: "com.anonymous.docvault",
-      googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
-      permissions: [
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "CAMERA",
-      ],
+      googleServicesFile:
+        process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
+      permissions: ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "CAMERA"],
     },
     web: {
       output: "static",
@@ -62,14 +59,16 @@ module.exports = {
       [
         "expo-camera",
         {
-          "cameraPermission": "Accès à la caméra pour scanner les QR codes des motos."
-        }
+          cameraPermission:
+            "Accès à la caméra pour scanner les QR codes des motos.",
+        },
       ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "SenMoto utilise votre position pour localiser votre boutique sur la carte."
-        }
+          locationWhenInUsePermission:
+            "SenMoto utilise votre position pour localiser votre boutique sur la carte.",
+        },
       ],
     ],
     experiments: {
