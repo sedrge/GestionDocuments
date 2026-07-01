@@ -23,6 +23,7 @@ import { supabase } from "../../lib/supabase";
 import { useTenant } from "../../context/TenantContext";
 import { useTheme } from "../../context/ThemeContext";
 import { FeatureGate } from "../../components/FeatureGate";
+import { useFeatureFlags } from "../../context/FeatureFlagsContext";
 
 type Publication = {
   id: string;
@@ -30,7 +31,58 @@ type Publication = {
   texte: string | null;
   images: string[];
   created_at: string;
+  scheduled_at: string | null;
 };
+
+type PublishMode = "now" | "schedule";
+
+type MotoLite = {
+  id: string;
+  marque: string | null;
+  modele: string | null;
+  etat: string | null;
+  prix_vente: number | null;
+  created_at: string;
+  moto_images?: { image_uri: string; is_principal: boolean }[];
+};
+
+type AutoMode = "aleatoire" | "nouvelle" | "ancienne";
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function buildPromoText(motos: MotoLite[], mode: AutoMode): string {
+  const lines: string[] = [];
+  const n = motos.length;
+  if (mode === "nouvelle") {
+    lines.push(`🆕 Nouveautés ! ${n} moto${n > 1 ? "s" : ""} fraîchement arrivée${n > 1 ? "s" : ""} en stock :`);
+  } else if (mode === "ancienne") {
+    lines.push(`⏳ Offre spéciale sur ${n} moto${n > 1 ? "s" : ""} en stock depuis un moment, à saisir vite :`);
+  } else {
+    lines.push(`🔥 Sélection du jour : ${n} moto${n > 1 ? "s" : ""} disponible${n > 1 ? "s" : ""} chez nous :`);
+  }
+
+  const MAX_ITEM_LINES = 7; // header(1) + items(<=7) + note(<=1) + CTA(1) = <=10
+  const shown = motos.slice(0, MAX_ITEM_LINES);
+  for (const m of shown) {
+    const nom = [m.marque, m.modele].filter(Boolean).join(" ") || "Moto";
+    const etat = m.etat ? ` (${m.etat})` : "";
+    const prix = m.prix_vente ? ` — ${m.prix_vente.toLocaleString("fr-FR")} FCFA` : "";
+    lines.push(`• ${nom}${etat}${prix}`);
+  }
+  const remaining = n - shown.length;
+  if (remaining > 0) {
+    lines.push(`… et ${remaining} autre${remaining > 1 ? "s" : ""} modèle${remaining > 1 ? "s" : ""} disponible${remaining > 1 ? "s" : ""} !`);
+  }
+  lines.push("📲 Contactez-nous vite, stock limité !");
+  return lines.slice(0, 10).join("\n");
+}
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -44,9 +96,76 @@ function timeAgo(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("fr-FR");
 }
 
+function isPublicationScheduled(pub: Publication): boolean {
+  return !!pub.scheduled_at && new Date(pub.scheduled_at).getTime() > Date.now();
+}
+
+function formatScheduleLabel(dateStr: string): string {
+  const d = new Date(dateStr);
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${dd}/${mm}/${d.getFullYear()} à ${hh}:${min}`;
+}
+
+function formatDateInput(t: string): string {
+  let v = t.replace(/[^0-9]/g, "");
+  if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2);
+  if (v.length > 5) v = v.slice(0, 5) + "/" + v.slice(5);
+  return v.slice(0, 10);
+}
+
+function formatTimeInput(t: string): string {
+  let v = t.replace(/[^0-9]/g, "");
+  if (v.length > 2) v = v.slice(0, 2) + ":" + v.slice(2);
+  return v.slice(0, 5);
+}
+
+// Renvoie une heure par défaut (+1h) au format JJ/MM/AAAA + HH:MM
+function defaultScheduleValues(): { date: string; time: string } {
+  const now = new Date();
+  now.setMinutes(now.getMinutes() + 60);
+  const dd = String(now.getDate()).padStart(2, "0");
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const hh = String(now.getHours()).padStart(2, "0");
+  const min = String(now.getMinutes()).padStart(2, "0");
+  return { date: `${dd}/${mm}/${now.getFullYear()}`, time: `${hh}:${min}` };
+}
+
+// Parse "JJ/MM/AAAA" + "HH:MM" en Date locale, ou null si invalide
+function parseScheduledDateTime(dateStr: string, timeStr: string): Date | null {
+  const dateMatch = dateStr.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!dateMatch) return null;
+  const day = parseInt(dateMatch[1], 10);
+  const month = parseInt(dateMatch[2], 10);
+  const year = parseInt(dateMatch[3], 10);
+
+  let hour = 0;
+  let minute = 0;
+  const timeTrimmed = timeStr.trim();
+  if (timeTrimmed) {
+    const timeMatch = timeTrimmed.match(/^(\d{1,2}):(\d{2})$/);
+    if (!timeMatch) return null;
+    hour = parseInt(timeMatch[1], 10);
+    minute = parseInt(timeMatch[2], 10);
+  }
+
+  if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59) return null;
+
+  const date = new Date(year, month - 1, day, hour, minute, 0, 0);
+  if (date.getDate() !== day || date.getMonth() !== month - 1 || date.getFullYear() !== year) {
+    return null; // ex : 31/02 qui déborde sur mars
+  }
+  return date;
+}
+
 function AdminPublicationsContent() {
   const { theme } = useTheme();
   const { tenant } = useTenant();
+  const { isFeatureEnabled } = useFeatureFlags();
+  const autoGenEnabled = isFeatureEnabled("publications.auto");
+  const scheduleEnabled = isFeatureEnabled("publications.programmation");
   const [publications, setPublications] = useState<Publication[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -57,6 +176,22 @@ function AdminPublicationsContent() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  // Programmation (publication manuelle)
+  const [publishMode, setPublishMode] = useState<PublishMode>("now");
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleTime, setScheduleTime] = useState("");
+
+  // Auto-génération
+  const [showAutoModal, setShowAutoModal] = useState(false);
+  const [autoCountInput, setAutoCountInput] = useState("");
+  const [autoMode, setAutoMode] = useState<AutoMode>("aleatoire");
+  const [autoGenerating, setAutoGenerating] = useState(false);
+
+  // Programmation (génération automatique)
+  const [autoPublishMode, setAutoPublishMode] = useState<PublishMode>("now");
+  const [autoScheduleDate, setAutoScheduleDate] = useState("");
+  const [autoScheduleTime, setAutoScheduleTime] = useState("");
 
   const fetchPublications = useCallback(async () => {
     if (!tenant?.enterprise_id) {
@@ -114,21 +249,57 @@ function AdminPublicationsContent() {
       return Alert.alert("Publication vide", "Ajoutez du texte ou des images.");
     }
     if (!tenant?.enterprise_id) return;
+
+    let scheduledAt: string | null = null;
+    if (scheduleEnabled && publishMode === "schedule") {
+      const parsed = parseScheduledDateTime(scheduleDate, scheduleTime);
+      if (!parsed) {
+        return Alert.alert(
+          "Date invalide",
+          "Vérifiez la date (JJ/MM/AAAA) et l'heure (HH:MM) de programmation."
+        );
+      }
+      if (parsed.getTime() <= Date.now()) {
+        return Alert.alert("Date passée", "Choisissez une date et une heure dans le futur.");
+      }
+      scheduledAt = parsed.toISOString();
+    }
+
     setSaving(true);
     const { error } = await supabase.from("enterprise_publications").insert({
       enterprise_id: tenant.enterprise_id,
       texte: formText.trim() || null,
       images: formImages,
+      scheduled_at: scheduledAt,
     });
     setSaving(false);
     if (error) {
       Alert.alert("Erreur", error.message);
     } else {
-      setFormText("");
-      setFormImages([]);
-      setShowCreate(false);
+      resetForm();
       fetchPublications();
     }
+  };
+
+  const handlePublishNow = (pub: Publication) => {
+    Alert.alert(
+      "Publier maintenant",
+      "Rendre cette publication visible immédiatement sur le fil d'actualité ?",
+      [
+        { text: "Annuler" },
+        {
+          text: "Publier",
+          onPress: async () => {
+            const { error } = await supabase
+              .from("enterprise_publications")
+              .update({ scheduled_at: null })
+              .eq("id", pub.id);
+            if (error) Alert.alert("Erreur", error.message);
+            fetchPublications();
+          },
+        },
+      ]
+    );
   };
 
   const handleDelete = (pub: Publication) => {
@@ -154,7 +325,100 @@ function AdminPublicationsContent() {
   const resetForm = () => {
     setFormText("");
     setFormImages([]);
+    setPublishMode("now");
+    setScheduleDate("");
+    setScheduleTime("");
     setShowCreate(false);
+  };
+
+  const resetAutoForm = () => {
+    setAutoCountInput("");
+    setAutoMode("aleatoire");
+    setAutoPublishMode("now");
+    setAutoScheduleDate("");
+    setAutoScheduleTime("");
+    setShowAutoModal(false);
+  };
+
+  const handleAutoGenerate = async () => {
+    if (!tenant?.enterprise_id || !autoGenEnabled) return;
+
+    let scheduledAt: string | null = null;
+    if (scheduleEnabled && autoPublishMode === "schedule") {
+      const parsedSchedule = parseScheduledDateTime(autoScheduleDate, autoScheduleTime);
+      if (!parsedSchedule) {
+        return Alert.alert(
+          "Date invalide",
+          "Vérifiez la date (JJ/MM/AAAA) et l'heure (HH:MM) de programmation."
+        );
+      }
+      if (parsedSchedule.getTime() <= Date.now()) {
+        return Alert.alert("Date passée", "Choisissez une date et une heure dans le futur.");
+      }
+      scheduledAt = parsedSchedule.toISOString();
+    }
+
+    const parsed = parseInt(autoCountInput, 10);
+    const count = Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 30) : 6;
+
+    setAutoGenerating(true);
+
+    let query = supabase
+      .from("motos")
+      .select("id,marque,modele,etat,prix_vente,created_at,moto_images(image_uri,is_principal)")
+      .eq("enterprise_id", tenant.enterprise_id)
+      .or("statut.is.null,statut.neq.vendu");
+
+    if (autoMode === "nouvelle") {
+      query = query.order("created_at", { ascending: false }).limit(count);
+    } else if (autoMode === "ancienne") {
+      query = query.order("created_at", { ascending: true }).limit(count);
+    } else {
+      query = query.limit(300);
+    }
+
+    const { data, error } = await query;
+    setAutoGenerating(false);
+
+    if (error) {
+      return Alert.alert("Erreur", error.message);
+    }
+
+    let motos = (data as MotoLite[]) ?? [];
+    if (autoMode === "aleatoire") {
+      motos = shuffle(motos).slice(0, count);
+    }
+
+    if (motos.length === 0) {
+      return Alert.alert(
+        "Aucune moto disponible",
+        "Aucune moto en stock ne correspond à ces critères pour générer une publicité."
+      );
+    }
+
+    const texte = buildPromoText(motos, autoMode);
+    const images = motos
+      .map((m) => {
+        const imgs = m.moto_images || [];
+        return (imgs.find((im) => im.is_principal) || imgs[0])?.image_uri;
+      })
+      .filter((uri): uri is string => !!uri);
+
+    setSaving(true);
+    const { error: insertError } = await supabase.from("enterprise_publications").insert({
+      enterprise_id: tenant.enterprise_id,
+      texte,
+      images,
+      scheduled_at: scheduledAt,
+    });
+    setSaving(false);
+
+    if (insertError) {
+      Alert.alert("Erreur", insertError.message);
+    } else {
+      resetAutoForm();
+      fetchPublications();
+    }
   };
 
   return (
@@ -170,13 +434,24 @@ function AdminPublicationsContent() {
             Visibles publiquement dans le fil d'actualité
           </Text>
         </View>
-        <TouchableOpacity
-          style={[styles.newBtn, { backgroundColor: theme.primary }]}
-          onPress={() => setShowCreate(true)}
-        >
-          <Ionicons name="add" size={18} color="#fff" />
-          <Text style={styles.newBtnText}>Nouveau</Text>
-        </TouchableOpacity>
+        <View style={styles.headerBtns}>
+          {autoGenEnabled && (
+            <TouchableOpacity
+              style={[styles.newBtn, { backgroundColor: theme.card, borderWidth: 1, borderColor: theme.primary }]}
+              onPress={() => setShowAutoModal(true)}
+            >
+              <Ionicons name="sparkles" size={16} color={theme.primary} />
+              <Text style={[styles.newBtnText, { color: theme.primary }]}>Auto</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            style={[styles.newBtn, { backgroundColor: theme.primary }]}
+            onPress={() => setShowCreate(true)}
+          >
+            <Ionicons name="add" size={18} color="#fff" />
+            <Text style={styles.newBtnText}>Nouveau</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {loading ? (
@@ -198,23 +473,45 @@ function AdminPublicationsContent() {
               </Text>
             </View>
           }
-          renderItem={({ item }) => (
+          renderItem={({ item }) => {
+            const scheduled = isPublicationScheduled(item);
+            return (
             <View
               style={[
                 styles.pubCard,
-                { backgroundColor: theme.card, borderColor: theme.border },
+                {
+                  backgroundColor: theme.card,
+                  borderColor: scheduled ? "#FF9500" : theme.border,
+                },
+                scheduled && styles.pubCardScheduled,
               ]}
             >
               {/* Card header */}
               <View style={styles.pubCardHeader}>
                 <Ionicons
-                  name="megaphone-outline"
+                  name={scheduled ? "alarm-outline" : "megaphone-outline"}
                   size={15}
-                  color={theme.primary}
+                  color={scheduled ? "#FF9500" : theme.primary}
                 />
-                <Text style={[styles.pubDate, { color: theme.subText }]}>
-                  {timeAgo(item.created_at)}
+                <Text
+                  style={[
+                    styles.pubDate,
+                    { color: scheduled ? "#FF9500" : theme.subText },
+                  ]}
+                >
+                  {scheduled
+                    ? `Programmée · ${formatScheduleLabel(item.scheduled_at!)}`
+                    : timeAgo(item.created_at)}
                 </Text>
+                {scheduled && (
+                  <TouchableOpacity
+                    onPress={() => handlePublishNow(item)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={{ marginRight: 4 }}
+                  >
+                    <Ionicons name="checkmark-circle-outline" size={20} color={theme.primary} />
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity
                   onPress={() => handleDelete(item)}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -271,7 +568,8 @@ function AdminPublicationsContent() {
                 {(item.images?.length ?? 0) !== 1 ? "s" : ""}
               </Text>
             </View>
-          )}
+            );
+          }}
         />
       )}
 
@@ -318,7 +616,9 @@ function AdminPublicationsContent() {
                 {saving ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={styles.publishBtnText}>Publier</Text>
+                  <Text style={styles.publishBtnText}>
+                    {publishMode === "schedule" ? "Programmer" : "Publier"}
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -402,6 +702,123 @@ function AdminPublicationsContent() {
                 )}
               </TouchableOpacity>
 
+              {/* Programmation */}
+              {scheduleEnabled && (
+                <View
+                  style={[
+                    styles.scheduleBox,
+                    { backgroundColor: theme.card, borderColor: theme.border },
+                  ]}
+                >
+                  <Text style={[styles.scheduleTitle, { color: theme.text }]}>
+                    Quand publier ?
+                  </Text>
+                  <View style={styles.scheduleModeRow}>
+                    <TouchableOpacity
+                      style={[
+                        styles.scheduleModeChip,
+                        {
+                          borderColor: publishMode === "now" ? theme.primary : theme.border,
+                          backgroundColor: publishMode === "now" ? theme.primary : "transparent",
+                        },
+                      ]}
+                      onPress={() => setPublishMode("now")}
+                    >
+                      <Ionicons
+                        name="flash-outline"
+                        size={14}
+                        color={publishMode === "now" ? "#fff" : theme.text}
+                      />
+                      <Text
+                        style={[
+                          styles.scheduleModeChipText,
+                          { color: publishMode === "now" ? "#fff" : theme.text },
+                        ]}
+                      >
+                        Maintenant
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.scheduleModeChip,
+                        {
+                          borderColor: publishMode === "schedule" ? theme.primary : theme.border,
+                          backgroundColor: publishMode === "schedule" ? theme.primary : "transparent",
+                        },
+                      ]}
+                      onPress={() => {
+                        setPublishMode("schedule");
+                        if (!scheduleDate && !scheduleTime) {
+                          const d = defaultScheduleValues();
+                          setScheduleDate(d.date);
+                          setScheduleTime(d.time);
+                        }
+                      }}
+                    >
+                      <Ionicons
+                        name="alarm-outline"
+                        size={14}
+                        color={publishMode === "schedule" ? "#fff" : theme.text}
+                      />
+                      <Text
+                        style={[
+                          styles.scheduleModeChipText,
+                          { color: publishMode === "schedule" ? "#fff" : theme.text },
+                        ]}
+                      >
+                        Programmer
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {publishMode === "schedule" && (
+                    <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.scheduleLabel, { color: theme.subText }]}>
+                          Date (JJ/MM/AAAA)
+                        </Text>
+                        <TextInput
+                          style={[
+                            styles.scheduleInput,
+                            { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border },
+                          ]}
+                          placeholder="31/12/2026"
+                          placeholderTextColor={theme.subText}
+                          keyboardType="numeric"
+                          maxLength={10}
+                          value={scheduleDate}
+                          onChangeText={(t) => setScheduleDate(formatDateInput(t))}
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.scheduleLabel, { color: theme.subText }]}>
+                          Heure (HH:MM)
+                        </Text>
+                        <TextInput
+                          style={[
+                            styles.scheduleInput,
+                            { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border },
+                          ]}
+                          placeholder="14:00"
+                          placeholderTextColor={theme.subText}
+                          keyboardType="numeric"
+                          maxLength={5}
+                          value={scheduleTime}
+                          onChangeText={(t) => setScheduleTime(formatTimeInput(t))}
+                        />
+                      </View>
+                    </View>
+                  )}
+
+                  {publishMode === "schedule" && (
+                    <Text style={[styles.scheduleHint, { color: theme.subText }]}>
+                      La publication restera masquée puis deviendra automatiquement visible
+                      dans le fil d'actualité à la date et l'heure choisies.
+                    </Text>
+                  )}
+                </View>
+              )}
+
               {/* Info */}
               <View
                 style={[
@@ -427,6 +844,218 @@ function AdminPublicationsContent() {
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ── Modal de génération automatique ─────────────────────────────────── */}
+      <Modal
+        visible={showAutoModal}
+        animationType="slide"
+        transparent
+        onRequestClose={resetAutoForm}
+      >
+        <View style={styles.autoOverlay}>
+          <View style={[styles.autoSheet, { backgroundColor: theme.card }]}>
+            <View style={styles.autoHeader}>
+              <Text style={[styles.createTitle, { color: theme.text }]}>
+                Publication automatique
+              </Text>
+              <TouchableOpacity onPress={resetAutoForm}>
+                <Ionicons name="close" size={24} color={theme.text} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.autoLabel, { color: theme.subText }]}>
+              Nombre de motos (par défaut : 6)
+            </Text>
+            <TextInput
+              style={[
+                styles.autoInput,
+                { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border },
+              ]}
+              placeholder="Ex : 7"
+              placeholderTextColor={theme.subText}
+              keyboardType="number-pad"
+              value={autoCountInput}
+              onChangeText={setAutoCountInput}
+            />
+
+            <Text style={[styles.autoLabel, { color: theme.subText, marginTop: 14 }]}>
+              Motos à mettre en avant
+            </Text>
+            <View style={styles.autoModeRow}>
+              {(
+                [
+                  { key: "aleatoire", label: "Aléatoire" },
+                  { key: "nouvelle", label: "Nouvelles" },
+                  { key: "ancienne", label: "Anciennes" },
+                ] as { key: AutoMode; label: string }[]
+              ).map((opt) => {
+                const active = autoMode === opt.key;
+                return (
+                  <TouchableOpacity
+                    key={opt.key}
+                    style={[
+                      styles.autoModeChip,
+                      {
+                        borderColor: active ? theme.primary : theme.border,
+                        backgroundColor: active ? theme.primary : "transparent",
+                      },
+                    ]}
+                    onPress={() => setAutoMode(opt.key)}
+                  >
+                    <Text
+                      style={[
+                        styles.autoModeChipText,
+                        { color: active ? "#fff" : theme.text },
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Text style={[styles.autoHint, { color: theme.subText }]}>
+              « Nouvelles » sélectionne les motos les plus récemment enregistrées, « Anciennes »
+              celles en stock depuis le plus longtemps (non vendues). Un texte promotionnel est
+              généré automatiquement.
+            </Text>
+
+            {scheduleEnabled && (
+              <View
+                style={[
+                  styles.scheduleBox,
+                  { backgroundColor: theme.bg, borderColor: theme.border, marginTop: 14 },
+                ]}
+              >
+                <Text style={[styles.scheduleTitle, { color: theme.text }]}>
+                  Quand publier ?
+                </Text>
+                <View style={styles.scheduleModeRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.scheduleModeChip,
+                      {
+                        borderColor: autoPublishMode === "now" ? theme.primary : theme.border,
+                        backgroundColor: autoPublishMode === "now" ? theme.primary : "transparent",
+                      },
+                    ]}
+                    onPress={() => setAutoPublishMode("now")}
+                  >
+                    <Ionicons
+                      name="flash-outline"
+                      size={14}
+                      color={autoPublishMode === "now" ? "#fff" : theme.text}
+                    />
+                    <Text
+                      style={[
+                        styles.scheduleModeChipText,
+                        { color: autoPublishMode === "now" ? "#fff" : theme.text },
+                      ]}
+                    >
+                      Maintenant
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.scheduleModeChip,
+                      {
+                        borderColor: autoPublishMode === "schedule" ? theme.primary : theme.border,
+                        backgroundColor: autoPublishMode === "schedule" ? theme.primary : "transparent",
+                      },
+                    ]}
+                    onPress={() => {
+                      setAutoPublishMode("schedule");
+                      if (!autoScheduleDate && !autoScheduleTime) {
+                        const d = defaultScheduleValues();
+                        setAutoScheduleDate(d.date);
+                        setAutoScheduleTime(d.time);
+                      }
+                    }}
+                  >
+                    <Ionicons
+                      name="alarm-outline"
+                      size={14}
+                      color={autoPublishMode === "schedule" ? "#fff" : theme.text}
+                    />
+                    <Text
+                      style={[
+                        styles.scheduleModeChipText,
+                        { color: autoPublishMode === "schedule" ? "#fff" : theme.text },
+                      ]}
+                    >
+                      Programmer
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {autoPublishMode === "schedule" && (
+                  <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.scheduleLabel, { color: theme.subText }]}>
+                        Date (JJ/MM/AAAA)
+                      </Text>
+                      <TextInput
+                        style={[
+                          styles.scheduleInput,
+                          { backgroundColor: theme.card, color: theme.text, borderColor: theme.border },
+                        ]}
+                        placeholder="31/12/2026"
+                        placeholderTextColor={theme.subText}
+                        keyboardType="numeric"
+                        maxLength={10}
+                        value={autoScheduleDate}
+                        onChangeText={(t) => setAutoScheduleDate(formatDateInput(t))}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.scheduleLabel, { color: theme.subText }]}>
+                        Heure (HH:MM)
+                      </Text>
+                      <TextInput
+                        style={[
+                          styles.scheduleInput,
+                          { backgroundColor: theme.card, color: theme.text, borderColor: theme.border },
+                        ]}
+                        placeholder="14:00"
+                        placeholderTextColor={theme.subText}
+                        keyboardType="numeric"
+                        maxLength={5}
+                        value={autoScheduleTime}
+                        onChangeText={(t) => setAutoScheduleTime(formatTimeInput(t))}
+                      />
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={[
+                styles.autoGenerateBtn,
+                { backgroundColor: autoGenerating || saving ? theme.border : theme.primary },
+              ]}
+              onPress={handleAutoGenerate}
+              disabled={autoGenerating || saving}
+            >
+              {autoGenerating || saving ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Ionicons
+                    name={autoPublishMode === "schedule" ? "alarm-outline" : "sparkles"}
+                    size={16}
+                    color="#fff"
+                  />
+                  <Text style={styles.publishBtnText}>
+                    {autoPublishMode === "schedule" ? "Programmer la publicité" : "Générer la publicité"}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -454,6 +1083,7 @@ const styles = StyleSheet.create({
   backBtn: { padding: 4 },
   headerTitle: { fontSize: 17, fontWeight: "bold" },
   headerSub: { fontSize: 12, marginTop: 2 },
+  headerBtns: { flexDirection: "row", gap: 8 },
   newBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -483,6 +1113,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
     shadowRadius: 3,
+  },
+  pubCardScheduled: {
+    borderWidth: 1.5,
+    borderStyle: "dashed",
   },
   pubCardHeader: {
     flexDirection: "row",
@@ -566,4 +1200,78 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   infoText: { flex: 1, fontSize: 12, lineHeight: 18 },
+
+  autoOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
+  autoSheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 32,
+  },
+  autoHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 18,
+  },
+  autoLabel: { fontSize: 13, fontWeight: "600", marginBottom: 8 },
+  autoInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 15,
+  },
+  autoModeRow: { flexDirection: "row", gap: 8 },
+  autoModeChip: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  autoModeChipText: { fontSize: 13, fontWeight: "700" },
+  autoHint: { fontSize: 12, lineHeight: 17, marginTop: 12 },
+  autoGenerateBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 12,
+    paddingVertical: 14,
+    marginTop: 20,
+  },
+
+  scheduleBox: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 16,
+  },
+  scheduleTitle: { fontSize: 13, fontWeight: "700", marginBottom: 10 },
+  scheduleModeRow: { flexDirection: "row", gap: 8 },
+  scheduleModeChip: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderWidth: 1.5,
+    borderRadius: 10,
+    paddingVertical: 10,
+  },
+  scheduleModeChipText: { fontSize: 13, fontWeight: "700" },
+  scheduleLabel: { fontSize: 12, fontWeight: "600", marginBottom: 6 },
+  scheduleInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+  },
+  scheduleHint: { fontSize: 12, lineHeight: 17, marginTop: 10 },
 });

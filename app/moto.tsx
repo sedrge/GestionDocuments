@@ -12,6 +12,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -20,6 +21,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../lib/supabase";
 import { useTenant } from "../context/TenantContext";
+import { useFeatureFlags } from "../context/FeatureFlagsContext";
 
 type ImageItem = {
   id?: string;          // id en DB (si déjà sauvegardé)
@@ -33,6 +35,8 @@ export default function MotoForm() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const router = useRouter();
   const { tenant } = useTenant();
+  const { isFeatureEnabled } = useFeatureFlags();
+  const vitrineEnabled = isFeatureEnabled("motos.vitrine");
 
   const [marque, setMarque] = useState("");
   const [modele, setModele] = useState("");
@@ -47,6 +51,8 @@ export default function MotoForm() {
   const [prixAchat, setPrixAchat] = useState("");
   const [prixVente, setPrixVente] = useState("");
   const [etat, setEtat] = useState<"Neuve" | "Occasion" | "">("");
+
+  const [isPublished, setIsPublished] = useState(false);
 
   const [images, setImages] = useState<ImageItem[]>([]);
   const [deletedImageIds, setDeletedImageIds] = useState<string[]>([]);
@@ -79,6 +85,7 @@ export default function MotoForm() {
     setPrixAchat(data.prix_achat ? String(data.prix_achat) : "");
     setPrixVente(data.prix_vente ? String(data.prix_vente) : "");
     setEtat(data.etat || "");
+    setIsPublished(data.is_published ?? false);
 
     const imgs: ImageItem[] = (data.moto_images || [])
       .sort((a: any, b: any) => (a.position ?? 0) - (b.position ?? 0))
@@ -183,6 +190,7 @@ export default function MotoForm() {
       prix_achat: prixAchat ? Number(prixAchat.replace(/\s/g, "")) : null,
       prix_vente: prixVente ? Number(prixVente.replace(/\s/g, "")) : null,
       etat: etat || null,
+      is_published: vitrineEnabled ? isPublished : false,
       user_id: user.id,
       enterprise_id: tenant?.enterprise_id || null,
       updated_at: new Date().toISOString(),
@@ -396,6 +404,29 @@ export default function MotoForm() {
           </View>
         </View>
 
+        {/* Publication */}
+        {vitrineEnabled && (
+          <>
+            <Text style={styles.sectionTitle}>PUBLICATION</Text>
+            <View style={styles.publishRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.publishLabel}>Publier sur la vitrine</Text>
+                <Text style={styles.publishHint}>
+                  {isPublished
+                    ? "Cette moto sera visible publiquement sur la vitrine."
+                    : "Cette moto ne sera pas visible sur la vitrine publique."}
+                </Text>
+              </View>
+              <Switch
+                value={isPublished}
+                onValueChange={setIsPublished}
+                trackColor={{ false: "#ccc", true: "#FF9500" }}
+                thumbColor={isPublished ? "#fff" : "#f4f3f4"}
+              />
+            </View>
+          </>
+        )}
+
         <TouchableOpacity onPress={handleSave} style={styles.saveBtn} disabled={saving}>
           {saving ? (
             <ActivityIndicator color="#fff" />
@@ -508,4 +539,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   saveBtnText: { color: "#fff", fontWeight: "800", fontSize: 16 },
+  publishRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 10,
+    padding: 14,
+    marginTop: 8,
+    gap: 12,
+  },
+  publishLabel: { fontSize: 14, fontWeight: "700", color: "#333" },
+  publishHint: { fontSize: 12, color: "#888", marginTop: 3 },
 });

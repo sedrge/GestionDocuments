@@ -1064,13 +1064,15 @@ export default function FeedScreen() {
     const motoFetch = supabase
       .from('motos')
       .select(MOTO_SELECT)
+      .eq('is_published', true)
       .order('created_at', { ascending: false })
       .range(0, MOTO_PAGE_SIZE - 1);
 
     const pubFetch = supabase
       .from('enterprise_publications')
       .select('*, enterprises(name, logo_url, is_active)')
-      .order('created_at', { ascending: false })
+      .lte('publish_at', new Date().toISOString())
+      .order('publish_at', { ascending: false })
       .range(0, PUB_PAGE_SIZE - 1);
 
     // Dès que les motos arrivent → on enlève le spinner et on affiche
@@ -1110,6 +1112,7 @@ export default function FeedScreen() {
           ? supabase
               .from('motos')
               .select(MOTO_SELECT)
+              .eq('is_published', true)
               .order('created_at', { ascending: false })
               .range(motosOffset, motosOffset + MOTO_PAGE_SIZE - 1)
               .then(({ data }) => {
@@ -1124,7 +1127,8 @@ export default function FeedScreen() {
           ? supabase
               .from('enterprise_publications')
               .select('*, enterprises(name, logo_url, is_active)')
-              .order('created_at', { ascending: false })
+              .lte('publish_at', new Date().toISOString())
+              .order('publish_at', { ascending: false })
               .range(pubsOffset, pubsOffset + PUB_PAGE_SIZE - 1)
               .then(({ data }) => {
                 if (!data) return;

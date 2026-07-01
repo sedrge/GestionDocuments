@@ -42,6 +42,7 @@ type Moto = {
   prix_achat: number | null;
   prix_vente: number | null;
   etat: string | null;
+  is_published?: boolean;
   moto_images?: { image_uri: string; is_principal: boolean; position: number }[];
 };
 
@@ -353,6 +354,17 @@ function MotoCard({
       {moto.prix_vente != null ? (
         <Text style={styles.motoPrice}>{moto.prix_vente.toLocaleString("fr-FR")} FCFA</Text>
       ) : null}
+      {moto.is_published ? (
+        <View style={styles.publishedBadge}>
+          <Ionicons name="eye" size={10} color="#fff" />
+          <Text style={styles.publishedBadgeText}>Publié</Text>
+        </View>
+      ) : (
+        <View style={[styles.publishedBadge, { backgroundColor: "#bbb" }]}>
+          <Ionicons name="eye-off" size={10} color="#fff" />
+          <Text style={styles.publishedBadgeText}>Non publié</Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
@@ -416,6 +428,18 @@ const styles = StyleSheet.create({
   motoName: { marginTop: 6, fontWeight: "700", fontSize: 13 },
   motoSub: { marginTop: 2, fontSize: 11, color: "#666" },
   motoPrice: { marginTop: 4, fontSize: 12, fontWeight: "700", color: "#FF9500" },
+  publishedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    marginTop: 5,
+    backgroundColor: "#34C759",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: "flex-start",
+  },
+  publishedBadgeText: { fontSize: 10, color: "#fff", fontWeight: "700" },
   empty: { textAlign: "center", marginTop: 50, color: "#999" },
   fab: {
     position: "absolute",

@@ -95,6 +95,12 @@ export const FEATURE_SECTIONS: FeatureSection[] = [
         icon: 'albums-outline',
         description: 'Catalogue des modèles de motos',
       },
+      {
+        key: 'motos.vitrine',
+        label: 'Vitrine Publique',
+        icon: 'globe-outline',
+        description: 'Publier des motos sur la vitrine publique du fil d\'actualité',
+      },
     ],
   },
   {
@@ -177,6 +183,18 @@ export const FEATURE_SECTIONS: FeatureSection[] = [
         label: 'Publications',
         icon: 'newspaper-outline',
         description: 'Fil d\'actualités et publications',
+      },
+      {
+        key: 'publications.auto',
+        label: 'Génération Automatique',
+        icon: 'flash-outline',
+        description: 'Génération automatique de publicités depuis le stock de motos',
+      },
+      {
+        key: 'publications.programmation',
+        label: 'Publications Programmées',
+        icon: 'alarm-outline',
+        description: 'Planifier une date et une heure de publication automatique',
       },
     ],
   },
