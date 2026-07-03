@@ -196,6 +196,12 @@ export const FEATURE_SECTIONS: FeatureSection[] = [
         icon: 'alarm-outline',
         description: 'Planifier une date et une heure de publication automatique',
       },
+      {
+        key: 'publications.facebook',
+        label: 'Publication sur Facebook',
+        icon: 'logo-facebook',
+        description: 'Connecter la Page Facebook de l\'entreprise et publier automatiquement les publications',
+      },
     ],
   },
   {

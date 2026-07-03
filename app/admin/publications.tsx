@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { decode } from "base64-arraybuffer";
 import * as ImagePicker from "expo-image-picker";
+import * as Linking from "expo-linking";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
@@ -32,6 +33,10 @@ type Publication = {
   images: string[];
   created_at: string;
   scheduled_at: string | null;
+  fb_post_id: string | null;
+  fb_published_at: string | null;
+  fb_publish_error: string | null;
+  fb_publish_status: "not_published" | "published" | "error";
 };
 
 type PublishMode = "now" | "schedule";
@@ -166,9 +171,11 @@ function AdminPublicationsContent() {
   const { isFeatureEnabled } = useFeatureFlags();
   const autoGenEnabled = isFeatureEnabled("publications.auto");
   const scheduleEnabled = isFeatureEnabled("publications.programmation");
+  const fbEnabled = isFeatureEnabled("publications.facebook");
   const [publications, setPublications] = useState<Publication[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [publishingFbId, setPublishingFbId] = useState<string | null>(null);
 
   // Form state
   const [formText, setFormText] = useState("");
@@ -295,6 +302,33 @@ function AdminPublicationsContent() {
               .update({ scheduled_at: null })
               .eq("id", pub.id);
             if (error) Alert.alert("Erreur", error.message);
+            fetchPublications();
+          },
+        },
+      ]
+    );
+  };
+
+  const handlePublishToFacebook = (pub: Publication) => {
+    Alert.alert(
+      "Publier sur Facebook",
+      "Publier ce contenu sur la Page Facebook de l'entreprise ?",
+      [
+        { text: "Annuler" },
+        {
+          text: "Publier",
+          onPress: async () => {
+            setPublishingFbId(pub.id);
+            const { data, error } = await supabase.functions.invoke("fb-publish-post", {
+              body: { publication_id: pub.id },
+            });
+            setPublishingFbId(null);
+            if (error || !data?.success) {
+              Alert.alert(
+                "Erreur",
+                data?.error ?? error?.message ?? "Échec de la publication Facebook."
+              );
+            }
             fetchPublications();
           },
         },
@@ -435,6 +469,14 @@ function AdminPublicationsContent() {
           </Text>
         </View>
         <View style={styles.headerBtns}>
+          {fbEnabled && (
+            <TouchableOpacity
+              style={[styles.newBtn, { backgroundColor: theme.card, borderWidth: 1, borderColor: "#1877F2", paddingHorizontal: 8 }]}
+              onPress={() => router.push("/admin/facebook")}
+            >
+              <Ionicons name="logo-facebook" size={16} color="#1877F2" />
+            </TouchableOpacity>
+          )}
           {autoGenEnabled && (
             <TouchableOpacity
               style={[styles.newBtn, { backgroundColor: theme.card, borderWidth: 1, borderColor: theme.primary }]}
@@ -511,6 +553,49 @@ function AdminPublicationsContent() {
                   >
                     <Ionicons name="checkmark-circle-outline" size={20} color={theme.primary} />
                   </TouchableOpacity>
+                )}
+                {fbEnabled && (
+                  <>
+                    {publishingFbId === item.id ? (
+                      <ActivityIndicator
+                        size="small"
+                        color="#1877F2"
+                        style={{ marginRight: 4 }}
+                      />
+                    ) : item.fb_publish_status === "published" ? (
+                      <TouchableOpacity
+                        onPress={() =>
+                          item.fb_post_id &&
+                          Linking.openURL(`https://facebook.com/${item.fb_post_id}`)
+                        }
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        style={{ marginRight: 4 }}
+                      >
+                        <Ionicons name="checkmark-circle" size={18} color="#34C759" />
+                      </TouchableOpacity>
+                    ) : item.fb_publish_status === "error" ? (
+                      <TouchableOpacity
+                        onPress={() =>
+                          Alert.alert(
+                            "Erreur Facebook",
+                            item.fb_publish_error ?? "Échec de la publication."
+                          )
+                        }
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        style={{ marginRight: 4 }}
+                      >
+                        <Ionicons name="alert-circle" size={18} color="#FF3B30" />
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => handlePublishToFacebook(item)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        style={{ marginRight: 4 }}
+                      >
+                        <Ionicons name="logo-facebook" size={18} color="#1877F2" />
+                      </TouchableOpacity>
+                    )}
+                  </>
                 )}
                 <TouchableOpacity
                   onPress={() => handleDelete(item)}

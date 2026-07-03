@@ -1,0 +1,12 @@
+project_id = "cxjqzbyhilrimjbnqjjf"
+
+[functions.fb-oauth-start]
+verify_jwt = true
+
+[functions.fb-oauth-callback]
+# Appelée directement par la redirection Facebook (pas de JWT Supabase).
+# La sécurité repose sur la signature du paramètre `state` (voir _shared/state.ts).
+verify_jwt = false
+
+[functions.fb-publish-post]
+verify_jwt = true

@@ -141,6 +141,7 @@ function AppStack() {
         <Stack.Screen name="admin/user_permissions" />
         <Stack.Screen name="admin/enterprise_features" />
         <Stack.Screen name="admin/publications" />
+        <Stack.Screen name="admin/facebook" />
         <Stack.Screen name="admin/chat" />
         <Stack.Screen name="admin/assistant" />
         <Stack.Screen name="contact" />

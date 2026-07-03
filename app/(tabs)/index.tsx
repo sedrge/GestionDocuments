@@ -1088,7 +1088,8 @@ export default function FeedScreen() {
     });
 
     // Les pubs s'insèrent dans le fil quand elles arrivent (en arrière-plan)
-    const processPubs = pubFetch.then(({ data }) => {
+    const processPubs = pubFetch.then(({ data, error }) => {
+      if (error) console.error('Erreur fetchPubs:', error.message);
       if (data) {
         const activePubs = (data as any[]).filter(p => p.enterprises?.is_active !== false);
         setPublications(activePubs as FeedPub[]);
@@ -1097,8 +1098,14 @@ export default function FeedScreen() {
       }
     });
 
-    await Promise.all([processMotos, processPubs]);
-    setRefreshing(false);
+    try {
+      await Promise.all([processMotos, processPubs]);
+    } catch (e) {
+      console.error('Exception fetchFeed:', e);
+      setFeedLoading(false);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const loadMore = async () => {
@@ -1130,7 +1137,8 @@ export default function FeedScreen() {
               .lte('publish_at', new Date().toISOString())
               .order('publish_at', { ascending: false })
               .range(pubsOffset, pubsOffset + PUB_PAGE_SIZE - 1)
-              .then(({ data }) => {
+              .then(({ data, error }) => {
+                if (error) console.error('Erreur loadMore pubs:', error.message);
                 if (!data) return;
                 const activePubs = (data as any[]).filter(p => p.enterprises?.is_active !== false);
                 setPublications(prev => [...prev, ...activePubs as FeedPub[]]);
