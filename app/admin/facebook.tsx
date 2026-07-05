@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import {
   ActivityIndicator,
@@ -16,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
 import { useTenant } from "@/context/TenantContext";
 import { useTheme } from "@/context/ThemeContext";
+import { getFunctionErrorMessage } from "@/lib/functionsError";
 import { FeatureGate } from "../../components/FeatureGate";
 
 type ConnectedPage = {
@@ -51,6 +52,10 @@ function AdminFacebookContent() {
     setLoading(false);
   }, [tenant?.enterprise_id]);
 
+  // useFocusEffect seul ne suffit pas : il ne se redéclenche que sur un événement
+  // de navigation, pas quand tenant.enterprise_id devient disponible après un login
+  // en cours pendant que cet écran est déjà affiché.
+  useEffect(() => { fetchConnection(); }, [fetchConnection]);
   useFocusEffect(useCallback(() => { fetchConnection(); }, [fetchConnection]));
 
   const handleConnect = async () => {
@@ -58,7 +63,9 @@ function AdminFacebookContent() {
     try {
       const { data, error } = await supabase.functions.invoke("fb-oauth-start");
       if (error || !data?.authUrl) {
-        throw new Error(error?.message ?? "Impossible de démarrer la connexion Facebook.");
+        throw new Error(
+          await getFunctionErrorMessage(error, "Impossible de démarrer la connexion Facebook.")
+        );
       }
 
       const result = await WebBrowser.openAuthSessionAsync(

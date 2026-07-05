@@ -56,7 +56,7 @@ export default function LoginScreen() {
       style={[styles.container, { backgroundColor: theme.bg }]}
     >
       <View style={[styles.topBar, { top: insets.top + 12 }]}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')}>
           <Text style={[styles.backText, { color: theme.primary }]}>← Retour</Text>
         </TouchableOpacity>
         <TouchableOpacity

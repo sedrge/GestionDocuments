@@ -9,6 +9,11 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const FB_APP_ID = Deno.env.get("FB_APP_ID")!;
 const FB_OAUTH_CALLBACK_URL = Deno.env.get("FB_OAUTH_CALLBACK_URL")!;
 const OAUTH_STATE_SECRET = Deno.env.get("OAUTH_STATE_SECRET")!;
+// Requis par Facebook Login for Business (cas d'utilisation "Tout gérer sur votre
+// Page") : les permissions sont définies dans une Configuration créée dans le
+// tableau de bord Meta, référencée ici par son config_id, plutôt que par un
+// paramètre `scope` classique.
+const FB_LOGIN_CONFIG_ID = Deno.env.get("FB_LOGIN_CONFIG_ID")!;
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -70,7 +75,7 @@ Deno.serve(async (req) => {
     + `?client_id=${encodeURIComponent(FB_APP_ID)}`
     + `&redirect_uri=${encodeURIComponent(FB_OAUTH_CALLBACK_URL)}`
     + `&state=${encodeURIComponent(state)}`
-    + "&scope=pages_show_list,pages_read_engagement,pages_manage_posts"
+    + `&config_id=${encodeURIComponent(FB_LOGIN_CONFIG_ID)}`
     + "&response_type=code";
 
   return json(200, { authUrl });

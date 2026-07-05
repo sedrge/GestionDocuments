@@ -25,6 +25,8 @@ import { useTenant } from "../../context/TenantContext";
 import { useTheme } from "../../context/ThemeContext";
 import { FeatureGate } from "../../components/FeatureGate";
 import { useFeatureFlags } from "../../context/FeatureFlagsContext";
+import { getFunctionErrorMessage } from "../../lib/functionsError";
+import { checkAndIncrementFeatureUsage, QUOTA_EXCEEDED_MESSAGE } from "../../lib/enterpriseFeatures";
 
 type Publication = {
   id: string;
@@ -324,10 +326,10 @@ function AdminPublicationsContent() {
             });
             setPublishingFbId(null);
             if (error || !data?.success) {
-              Alert.alert(
-                "Erreur",
-                data?.error ?? error?.message ?? "Échec de la publication Facebook."
-              );
+              const message =
+                data?.error ??
+                (await getFunctionErrorMessage(error, "Échec de la publication Facebook."));
+              Alert.alert("Erreur", message);
             }
             fetchPublications();
           },
@@ -376,6 +378,11 @@ function AdminPublicationsContent() {
 
   const handleAutoGenerate = async () => {
     if (!tenant?.enterprise_id || !autoGenEnabled) return;
+
+    const quota = await checkAndIncrementFeatureUsage(tenant.enterprise_id, "publications.auto");
+    if (!quota.allowed) {
+      return Alert.alert("Quota atteint", QUOTA_EXCEEDED_MESSAGE);
+    }
 
     let scheduledAt: string | null = null;
     if (scheduleEnabled && autoPublishMode === "schedule") {

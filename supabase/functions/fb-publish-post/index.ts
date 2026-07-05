@@ -81,30 +81,46 @@ Deno.serve(async (req) => {
   if (!user) return json(401, { error: "unauthenticated" });
 
   const { publication_id } = await req.json().catch(() => ({}));
+  console.log("fb-publish-post: user=", user.id, "publication_id=", publication_id);
   if (!publication_id) return json(400, { error: "missing_publication_id" });
 
-  const { data: pub } = await supabaseClient
+  const { data: pub, error: pubError } = await supabaseClient
     .from("enterprise_publications")
     .select("id, enterprise_id, texte, images")
     .eq("id", publication_id)
     .single();
+  console.log("fb-publish-post: pub=", JSON.stringify(pub), "pubError=", JSON.stringify(pubError));
   if (!pub) return json(404, { error: "publication_not_found" });
 
-  const { data: admin } = await supabaseClient
+  const { data: admin, error: adminError } = await supabaseClient
     .from("enterprise_admins")
     .select("enterprise_id")
     .eq("user_id", user.id)
     .eq("enterprise_id", pub.enterprise_id)
     .eq("role", "enterprise_admin")
     .single();
+  console.log("fb-publish-post: admin=", JSON.stringify(admin), "adminError=", JSON.stringify(adminError));
   if (!admin) return json(403, { error: "forbidden" });
 
+  const { data: quota, error: quotaError } = await supabaseClient.rpc(
+    "check_and_increment_feature_usage",
+    { p_enterprise_id: pub.enterprise_id, p_feature_key: "publications.facebook" },
+  );
+  console.log("fb-publish-post: quota=", JSON.stringify(quota), "quotaError=", JSON.stringify(quotaError));
+  if (quotaError) return json(500, { error: "quota_check_failed" });
+  if (!quota?.allowed) {
+    return json(403, {
+      error: "Quota quotidien atteint pour cette fonctionnalité. Contactez le concepteur pour passer en mode illimité.",
+    });
+  }
+
   const svc = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-  const { data: fbPage } = await svc
+  const { data: fbPage, error: fbPageError } = await svc
     .from("enterprise_facebook_pages")
     .select("fb_page_id, fb_page_access_token")
     .eq("enterprise_id", pub.enterprise_id)
     .single();
+  console.log("fb-publish-post: enterprise_id=", pub.enterprise_id, "fbPage found=", !!fbPage, "fbPageError=", JSON.stringify(fbPageError));
   if (!fbPage) return json(400, { error: "no_facebook_page_connected" });
 
   try {

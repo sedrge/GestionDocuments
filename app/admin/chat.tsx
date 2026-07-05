@@ -13,7 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../../lib/supabase";
 import { useTenant } from "../../context/TenantContext";
 import { useTheme } from "../../context/ThemeContext";
@@ -44,6 +44,7 @@ interface Message {
 function AdminChatContent() {
   const { theme } = useTheme();
   const { tenant } = useTenant();
+  const insets = useSafeAreaInsets();
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -196,7 +197,7 @@ function AdminChatContent() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         {/* Header conversation */}
-        <View style={[styles.chatHeader, { borderBottomColor: theme.border }]}>
+        <View style={[styles.chatHeader, { borderBottomColor: theme.border, paddingTop: insets.top + 12 }]}>
           <TouchableOpacity onPress={() => setSelectedChat(null)} style={{ padding: 4 }}>
             <Ionicons name="arrow-back" size={24} color={theme.primary} />
           </TouchableOpacity>
@@ -283,7 +284,7 @@ function AdminChatContent() {
 
         {/* Zone de saisie */}
         {selectedChat.status === "open" ? (
-          <View style={[styles.inputBar, { borderTopColor: theme.border, backgroundColor: theme.card }]}>
+          <View style={[styles.inputBar, { borderTopColor: theme.border, backgroundColor: theme.card, paddingBottom: Math.max(insets.bottom, 10) }]}>
             <TextInput
               style={[styles.msgInput, { color: theme.text, backgroundColor: theme.bg, borderColor: theme.border }]}
               placeholder="Répondre..."
@@ -477,7 +478,6 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    paddingTop: Platform.OS === "ios" ? 56 : 12,
     borderBottomWidth: 1,
   },
   chatHeaderName: { fontSize: 16, fontWeight: "700" },
@@ -514,7 +514,6 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     gap: 10,
     padding: 10,
-    paddingBottom: Platform.OS === "ios" ? 28 : 10,
     borderTopWidth: 1,
   },
   msgInput: {

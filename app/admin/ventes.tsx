@@ -80,11 +80,7 @@ const formatDate = (s: string | null): string => {
   });
 };
 
-const shortCFA = (n: number): string => {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(".0", "") + "M FCFA";
-  if (n >= 1_000) return Math.round(n / 1_000) + "k FCFA";
-  return n.toLocaleString("fr-FR") + " FCFA";
-};
+const shortCFA = (n: number): string => n.toLocaleString("fr-FR") + " FCFA";
 
 // ─── Détail d'une vente ───────────────────────────────────────────────────────
 

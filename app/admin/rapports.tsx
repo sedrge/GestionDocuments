@@ -97,11 +97,7 @@ const getDateRange = (
 };
 
 const fmt = (n: number) => n.toLocaleString("fr-FR") + " FCFA";
-const shortFmt = (n: number) => {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(".0", "") + "M FCFA";
-  if (n >= 1_000) return Math.round(n / 1_000) + "k FCFA";
-  return n.toLocaleString("fr-FR") + " FCFA";
-};
+const shortFmt = (n: number) => n.toLocaleString("fr-FR") + " FCFA";
 const fmtDate = (s: string | null) => {
   if (!s) return "—";
   return new Date(s).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });

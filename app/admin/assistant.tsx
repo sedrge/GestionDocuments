@@ -16,6 +16,7 @@ import { supabase } from "../../lib/supabase";
 import { useFocusEffect } from "expo-router";
 import { useTenant } from "../../context/TenantContext";
 import { FeatureGate } from "../../components/FeatureGate";
+import { QuotaGate } from "../../components/QuotaGate";
 
 const { width } = Dimensions.get("window");
 
@@ -37,11 +38,7 @@ type Moto = {
 const MOIS_COURTS = ["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"];
 const MOIS_LONGS  = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 
-const shortCFA = (n: number): string => {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(".0", "") + "M FCFA";
-  if (n >= 1_000) return Math.round(n / 1_000) + "k FCFA";
-  return n.toLocaleString("fr-FR") + " FCFA";
-};
+const shortCFA = (n: number): string => n.toLocaleString("fr-FR") + " FCFA";
 
 // ─── Sous-composants ──────────────────────────────────────────────────────────
 
@@ -469,7 +466,9 @@ function AssistantContent() {
 export default function AssistantScreen() {
   return (
     <FeatureGate featureKey="assistant_ia.actif" featureName="Assistant IA">
-      <AssistantContent />
+      <QuotaGate featureKey="assistant_ia.actif" featureName="Assistant IA">
+        <AssistantContent />
+      </QuotaGate>
     </FeatureGate>
   );
 }

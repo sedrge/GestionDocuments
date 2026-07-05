@@ -84,6 +84,7 @@ Deno.serve(async (req) => {
   if (!code) return redirect({ status: "error", message: "missing_code" });
 
   const payload = await verifyState(state, OAUTH_STATE_SECRET);
+  console.log("fb-oauth-callback: state payload=", JSON.stringify(payload));
   if (!payload) return redirect({ status: "error", message: "invalid_or_expired_state" });
 
   try {
@@ -95,6 +96,7 @@ Deno.serve(async (req) => {
         + `&client_secret=${encodeURIComponent(FB_APP_SECRET)}`
         + `&code=${encodeURIComponent(code)}`,
     );
+    console.log("fb-oauth-callback: short-lived token obtained=", !!shortLived.access_token);
 
     // 2) token courte durée -> token utilisateur longue durée
     const longLived = await fbGet(
@@ -104,11 +106,13 @@ Deno.serve(async (req) => {
         + `&client_secret=${encodeURIComponent(FB_APP_SECRET)}`
         + `&fb_exchange_token=${encodeURIComponent(shortLived.access_token)}`,
     );
+    console.log("fb-oauth-callback: long-lived token obtained=", !!longLived.access_token);
 
     // 3) liste des Pages gérées par l'utilisateur
     const pages = await fbGet(
       `https://graph.facebook.com/v21.0/me/accounts?access_token=${encodeURIComponent(longLived.access_token)}`,
     );
+    console.log("fb-oauth-callback: pages response=", JSON.stringify({ count: pages.data?.length, names: pages.data?.map((p: any) => p.name) }));
 
     const page = pages.data?.[0];
     if (!page) return redirect({ status: "error", message: "no_facebook_page_found" });
@@ -125,10 +129,12 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
       }, { onConflict: "enterprise_id" });
 
+    console.log("fb-oauth-callback: upsert enterprise_id=", payload.enterprise_id, "page=", page.name, "upsertError=", JSON.stringify(upsertError));
     if (upsertError) return redirect({ status: "error", message: "storage_failed" });
 
     return redirect({ status: "success", page_name: page.name });
   } catch (err) {
+    console.error("fb-oauth-callback: exception=", String((err as Error).message ?? err));
     return redirect({ status: "error", message: String((err as Error).message ?? err) });
   }
 });
