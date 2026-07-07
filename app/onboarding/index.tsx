@@ -121,16 +121,21 @@ export default function OnboardingScreen() {
       style={{ flex: 1 }}
       contentContainerStyle={styles.content}
     >
-      {/* Toggle thème */}
-      <TouchableOpacity
-        style={[styles.themeToggle, { backgroundColor: theme.card, borderColor: theme.border }]}
-        onPress={toggleTheme}
-      >
-        <Ionicons name={isDark ? 'sunny' : 'moon'} size={20} color={isDark ? '#FFD60A' : theme.primary} />
-        <Text style={[styles.themeToggleText, { color: theme.text }]}>
-          {isDark ? 'Mode Clair' : 'Mode Sombre'}
-        </Text>
-      </TouchableOpacity>
+      {/* Retour à l'accueil + Toggle thème */}
+      <View style={styles.topRow}>
+        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')}>
+          <Text style={[styles.backText, { color: theme.primary }]}>← Retour</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.themeToggle, { backgroundColor: theme.card, borderColor: theme.border }]}
+          onPress={toggleTheme}
+        >
+          <Ionicons name={isDark ? 'sunny' : 'moon'} size={20} color={isDark ? '#FFD60A' : theme.primary} />
+          <Text style={[styles.themeToggleText, { color: theme.text }]}>
+            {isDark ? 'Mode Clair' : 'Mode Sombre'}
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Header */}
       <View style={styles.header}>
@@ -281,16 +286,24 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
   },
+  topRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  backText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
   themeToggle: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-end',
     gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    marginBottom: 12,
   },
   themeToggleText: {
     fontSize: 13,

@@ -109,9 +109,10 @@ Deno.serve(async (req) => {
   console.log("fb-publish-post: quota=", JSON.stringify(quota), "quotaError=", JSON.stringify(quotaError));
   if (quotaError) return json(500, { error: "quota_check_failed" });
   if (!quota?.allowed) {
-    return json(403, {
-      error: "Quota quotidien atteint pour cette fonctionnalité. Contactez le concepteur pour passer en mode illimité.",
-    });
+    const message = quota?.error === "feature_disabled"
+      ? "La publication automatique sur Facebook n'est pas activée pour votre entreprise. Contactez le concepteur."
+      : "Quota quotidien atteint pour cette fonctionnalité. Contactez le concepteur pour passer en mode illimité.";
+    return json(403, { error: message });
   }
 
   const svc = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);

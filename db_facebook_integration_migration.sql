@@ -39,7 +39,18 @@ CREATE POLICY "enterprise_admin_fb_page_all" ON enterprise_facebook_pages
 -- Le token Facebook ne doit jamais transiter par le client, même par erreur
 -- (ex: un futur `select('*')`). On retire le SELECT direct sur la table pour
 -- les utilisateurs authentifiés et on expose une vue sans la colonne du token.
+--
+-- La vue est en security_invoker = true (RLS évaluée avec les droits de
+-- l'appelant, pas du créateur de la vue) : Postgres vérifie alors aussi les
+-- droits sur la table de base pour l'appelant. Un simple REVOKE SELECT sur
+-- la table bloquerait donc aussi l'accès via la vue. On accorde à la place
+-- un GRANT SELECT limité aux colonnes sûres (sans le token) : select('*')
+-- reste bloqué, la vue restreinte fonctionne.
 REVOKE SELECT ON enterprise_facebook_pages FROM authenticated;
+GRANT SELECT (
+  id, enterprise_id, fb_page_id, fb_page_name,
+  connected_by_user_id, connected_at, updated_at
+) ON enterprise_facebook_pages TO authenticated;
 
 CREATE OR REPLACE VIEW enterprise_facebook_pages_public AS
   SELECT id, enterprise_id, fb_page_id, fb_page_name, connected_by_user_id, connected_at, updated_at

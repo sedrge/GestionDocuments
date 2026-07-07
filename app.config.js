@@ -11,7 +11,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       icon: "./assets/images/SenMoto.png",
-      bundleIdentifier: "com.anonymous.docvault",
+      bundleIdentifier: "com.senmoto.app",
     },
     android: {
       adaptiveIcon: {
@@ -20,7 +20,7 @@ module.exports = {
       },
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
-      package: "com.anonymous.docvault",
+      package: "com.senmoto.app",
       googleServicesFile:
         process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
       permissions: ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "CAMERA"],

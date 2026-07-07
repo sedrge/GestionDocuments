@@ -26,7 +26,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { FeatureGate } from "../../components/FeatureGate";
 import { useFeatureFlags } from "../../context/FeatureFlagsContext";
 import { getFunctionErrorMessage } from "../../lib/functionsError";
-import { checkAndIncrementFeatureUsage, QUOTA_EXCEEDED_MESSAGE } from "../../lib/enterpriseFeatures";
+import { QUOTA_EXCEEDED_MESSAGE } from "../../lib/enterpriseFeatures";
 
 type Publication = {
   id: string;
@@ -39,6 +39,15 @@ type Publication = {
   fb_published_at: string | null;
   fb_publish_error: string | null;
   fb_publish_status: "not_published" | "published" | "error";
+  selected_platforms: string[];
+};
+
+type SocialPlatform = "facebook" | "tiktok";
+
+type TikTokStatus = {
+  external_post_id: string | null;
+  status: "not_published" | "published" | "error";
+  error_message: string | null;
 };
 
 type PublishMode = "now" | "schedule";
@@ -174,10 +183,15 @@ function AdminPublicationsContent() {
   const autoGenEnabled = isFeatureEnabled("publications.auto");
   const scheduleEnabled = isFeatureEnabled("publications.programmation");
   const fbEnabled = isFeatureEnabled("publications.facebook");
+  const tiktokEnabled = isFeatureEnabled("publications.tiktok");
   const [publications, setPublications] = useState<Publication[]>([]);
+  const [tiktokStatus, setTiktokStatus] = useState<Record<string, TikTokStatus>>({});
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [publishingFbId, setPublishingFbId] = useState<string | null>(null);
+  const [publishingTiktokId, setPublishingTiktokId] = useState<string | null>(null);
+  const [fbConnected, setFbConnected] = useState(false);
+  const [tiktokConnected, setTiktokConnected] = useState(false);
 
   // Form state
   const [formText, setFormText] = useState("");
@@ -185,6 +199,8 @@ function AdminPublicationsContent() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [selectedPlatforms, setSelectedPlatforms] = useState<SocialPlatform[]>([]);
+  const [autoSelectedPlatforms, setAutoSelectedPlatforms] = useState<SocialPlatform[]>([]);
 
   // Programmation (publication manuelle)
   const [publishMode, setPublishMode] = useState<PublishMode>("now");
@@ -212,11 +228,85 @@ function AdminPublicationsContent() {
       .select("*")
       .eq("enterprise_id", tenant.enterprise_id)
       .order("created_at", { ascending: false });
-    setPublications((data as Publication[]) ?? []);
+    const pubs = (data as Publication[]) ?? [];
+    setPublications(pubs);
+
+    if (pubs.length > 0) {
+      const { data: statusRows } = await supabase
+        .from("publication_platform_status")
+        .select("publication_id, external_post_id, status, error_message")
+        .eq("platform", "tiktok")
+        .in("publication_id", pubs.map((p) => p.id));
+      const statusMap: Record<string, TikTokStatus> = {};
+      (statusRows ?? []).forEach((row: any) => {
+        statusMap[row.publication_id] = {
+          external_post_id: row.external_post_id,
+          status: row.status,
+          error_message: row.error_message,
+        };
+      });
+      setTiktokStatus(statusMap);
+    }
+
     setLoading(false);
   }, [tenant?.enterprise_id]);
 
-  useFocusEffect(useCallback(() => { fetchPublications(); }, [fetchPublications]));
+  const fetchConnections = useCallback(async () => {
+    if (!tenant?.enterprise_id) return;
+    const [fbRes, tiktokRes] = await Promise.all([
+      supabase
+        .from("enterprise_facebook_pages_public")
+        .select("id")
+        .eq("enterprise_id", tenant.enterprise_id)
+        .maybeSingle(),
+      supabase
+        .from("enterprise_social_connections_public")
+        .select("id")
+        .eq("enterprise_id", tenant.enterprise_id)
+        .eq("platform", "tiktok")
+        .maybeSingle(),
+    ]);
+    setFbConnected(!!fbRes.data);
+    setTiktokConnected(!!tiktokRes.data);
+  }, [tenant?.enterprise_id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchPublications();
+      fetchConnections();
+    }, [fetchPublications, fetchConnections])
+  );
+
+  const togglePlatform = (
+    platform: SocialPlatform,
+    setter: React.Dispatch<React.SetStateAction<SocialPlatform[]>>
+  ) => {
+    setter((prev) =>
+      prev.includes(platform) ? prev.filter((p) => p !== platform) : [...prev, platform]
+    );
+  };
+
+  const crossPostNow = async (publicationId: string, platforms: SocialPlatform[]) => {
+    const results: string[] = [];
+    for (const platform of platforms) {
+      const fnName = platform === "facebook" ? "fb-publish-post" : "tiktok-publish-post";
+      const label = platform === "facebook" ? "Facebook" : "TikTok";
+      const { data, error } = await supabase.functions.invoke(fnName, {
+        body: { publication_id: publicationId },
+      });
+      if (error || !data?.success) {
+        const message =
+          data?.error ?? (await getFunctionErrorMessage(error, `Échec de la publication ${label}.`));
+        results.push(`${label} : ${message}`);
+      } else {
+        results.push(`${label} : publié ✓`);
+      }
+    }
+    if (results.length > 0) {
+      Alert.alert("Diffusion sur les réseaux", results.join("\n"));
+    }
+    fetchPublications();
+  };
 
   const handlePickImages = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -275,18 +365,31 @@ function AdminPublicationsContent() {
     }
 
     setSaving(true);
-    const { error } = await supabase.from("enterprise_publications").insert({
-      enterprise_id: tenant.enterprise_id,
-      texte: formText.trim() || null,
-      images: formImages,
-      scheduled_at: scheduledAt,
-    });
+    const { data: inserted, error } = await supabase
+      .from("enterprise_publications")
+      .insert({
+        enterprise_id: tenant.enterprise_id,
+        texte: formText.trim() || null,
+        images: formImages,
+        scheduled_at: scheduledAt,
+        selected_platforms: selectedPlatforms,
+      })
+      .select("id")
+      .single();
     setSaving(false);
     if (error) {
-      Alert.alert("Erreur", error.message);
+      if (error.message.includes("quota_exceeded")) {
+        Alert.alert("Quota atteint", QUOTA_EXCEEDED_MESSAGE);
+      } else {
+        Alert.alert("Erreur", error.message);
+      }
     } else {
+      const platformsToPush = selectedPlatforms;
       resetForm();
       fetchPublications();
+      if (publishMode === "now" && platformsToPush.length > 0 && inserted) {
+        crossPostNow(inserted.id, platformsToPush);
+      }
     }
   };
 
@@ -338,6 +441,33 @@ function AdminPublicationsContent() {
     );
   };
 
+  const handlePublishToTikTok = (pub: Publication) => {
+    Alert.alert(
+      "Publier sur TikTok",
+      "Publier ce contenu sur le compte TikTok de l'entreprise ?",
+      [
+        { text: "Annuler" },
+        {
+          text: "Publier",
+          onPress: async () => {
+            setPublishingTiktokId(pub.id);
+            const { data, error } = await supabase.functions.invoke("tiktok-publish-post", {
+              body: { publication_id: pub.id },
+            });
+            setPublishingTiktokId(null);
+            if (error || !data?.success) {
+              const message =
+                data?.error ??
+                (await getFunctionErrorMessage(error, "Échec de la publication TikTok."));
+              Alert.alert("Erreur", message);
+            }
+            fetchPublications();
+          },
+        },
+      ]
+    );
+  };
+
   const handleDelete = (pub: Publication) => {
     Alert.alert("Supprimer", "Supprimer cette publication ?", [
       { text: "Annuler" },
@@ -364,6 +494,7 @@ function AdminPublicationsContent() {
     setPublishMode("now");
     setScheduleDate("");
     setScheduleTime("");
+    setSelectedPlatforms([]);
     setShowCreate(false);
   };
 
@@ -373,16 +504,12 @@ function AdminPublicationsContent() {
     setAutoPublishMode("now");
     setAutoScheduleDate("");
     setAutoScheduleTime("");
+    setAutoSelectedPlatforms([]);
     setShowAutoModal(false);
   };
 
   const handleAutoGenerate = async () => {
     if (!tenant?.enterprise_id || !autoGenEnabled) return;
-
-    const quota = await checkAndIncrementFeatureUsage(tenant.enterprise_id, "publications.auto");
-    if (!quota.allowed) {
-      return Alert.alert("Quota atteint", QUOTA_EXCEEDED_MESSAGE);
-    }
 
     let scheduledAt: string | null = null;
     if (scheduleEnabled && autoPublishMode === "schedule") {
@@ -446,19 +573,33 @@ function AdminPublicationsContent() {
       .filter((uri): uri is string => !!uri);
 
     setSaving(true);
-    const { error: insertError } = await supabase.from("enterprise_publications").insert({
-      enterprise_id: tenant.enterprise_id,
-      texte,
-      images,
-      scheduled_at: scheduledAt,
-    });
+    const { data: inserted, error: insertError } = await supabase
+      .from("enterprise_publications")
+      .insert({
+        enterprise_id: tenant.enterprise_id,
+        texte,
+        images,
+        scheduled_at: scheduledAt,
+        is_auto_generated: true,
+        selected_platforms: autoSelectedPlatforms,
+      })
+      .select("id")
+      .single();
     setSaving(false);
 
     if (insertError) {
-      Alert.alert("Erreur", insertError.message);
+      if (insertError.message.includes("quota_exceeded")) {
+        Alert.alert("Quota atteint", QUOTA_EXCEEDED_MESSAGE);
+      } else {
+        Alert.alert("Erreur", insertError.message);
+      }
     } else {
+      const platformsToPush = autoSelectedPlatforms;
       resetAutoForm();
       fetchPublications();
+      if (autoPublishMode === "now" && platformsToPush.length > 0 && inserted) {
+        crossPostNow(inserted.id, platformsToPush);
+      }
     }
   };
 
@@ -469,9 +610,18 @@ function AdminPublicationsContent() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={theme.primary} />
         </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.headerTitle, { color: theme.text }]}>Publications</Text>
-          <Text style={[styles.headerSub, { color: theme.subText }]}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text
+            style={[styles.headerTitle, { color: theme.text }]}
+            numberOfLines={1}
+          >
+            Publications
+          </Text>
+          <Text
+            style={[styles.headerSub, { color: theme.subText }]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
             Visibles publiquement dans le fil d'actualité
           </Text>
         </View>
@@ -482,6 +632,14 @@ function AdminPublicationsContent() {
               onPress={() => router.push("/admin/facebook")}
             >
               <Ionicons name="logo-facebook" size={16} color="#1877F2" />
+            </TouchableOpacity>
+          )}
+          {tiktokEnabled && (
+            <TouchableOpacity
+              style={[styles.newBtn, { backgroundColor: theme.card, borderWidth: 1, borderColor: "#000000", paddingHorizontal: 8 }]}
+              onPress={() => router.push("/admin/tiktok")}
+            >
+              <Ionicons name="logo-tiktok" size={16} color={theme.text} />
             </TouchableOpacity>
           )}
           {autoGenEnabled && (
@@ -600,6 +758,51 @@ function AdminPublicationsContent() {
                         style={{ marginRight: 4 }}
                       >
                         <Ionicons name="logo-facebook" size={18} color="#1877F2" />
+                      </TouchableOpacity>
+                    )}
+                  </>
+                )}
+                {tiktokEnabled && (
+                  <>
+                    {publishingTiktokId === item.id ? (
+                      <ActivityIndicator
+                        size="small"
+                        color={theme.text}
+                        style={{ marginRight: 4 }}
+                      />
+                    ) : tiktokStatus[item.id]?.status === "published" ? (
+                      <TouchableOpacity
+                        onPress={() =>
+                          Alert.alert(
+                            "Publié sur TikTok",
+                            "Cette publication a été poussée sur le compte TikTok connecté."
+                          )
+                        }
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        style={{ marginRight: 4 }}
+                      >
+                        <Ionicons name="checkmark-circle" size={18} color="#34C759" />
+                      </TouchableOpacity>
+                    ) : tiktokStatus[item.id]?.status === "error" ? (
+                      <TouchableOpacity
+                        onPress={() =>
+                          Alert.alert(
+                            "Erreur TikTok",
+                            tiktokStatus[item.id]?.error_message ?? "Échec de la publication."
+                          )
+                        }
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        style={{ marginRight: 4 }}
+                      >
+                        <Ionicons name="alert-circle" size={18} color="#FF3B30" />
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => handlePublishToTikTok(item)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        style={{ marginRight: 4 }}
+                      >
+                        <Ionicons name="logo-tiktok" size={18} color={theme.text} />
                       </TouchableOpacity>
                     )}
                   </>
@@ -793,6 +996,82 @@ function AdminPublicationsContent() {
                   </>
                 )}
               </TouchableOpacity>
+
+              {/* Publier aussi sur les réseaux connectés */}
+              {(fbConnected || tiktokConnected) && (
+                <View
+                  style={[
+                    styles.scheduleBox,
+                    { backgroundColor: theme.card, borderColor: theme.border },
+                  ]}
+                >
+                  <Text style={[styles.scheduleTitle, { color: theme.text }]}>
+                    Publier aussi sur
+                  </Text>
+                  <View style={styles.autoModeRow}>
+                    {fbConnected && (
+                      <TouchableOpacity
+                        style={[
+                          styles.autoModeChip,
+                          {
+                            borderColor: selectedPlatforms.includes("facebook") ? "#1877F2" : theme.border,
+                            backgroundColor: selectedPlatforms.includes("facebook") ? "#1877F2" : "transparent",
+                            flexDirection: "row",
+                            gap: 6,
+                          },
+                        ]}
+                        onPress={() => togglePlatform("facebook", setSelectedPlatforms)}
+                      >
+                        <Ionicons
+                          name="logo-facebook"
+                          size={14}
+                          color={selectedPlatforms.includes("facebook") ? "#fff" : theme.text}
+                        />
+                        <Text
+                          style={[
+                            styles.autoModeChipText,
+                            { color: selectedPlatforms.includes("facebook") ? "#fff" : theme.text },
+                          ]}
+                        >
+                          Facebook
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                    {tiktokConnected && (
+                      <TouchableOpacity
+                        style={[
+                          styles.autoModeChip,
+                          {
+                            borderColor: selectedPlatforms.includes("tiktok") ? theme.text : theme.border,
+                            backgroundColor: selectedPlatforms.includes("tiktok") ? theme.text : "transparent",
+                            flexDirection: "row",
+                            gap: 6,
+                          },
+                        ]}
+                        onPress={() => togglePlatform("tiktok", setSelectedPlatforms)}
+                      >
+                        <Ionicons
+                          name="logo-tiktok"
+                          size={14}
+                          color={selectedPlatforms.includes("tiktok") ? theme.bg : theme.text}
+                        />
+                        <Text
+                          style={[
+                            styles.autoModeChipText,
+                            { color: selectedPlatforms.includes("tiktok") ? theme.bg : theme.text },
+                          ]}
+                        >
+                          TikTok
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  <Text style={[styles.autoHint, { color: theme.subText }]}>
+                    Sélectionnez les réseaux sur lesquels diffuser cette publication en même temps
+                    que sur SenMoto. Vous pourrez aussi le faire plus tard depuis la liste.
+                  </Text>
+                </View>
+              )}
 
               {/* Programmation */}
               {scheduleEnabled && (
@@ -1014,6 +1293,81 @@ function AdminPublicationsContent() {
               généré automatiquement.
             </Text>
 
+            {(fbConnected || tiktokConnected) && (
+              <View
+                style={[
+                  styles.scheduleBox,
+                  { backgroundColor: theme.bg, borderColor: theme.border, marginTop: 14 },
+                ]}
+              >
+                <Text style={[styles.scheduleTitle, { color: theme.text }]}>
+                  Publier aussi sur
+                </Text>
+                <View style={styles.autoModeRow}>
+                  {fbConnected && (
+                    <TouchableOpacity
+                      style={[
+                        styles.autoModeChip,
+                        {
+                          borderColor: autoSelectedPlatforms.includes("facebook") ? "#1877F2" : theme.border,
+                          backgroundColor: autoSelectedPlatforms.includes("facebook") ? "#1877F2" : "transparent",
+                          flexDirection: "row",
+                          gap: 6,
+                        },
+                      ]}
+                      onPress={() => togglePlatform("facebook", setAutoSelectedPlatforms)}
+                    >
+                      <Ionicons
+                        name="logo-facebook"
+                        size={14}
+                        color={autoSelectedPlatforms.includes("facebook") ? "#fff" : theme.text}
+                      />
+                      <Text
+                        style={[
+                          styles.autoModeChipText,
+                          { color: autoSelectedPlatforms.includes("facebook") ? "#fff" : theme.text },
+                        ]}
+                      >
+                        Facebook
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  {tiktokConnected && (
+                    <TouchableOpacity
+                      style={[
+                        styles.autoModeChip,
+                        {
+                          borderColor: autoSelectedPlatforms.includes("tiktok") ? theme.text : theme.border,
+                          backgroundColor: autoSelectedPlatforms.includes("tiktok") ? theme.text : "transparent",
+                          flexDirection: "row",
+                          gap: 6,
+                        },
+                      ]}
+                      onPress={() => togglePlatform("tiktok", setAutoSelectedPlatforms)}
+                    >
+                      <Ionicons
+                        name="logo-tiktok"
+                        size={14}
+                        color={autoSelectedPlatforms.includes("tiktok") ? theme.bg : theme.text}
+                      />
+                      <Text
+                        style={[
+                          styles.autoModeChipText,
+                          { color: autoSelectedPlatforms.includes("tiktok") ? theme.bg : theme.text },
+                        ]}
+                      >
+                        TikTok
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+                <Text style={[styles.autoHint, { color: theme.subText }]}>
+                  Sélectionnez les réseaux sur lesquels diffuser cette publicité en même temps que
+                  sur SenMoto. Vous pourrez aussi le faire plus tard depuis la liste.
+                </Text>
+              </View>
+            )}
+
             {scheduleEnabled && (
               <View
                 style={[
@@ -1175,7 +1529,7 @@ const styles = StyleSheet.create({
   backBtn: { padding: 4 },
   headerTitle: { fontSize: 17, fontWeight: "bold" },
   headerSub: { fontSize: 12, marginTop: 2 },
-  headerBtns: { flexDirection: "row", gap: 8 },
+  headerBtns: { flexDirection: "row", gap: 8, flexShrink: 0 },
   newBtn: {
     flexDirection: "row",
     alignItems: "center",
