@@ -1,0 +1,48 @@
+# Mêmes exclusions que .gitignore, sauf google-services.json / GoogleService-Info.plist
+# qui doivent être uploadés vers EAS Build (ils sont référencés par app.config.js
+# mais ignorés par git car contiennent des clés spécifiques à l'environnement).
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+app-example
+
+# generated native folders
+/ios
+/android
+senmoto-a2f1e-firebase-adminsdk-fbsvc-26aeab3d76.json
+*.keystore
+.env
