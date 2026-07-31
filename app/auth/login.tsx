@@ -104,6 +104,12 @@ export default function LoginScreen() {
           : <Text style={styles.buttonText}>Se connecter</Text>
         }
       </TouchableOpacity>
+
+      {__DEV__ && (
+        <TouchableOpacity onPress={() => router.push('/dev-api-test')} style={{ marginTop: 24 }}>
+          <Text style={{ color: theme.subText, fontSize: 12 }}>🧪 Test API Laravel (dev)</Text>
+        </TouchableOpacity>
+      )}
     </KeyboardAvoidingView>
     </SafeAreaView>
   );

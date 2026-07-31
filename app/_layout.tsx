@@ -27,7 +27,7 @@ function RouteGuard() {
     if (!root) return;
 
     // Routes publiques
-    if (root === '(tabs)' || root === 'chat' || root === 'contact') return;
+    if (root === '(tabs)' || root === 'chat' || root === 'contact' || root === 'dev-api-test') return;
 
     const inAuthFlow = root === 'onboarding' || root === 'auth';
     const inPendingScreen = root === 'pending';
@@ -147,6 +147,7 @@ function AppStack() {
         <Stack.Screen name="admin/assistant" />
         <Stack.Screen name="contact" />
         <Stack.Screen name="chat" />
+        <Stack.Screen name="dev-api-test" />
         <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: true }} />
       </Stack>
       <ImpersonationBanner />

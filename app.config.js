@@ -78,6 +78,11 @@ module.exports = {
     extra: {
       supabaseUrl: "https://cxjqzbyhilrimjbnqjjf.supabase.co",
       supabaseAnonKey: "sb_publishable_IrC8XntZO7hRlCsx8ldzQQ_36r5YMc-",
+      // Backend Laravel en cours de migration (test local uniquement).
+      // Tunnel HTTPS temporaire (localtunnel) car Expo Go/Android bloque le HTTP
+      // en clair vers une IP LAN. Relancer `npx localtunnel --port 8123 --subdomain ...`
+      // si le tunnel tombe, et remettre l'IP LAN une fois un vrai HTTPS en place.
+      laravelApiUrl: "https://senmoto-api-test-2607.loca.lt/api",
       router: {},
       eas: {
         projectId: "9cf8bec5-40f6-42c8-ad79-6d2e50cba58d",
