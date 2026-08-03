@@ -16,7 +16,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { supabase } from "../lib/supabase";
+import { api } from "../lib/api";
 import { FeatureGate } from "../components/FeatureGate";
 
 function AnneesMoisRecuContent() {
@@ -27,18 +27,14 @@ function AnneesMoisRecuContent() {
 
   const fetchDossiers = async () => {
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    try {
+      const data = await api.listAnneesMoisRecu();
+      setDossiers(data);
+    } catch (error: any) {
+      Alert.alert("Erreur", error.message);
+    } finally {
       setLoading(false);
-      return;
     }
-    const { data } = await supabase
-      .from("annees_mois_recu")
-      .select("*, recus(id)")
-      .eq("user_id", user.id)
-      .order("nom");
-    setDossiers(data || []);
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -55,13 +51,12 @@ function AnneesMoisRecuContent() {
           text: "Supprimer",
           style: "destructive",
           onPress: async () => {
-            await supabase.from("recus").delete().eq("annee_mois_id", dossier.id);
-            const { error } = await supabase
-              .from("annees_mois_recu")
-              .delete()
-              .eq("id", dossier.id);
-            if (error) Alert.alert("Erreur", error.message);
-            else fetchDossiers();
+            try {
+              await api.deleteAnneeMoisRecu(dossier.id);
+              fetchDossiers();
+            } catch (error: any) {
+              Alert.alert("Erreur", error.message);
+            }
           },
         },
       ]
@@ -94,7 +89,7 @@ function AnneesMoisRecuContent() {
         {item.nom}
       </Text>
       <Text style={styles.folderCount}>
-        {item.recus?.length || 0} réçu{(item.recus?.length || 0) !== 1 ? "s" : ""}
+        {item.recus_count || 0} réçu{(item.recus_count || 0) !== 1 ? "s" : ""}
       </Text>
     </TouchableOpacity>
   );
@@ -109,7 +104,7 @@ function AnneesMoisRecuContent() {
         <FlatList
           data={dossiers}
           renderItem={renderFolder}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.id.toString()}
           numColumns={2}
           contentContainerStyle={{ padding: 15 }}
           ListEmptyComponent={
@@ -147,14 +142,14 @@ function AnneesMoisRecuContent() {
                 title="Ok"
                 onPress={async () => {
                   if (editingDossier && editingDossier.nom.trim()) {
-                    const { error } = await supabase
-                      .from("annees_mois_recu")
-                      .update({ nom: editingDossier.nom.trim() })
-                      .eq("id", editingDossier.id);
-                    if (error) Alert.alert("Erreur", error.message);
-                    else {
+                    try {
+                      await api.updateAnneeMoisRecu(editingDossier.id, {
+                        nom: editingDossier.nom.trim(),
+                      });
                       setEditingDossier(null);
                       fetchDossiers();
+                    } catch (error: any) {
+                      Alert.alert("Erreur", error.message);
                     }
                   }
                 }}

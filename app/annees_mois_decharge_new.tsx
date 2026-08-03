@@ -4,7 +4,7 @@ import { Stack, useRouter } from "expo-router";
 import React, { useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { supabase } from "../lib/supabase";
+import { api } from "../lib/api";
 
 export default function NewAnneesMoisDechargeScreen() {
   const router = useRouter();
@@ -18,26 +18,12 @@ export default function NewAnneesMoisDechargeScreen() {
     }
     setLoading(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      Alert.alert("Erreur", "Utilisateur non connecté.");
-      setLoading(false);
-      return;
-    }
-
     try {
-      const { error } = await supabase
-        .from("annees_mois_decharge")
-        .insert([{ nom: nom.trim(), user_id: user.id }]);
-
-      if (error) {
-        Alert.alert("Erreur", error.message);
-      } else {
-        Alert.alert("Succès", "Dossier créé !");
-        router.back();
-      }
-    } catch (e) {
-      Alert.alert("Erreur", "Une erreur est survenue lors de la création.");
+      await api.createAnneeMoisDecharge({ nom: nom.trim() });
+      Alert.alert("Succès", "Dossier créé !");
+      router.back();
+    } catch (e: any) {
+      Alert.alert("Erreur", e.message || "Une erreur est survenue lors de la création.");
     } finally {
       setLoading(false);
     }

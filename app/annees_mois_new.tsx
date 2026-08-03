@@ -4,7 +4,7 @@ import { Stack, useRouter } from "expo-router";
 import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { supabase } from "../lib/supabase";
+import { api } from "../lib/api";
 
 export default function NewAnneesMoisScreen() {
   const router = useRouter();
@@ -18,30 +18,12 @@ export default function NewAnneesMoisScreen() {
     }
     setLoading(true);
 
-    // Récupérer l'utilisateur connecté
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      Alert.alert("Erreur", "Utilisateur non connecté.");
-      setLoading(false);
-      return;
-    }
-
     try {
-      const { error } = await supabase
-        .from("annees_mois")
-        .insert([{ 
-          nom: nom.trim(),
-          user_id: user.id  // ✅ Ajout du user_id
-        }]);
-
-      if (error) {
-        Alert.alert("Erreur", error.message);
-      } else {
-        Alert.alert("Succès", "Dossier créé !");
-        router.back();
-      }
-    } catch (e) {
-      Alert.alert("Erreur", "Une erreur est survenue lors de la création.");
+      await api.createAnneeMois({ nom: nom.trim() });
+      Alert.alert("Succès", "Dossier créé !");
+      router.back();
+    } catch (e: any) {
+      Alert.alert("Erreur", e.message || "Une erreur est survenue lors de la création.");
     } finally {
       setLoading(false);
     }

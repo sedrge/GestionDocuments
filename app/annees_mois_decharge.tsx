@@ -16,7 +16,7 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { FeatureGate } from '../components/FeatureGate';
 
 function AnneesMoisDechargeContent() {
@@ -27,15 +27,14 @@ function AnneesMoisDechargeContent() {
 
   const fetchDossiers = async () => {
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setLoading(false); return; }
-    const { data } = await supabase
-      .from('annees_mois_decharge')
-      .select('*, decharges(id)')
-      .eq('user_id', user.id)
-      .order('nom');
-    setDossiers(data || []);
-    setLoading(false);
+    try {
+      const data = await api.listAnneesMoisDecharge();
+      setDossiers(data);
+    } catch (error: any) {
+      Alert.alert("Erreur", error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -47,10 +46,12 @@ function AnneesMoisDechargeContent() {
       { text: "Annuler" },
       {
         text: "Supprimer", style: "destructive", onPress: async () => {
-          await supabase.from('decharges').delete().eq('annee_mois_id', dossier.id);
-          const { error } = await supabase.from('annees_mois_decharge').delete().eq('id', dossier.id);
-          if (error) Alert.alert("Erreur", error.message);
-          else fetchDossiers();
+          try {
+            await api.deleteAnneeMoisDecharge(dossier.id);
+            fetchDossiers();
+          } catch (error: any) {
+            Alert.alert("Erreur", error.message);
+          }
         }
       }
     ]);
@@ -73,7 +74,7 @@ function AnneesMoisDechargeContent() {
     >
       <Ionicons name="folder" size={50} color="#FF9500" />
       <Text style={styles.folderName} numberOfLines={1}>{item.nom}</Text>
-      <Text style={styles.folderCount}>{item.decharges?.length || 0} décharge{(item.decharges?.length || 0) !== 1 ? 's' : ''}</Text>
+      <Text style={styles.folderCount}>{item.decharges_count || 0} décharge{(item.decharges_count || 0) !== 1 ? 's' : ''}</Text>
     </TouchableOpacity>
   );
 
@@ -87,7 +88,7 @@ function AnneesMoisDechargeContent() {
         <FlatList
           data={dossiers}
           renderItem={renderFolder}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.id.toString()}
           numColumns={2}
           contentContainerStyle={{ padding: 15 }}
           ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 30 }}>Aucun dossier</Text>}
@@ -117,9 +118,13 @@ function AnneesMoisDechargeContent() {
               </TouchableOpacity>
               <Button title="Ok" onPress={async () => {
                 if (editingDossier && editingDossier.nom.trim()) {
-                  const { error } = await supabase.from('annees_mois_decharge').update({ nom: editingDossier.nom.trim() }).eq('id', editingDossier.id);
-                  if (error) Alert.alert("Erreur", error.message);
-                  else { setEditingDossier(null); fetchDossiers(); }
+                  try {
+                    await api.updateAnneeMoisDecharge(editingDossier.id, { nom: editingDossier.nom.trim() });
+                    setEditingDossier(null);
+                    fetchDossiers();
+                  } catch (error: any) {
+                    Alert.alert("Erreur", error.message);
+                  }
                 }
               }} />
             </View>
