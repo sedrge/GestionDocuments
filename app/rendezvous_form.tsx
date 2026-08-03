@@ -18,7 +18,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { supabase } from "../lib/supabase";
+import { api } from "../lib/api";
 import {
   RendezVousLite,
   diffRdvFields,
@@ -105,27 +105,17 @@ export default function RendezVousForm() {
     if (params.lieu) {
       setLieu(String(params.lieu));
     } else {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase
-          .from("entreprise_parametres")
-          .select("nom_entreprise")
-          .eq("user_id", user.id)
-          .maybeSingle();
-        if (data?.nom_entreprise) setLieu(data.nom_entreprise);
-      }
+      const parametres = await api.getEnterpriseSettings().catch(() => null);
+      if (parametres?.nom_entreprise) setLieu(parametres.nom_entreprise);
     }
   };
 
   const fetchRDV = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("rendez_vous")
-      .select("*")
-      .eq("id", id)
-      .single();
-
-    if (error || !data) {
+    let data: any;
+    try {
+      data = await api.getRendezVous(String(id));
+    } catch {
       Alert.alert("Erreur", "Impossible de charger ce rendez-vous.");
       setLoading(false);
       return;
@@ -167,14 +157,8 @@ export default function RendezVousForm() {
     }
 
     setSaving(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setSaving(false);
-      return Alert.alert("Erreur", "Utilisateur non connecté.");
-    }
 
     const payload = {
-      user_id: user.id,
       date_rdv: toDateBDD(dateRdv),
       heure_rdv: heureRdv.trim() || null,
       lieu: lieu.trim() || null,
@@ -184,30 +168,19 @@ export default function RendezVousForm() {
       description: description.trim() || null,
       statut,
       registre_id: registreId,
-      updated_at: new Date().toISOString(),
     };
 
-    let result;
     let savedId: string | undefined = id;
-    if (id) {
-      result = await supabase
-        .from("rendez_vous")
-        .update(payload)
-        .eq("id", id)
-        .select()
-        .single();
-    } else {
-      result = await supabase
-        .from("rendez_vous")
-        .insert([payload])
-        .select()
-        .single();
-      if (!result.error && result.data) savedId = result.data.id;
-    }
-
-    if (result.error) {
+    try {
+      if (id) {
+        await api.updateRendezVous(id, payload);
+      } else {
+        const created = await api.createRendezVous(payload);
+        savedId = created?.id;
+      }
+    } catch (e: any) {
       setSaving(false);
-      Alert.alert("Erreur", result.error.message);
+      Alert.alert("Erreur", e.message);
       return;
     }
 
@@ -228,13 +201,13 @@ export default function RendezVousForm() {
       if (id && originalRdv) {
         const changed = diffRdvFields(originalRdv, afterLite);
         if (changed.length > 0) {
-          await notifyRdvModification(user.id, afterLite, changed);
+          await notifyRdvModification(afterLite, changed);
         }
       }
 
       // Toujours (re)programmer les rappels J-3 / J-2 / Jour-J
       if (savedId) {
-        await scheduleRdvReminders(user.id, afterLite);
+        await scheduleRdvReminders(afterLite);
       }
     } catch (e: any) {
       console.warn("[rendezvous_form] notifications failed:", e?.message);

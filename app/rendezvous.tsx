@@ -18,7 +18,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { supabase } from "../lib/supabase";
+import { api } from "../lib/api";
 import { cancelRdvReminders } from "../lib/notifications";
 import { FeatureGate } from "../components/FeatureGate";
 
@@ -65,32 +65,28 @@ function RendezVousContent() {
 
   const fetchRDV = async () => {
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
-    let query = supabase
-      .from("rendez_vous")
-      .select("*")
-      .eq("user_id", user.id);
-
-    if (filterStatut !== "tous") {
-      query = query.eq("statut", filterStatut);
-    }
-
-    const { data, error } = await query
-      .order("date_rdv", { ascending: true, nullsFirst: false })
-      .order("heure_rdv", { ascending: true, nullsFirst: false });
-
-    if (error) {
+    try {
+      const params: Record<string, string> = {};
+      if (filterStatut !== "tous") params.statut = filterStatut;
+      const result = await api.listRendezVous(params);
+      const list = (result.data ?? result) as RendezVous[];
+      // Tri client (le serveur trie par date de creation) : date_rdv puis
+      // heure_rdv croissants, les rendez-vous sans date en dernier.
+      list.sort((a, b) => {
+        if (!a.date_rdv && !b.date_rdv) return 0;
+        if (!a.date_rdv) return 1;
+        if (!b.date_rdv) return -1;
+        const d = a.date_rdv.localeCompare(b.date_rdv);
+        if (d !== 0) return d;
+        return (a.heure_rdv || "").localeCompare(b.heure_rdv || "");
+      });
+      setItems(list);
+    } catch (error: any) {
       Alert.alert("Erreur", error.message);
       setItems([]);
-    } else {
-      setItems((data as RendezVous[]) || []);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useFocusEffect(
@@ -126,12 +122,12 @@ function RendezVousContent() {
   };
 
   const updateStatut = async (id: string, statut: Statut) => {
-    const { error } = await supabase
-      .from("rendez_vous")
-      .update({ statut, updated_at: new Date().toISOString() })
-      .eq("id", id);
-    if (error) Alert.alert("Erreur", error.message);
-    else fetchRDV();
+    try {
+      await api.updateRendezVous(id, { statut });
+      fetchRDV();
+    } catch (error: any) {
+      Alert.alert("Erreur", error.message);
+    }
   };
 
   const handleDelete = (rdv: RendezVous) => {
@@ -143,12 +139,12 @@ function RendezVousContent() {
         onPress: async () => {
           // Annule les rappels (push locaux + lignes pending) avant suppression
           await cancelRdvReminders(rdv.id);
-          const { error } = await supabase
-            .from("rendez_vous")
-            .delete()
-            .eq("id", rdv.id);
-          if (error) Alert.alert("Erreur", error.message);
-          else fetchRDV();
+          try {
+            await api.deleteRendezVous(rdv.id);
+            fetchRDV();
+          } catch (error: any) {
+            Alert.alert("Erreur", error.message);
+          }
         },
       },
     ]);

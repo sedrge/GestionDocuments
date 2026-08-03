@@ -141,7 +141,6 @@ function rdvSummary(r: RendezVousLite): string {
 // ---------------------------------------------------------------------------
 
 async function insertNotification(row: {
-  user_id: string;
   type: NotifType;
   titre: string;
   message: string;
@@ -178,7 +177,6 @@ async function insertNotification(row: {
  * `changedFields` liste les champs modifiés (libellés lisibles).
  */
 export async function notifyRdvModification(
-  userId: string,
   rdv: RendezVousLite,
   changedFields: string[],
 ) {
@@ -198,7 +196,6 @@ export async function notifyRdvModification(
   });
 
   await insertNotification({
-    user_id: userId,
     type: "rdv_modification",
     titre,
     message,
@@ -212,10 +209,7 @@ export async function notifyRdvModification(
  * Programme les rappels J-3, J-2 et Jour-J pour un rendez-vous.
  * Avant de programmer, annule les rappels en attente déjà associés à ce RDV.
  */
-export async function scheduleRdvReminders(
-  userId: string,
-  rdv: RendezVousLite,
-) {
+export async function scheduleRdvReminders(rdv: RendezVousLite) {
   await ensureNotificationPermissions();
 
   // 1) Annuler les rappels en attente précédents
@@ -273,7 +267,6 @@ export async function scheduleRdvReminders(
     });
 
     await insertNotification({
-      user_id: userId,
       type: p.type,
       titre: p.titre,
       message: summary,
