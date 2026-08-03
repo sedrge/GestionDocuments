@@ -21,7 +21,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { supabase } from "../../lib/supabase";
 import { useTheme } from "../../context/ThemeContext";
 import { useTenant } from "../../context/TenantContext";
 
@@ -38,31 +37,44 @@ export default function SuperAdminEnterprisesScreen() {
 
   useEffect(() => { loadEnterprises(); }, [tab]);
 
-  // Abonnement Realtime : alerte le super admin quand une nouvelle entreprise s'inscrit
+  // Pas de canal temps réel côté client pour l'instant (Pusher configuré côté
+  // serveur pour le chat, pas encore branché ici) : on scrute périodiquement
+  // le nombre d'entreprises en attente pour alerter le super admin.
+  const knownPendingIdsRef = useRef<Set<string> | null>(null);
   useEffect(() => {
-    const sub = supabase
-      .channel("superadmin_new_enterprises")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "enterprises" },
-        (payload) => {
-          setNewPendingCount((n) => n + 1);
-          if (tabRef.current !== "pending") {
-            Alert.alert(
-              "🏢 Nouvelle Entreprise",
-              `"${payload.new.name}" vient de s'inscrire et attend votre activation.`,
-              [
-                { text: "Voir maintenant", onPress: () => setTab("pending") },
-                { text: "OK" },
-              ],
-            );
-          } else {
-            loadEnterprises();
-          }
-        },
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(sub); };
+    const poll = async () => {
+      const result = await getPendingEnterprises();
+      if (!result.success) return;
+
+      const ids = new Set<string>(result.enterprises.map((e: any) => e.id));
+      if (knownPendingIdsRef.current === null) {
+        knownPendingIdsRef.current = ids;
+        return;
+      }
+
+      const newOnes = result.enterprises.filter(
+        (e: any) => !knownPendingIdsRef.current!.has(e.id),
+      );
+      knownPendingIdsRef.current = ids;
+      if (newOnes.length === 0) return;
+
+      if (tabRef.current !== "pending") {
+        setNewPendingCount((n) => n + newOnes.length);
+        Alert.alert(
+          "🏢 Nouvelle Entreprise",
+          `"${newOnes[0].name}" vient de s'inscrire et attend votre activation.`,
+          [
+            { text: "Voir maintenant", onPress: () => setTab("pending") },
+            { text: "OK" },
+          ],
+        );
+      } else {
+        loadEnterprises();
+      }
+    };
+
+    const interval = setInterval(poll, 20000);
+    return () => clearInterval(interval);
   }, []);
 
   const loadEnterprises = async () => {

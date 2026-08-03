@@ -16,7 +16,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { supabase } from "@/lib/supabase";
+import { api } from "@/lib/api";
 import { useTheme } from "@/context/ThemeContext";
 
 const GREEN = "#34C759";
@@ -65,97 +65,54 @@ export default function ChatScreen() {
   useEffect(() => {
     const restore = async () => {
       if (!enterprise_id) return;
-      const saved = await SecureStore.getItemAsync(`chat_token_${enterprise_id}`);
+      const savedId = await SecureStore.getItemAsync(`chat_id_${enterprise_id}`);
+      const savedToken = await SecureStore.getItemAsync(`chat_token_${enterprise_id}`);
       const savedName = await SecureStore.getItemAsync(`chat_name_${enterprise_id}`);
-      if (saved && savedName) {
-        const { data } = await supabase
-          .from("enterprise_chats")
-          .select("id, status, client_token")
-          .eq("client_token", saved)
-          .eq("enterprise_id", enterprise_id)
-          .single();
-        if (data && data.status === "open") {
-          setClientToken(saved);
-          setClientName(savedName);
-          setChatId(data.id);
-          setStep("chat");
+      if (savedId && savedToken && savedName) {
+        try {
+          const data = await api.getPublicChat(savedId, savedToken);
+          if (data.status === "open") {
+            setClientToken(savedToken);
+            setClientName(savedName);
+            setChatId(data.id);
+            setStep("chat");
+          }
+        } catch {
+          // Session invalide/expirée : on repart de l'étape "nom".
         }
       }
     };
     restore();
   }, [enterprise_id]);
 
-  // Chargement des messages + souscription realtime + polling de secours
+  // Chargement des messages + polling (pas de canal temps réel côté client
+  // pour l'instant, voir lib/api.js — cf. Pusher déjà branché côté admin/chat).
   useEffect(() => {
-    if (!chatId) return;
+    if (!chatId || !clientToken) return;
 
     const fetchMessages = async () => {
-      const { data } = await supabase
-        .from("enterprise_chat_messages")
-        .select("*")
-        .eq("chat_id", chatId)
-        .order("created_at", { ascending: true });
-      if (data) setMessages(data as Message[]);
+      try {
+        const data = await api.getPublicChat(chatId, clientToken);
+        const db = (data.messages ?? []) as Message[];
+        setMessages((prev) => {
+          const temps = prev.filter(
+            (m) =>
+              m.id.startsWith("temp_") &&
+              !db.find((d) => d.message === m.message && d.sender_type === m.sender_type),
+          );
+          return [...db, ...temps].sort(
+            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+          );
+        });
+      } catch {
+        // Poll suivant réessaiera.
+      }
     };
 
     fetchMessages();
-
-    // Realtime (fonctionne si la table est dans la publication Supabase Realtime)
-    const sub = supabase
-      .channel(`chat_${chatId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "enterprise_chat_messages",
-          filter: `chat_id=eq.${chatId}`,
-        },
-        (payload) => {
-          setMessages((prev) => {
-            const incoming = payload.new as Message;
-            // Retirer les messages optimistes avec le même contenu
-            const withoutTemp = prev.filter(
-              (m) =>
-                m.id.startsWith("temp_")
-                  ? !(m.message === incoming.message && m.sender_type === incoming.sender_type)
-                  : true
-            );
-            if (withoutTemp.find((m) => m.id === incoming.id)) return withoutTemp;
-            return [...withoutTemp, incoming];
-          });
-          setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-        }
-      )
-      .subscribe();
-
-    // Polling toutes les 3s : fallback si realtime non configuré côté Supabase
-    const poll = setInterval(async () => {
-      const { data } = await supabase
-        .from("enterprise_chat_messages")
-        .select("*")
-        .eq("chat_id", chatId)
-        .order("created_at", { ascending: true });
-      if (!data) return;
-      setMessages((prev) => {
-        const db = data as Message[];
-        // Conserver les messages optimistes non encore confirmés
-        const temps = prev.filter(
-          (m) =>
-            m.id.startsWith("temp_") &&
-            !db.find((d) => d.message === m.message && d.sender_type === m.sender_type)
-        );
-        return [...db, ...temps].sort(
-          (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        );
-      });
-    }, 3000);
-
-    return () => {
-      supabase.removeChannel(sub);
-      clearInterval(poll);
-    };
-  }, [chatId]);
+    const poll = setInterval(fetchMessages, 3000);
+    return () => clearInterval(poll);
+  }, [chatId, clientToken]);
 
   const startChat = async () => {
     if (!clientName.trim()) {
@@ -167,38 +124,10 @@ export default function ChatScreen() {
       return;
     }
     setLoading(true);
-    const { data, error } = await supabase
-      .from("enterprise_chats")
-      .insert({
-        enterprise_id,
-        client_name: clientName.trim(),
-        client_phone: clientPhone.trim() || null,
-        status: "open",
-      })
-      .select("id, client_token")
-      .single();
 
-    setLoading(false);
-    if (error || !data) {
-      Alert.alert("Erreur", "Impossible de démarrer le chat.");
-      return;
-    }
-
-    await SecureStore.setItemAsync(`chat_token_${enterprise_id}`, data.client_token);
-    await SecureStore.setItemAsync(`chat_name_${enterprise_id}`, clientName.trim());
-    setChatId(data.id);
-    setClientToken(data.client_token);
-    setStep("chat");
-
-    // Message de bienvenue de l'admin
-    await supabase.from("enterprise_chat_messages").insert({
-      chat_id: data.id,
-      sender_type: "admin",
-      sender_name: enterprise_name || "Équipe",
-      message: `Bonjour ${clientName.trim()} ! 👋 Comment pouvons-nous vous aider ?`,
-    });
-
-    // Message automatique du client avec le contexte de la moto
+    // Message automatique du client avec le contexte de la moto (le message
+    // de bienvenue de l'admin est lui généré côté serveur à la création).
+    let introMsg: string | undefined;
     if (moto_name) {
       const parts = [
         `🏍️ ${moto_name}`,
@@ -208,25 +137,36 @@ export default function ChatScreen() {
       ]
         .filter(Boolean)
         .join(" · ");
-
-      const imgLine = moto_image && moto_image.startsWith('http') ? `\n📸 ${moto_image}` : "";
-      const introMsg = `Je suis intéressé(e) par votre moto :\n${parts}${imgLine}`;
-
-      await supabase.from("enterprise_chat_messages").insert({
-        chat_id: data.id,
-        sender_type: "client",
-        sender_name: clientName.trim(),
-        message: introMsg,
-      });
-
-      // Notifier les agents avec le contexte moto
-      notifyEnterpriseAgentsById(data.id, introMsg, clientName.trim()).catch(() => {});
+      const imgLine = moto_image && moto_image.startsWith("http") ? `\n📸 ${moto_image}` : "";
+      introMsg = `Je suis intéressé(e) par votre moto :\n${parts}${imgLine}`;
     }
+
+    let data: any;
+    try {
+      data = await api.startChat(enterprise_id, {
+        client_name: clientName.trim(),
+        client_phone: clientPhone.trim() || null,
+        initial_message: introMsg,
+      });
+    } catch {
+      setLoading(false);
+      Alert.alert("Erreur", "Impossible de démarrer le chat.");
+      return;
+    }
+
+    setLoading(false);
+    await SecureStore.setItemAsync(`chat_id_${enterprise_id}`, data.id);
+    await SecureStore.setItemAsync(`chat_token_${enterprise_id}`, data.client_token);
+    await SecureStore.setItemAsync(`chat_name_${enterprise_id}`, clientName.trim());
+    setChatId(data.id);
+    setClientToken(data.client_token);
+    setMessages((data.messages ?? []) as Message[]);
+    setStep("chat");
   };
 
   const sendMessage = async () => {
     const text = inputMsg.trim();
-    if (!text || !chatId) return;
+    if (!text || !chatId || !clientToken) return;
     setSending(true);
     setInputMsg("");
 
@@ -242,59 +182,15 @@ export default function ChatScreen() {
     setMessages((prev) => [...prev, optimistic]);
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
 
-    await supabase.from("enterprise_chat_messages").insert({
-      chat_id: chatId,
-      sender_type: "client",
-      sender_name: clientName,
-      message: text,
-    });
+    try {
+      const saved = (await api.sendClientMessage(chatId, clientToken, text)) as Message;
+      setMessages((prev) => prev.map((m) => (m.id === tempId ? saved : m)));
+    } catch {
+      Alert.alert("Erreur", "Message non envoyé.");
+    }
 
-    await supabase
-      .from("enterprise_chats")
-      .update({
-        last_message: text,
-        last_message_at: new Date().toISOString(),
-        unread_admin: 1,
-      })
-      .eq("id", chatId);
-
-    // Remplacer le message optimiste par les données réelles
-    const { data: refreshed } = await supabase
-      .from("enterprise_chat_messages")
-      .select("*")
-      .eq("chat_id", chatId)
-      .order("created_at", { ascending: true });
-    if (refreshed) setMessages(refreshed as Message[]);
-
-    notifyEnterpriseAgents(text).catch(() => {});
     setSending(false);
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-  };
-
-  const notifyEnterpriseAgents = async (text: string) => {
-    if (!chatId) return;
-    notifyEnterpriseAgentsById(chatId, text, clientName);
-  };
-
-  const notifyEnterpriseAgentsById = async (id: string, text: string, name: string) => {
-    const { data: tokens } = await supabase.rpc("get_chat_push_tokens", {
-      p_chat_id: id,
-    });
-    if (!tokens || tokens.length === 0) return;
-
-    await fetch("https://exp.host/--/api/v2/push/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(
-        (tokens as { expo_token: string }[]).map((row) => ({
-          to: row.expo_token,
-          title: `💬 ${name}`,
-          body: text,
-          sound: "default",
-          data: { screen: "chat", chat_id: id, enterprise_id },
-        }))
-      ),
-    });
   };
 
   const fmtTime = (s: string) =>

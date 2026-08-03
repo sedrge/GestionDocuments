@@ -3,6 +3,7 @@ import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -14,11 +15,10 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { supabase } from "../../lib/supabase";
+import { api } from "../../lib/api";
 import { useTenant } from "../../context/TenantContext";
 import { useTheme } from "../../context/ThemeContext";
 import { FeatureGate } from "../../components/FeatureGate";
-import { notifyChatClientReply } from "../../lib/enterpriseNotifications";
 
 const GREEN = "#34C759";
 
@@ -58,13 +58,20 @@ function AdminChatContent() {
       setLoading(false);
       return;
     }
-    const { data, error } = await supabase
-      .from("enterprise_chats")
-      .select("id, client_name, client_phone, status, last_message, last_message_at, unread_admin, assigned_to")
-      .eq("enterprise_id", tenant.enterprise_id)
-      .order("last_message_at", { ascending: false, nullsFirst: true });
-    if (error) console.error("[AdminChat] fetchChats error:", error.message, error.details);
-    if (data) setChats(data as Chat[]);
+    try {
+      const result = await api.listEnterpriseChats(tenant.enterprise_id);
+      const rows = (result.data ?? result) as Chat[];
+      rows.sort((a, b) => {
+        if (!a.last_message_at) return 1;
+        if (!b.last_message_at) return -1;
+        return (
+          new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+        );
+      });
+      setChats(rows);
+    } catch (e: any) {
+      console.error("[AdminChat] fetchChats error:", e.message);
+    }
     setLoading(false);
   };
 
@@ -74,20 +81,16 @@ function AdminChatContent() {
   // Recharge à chaque fois que l'écran reprend le focus (navigation)
   useFocusEffect(useCallback(() => { fetchChats(); }, [tenant?.enterprise_id]));
 
-  // Abonnement realtime à la liste des chats (canal unique par user+enterprise pour éviter les conflits)
+  // Pas de canal temps réel côté client pour l'instant : on scrute la liste
+  // périodiquement (seulement quand aucune conversation n'est ouverte, pour
+  // ne pas interférer avec le polling des messages ci-dessous).
   useEffect(() => {
     if (!tenant?.enterprise_id || !tenant?.user_id) return;
-    const channelName = `chats_${tenant.enterprise_id}_${tenant.user_id}`;
-    const sub = supabase
-      .channel(channelName)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "enterprise_chats", filter: `enterprise_id=eq.${tenant.enterprise_id}` },
-        () => fetchChats()
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(sub); };
-  }, [tenant?.enterprise_id, tenant?.user_id]);
+    const interval = setInterval(() => {
+      if (!selectedChat) fetchChats();
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [tenant?.enterprise_id, tenant?.user_id, selectedChat]);
 
   // Messages du chat sélectionné
   useEffect(() => {
@@ -95,35 +98,17 @@ function AdminChatContent() {
     setMessages([]); // Vide les messages de la conversation précédente immédiatement
 
     const fetchMsgs = async () => {
-      const { data, error } = await supabase
-        .from("enterprise_chat_messages")
-        .select("*")
-        .eq("chat_id", selectedChat.id)
-        .order("created_at", { ascending: true });
-      if (error) console.error("[AdminChat] fetchMsgs error:", error.message, error.details, error.hint);
-      if (data) setMessages(data as Message[]);
-      // Marquer comme lu
-      await supabase.from("enterprise_chats").update({ unread_admin: 0 }).eq("id", selectedChat.id);
+      try {
+        const data = await api.getChat(selectedChat.id);
+        setMessages((data.messages ?? []) as Message[]);
+      } catch (e: any) {
+        console.error("[AdminChat] fetchMsgs error:", e.message);
+      }
     };
 
     fetchMsgs();
-
-    const sub = supabase
-      .channel(`admin_msg_${selectedChat.id}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "enterprise_chat_messages", filter: `chat_id=eq.${selectedChat.id}` },
-        (payload) => {
-          setMessages((prev) => {
-            if (prev.find((m) => m.id === payload.new.id)) return prev;
-            return [...prev, payload.new as Message];
-          });
-          setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-        }
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(sub); };
+    const poll = setInterval(fetchMsgs, 4000);
+    return () => clearInterval(poll);
   }, [selectedChat?.id]);
 
   const sendReply = async () => {
@@ -133,47 +118,36 @@ function AdminChatContent() {
     setInputMsg("");
 
     // Attribution au premier répondant : si le chat n'est pas encore attribué,
-    // on s'y assigne atomiquement (le filtre .is("assigned_to", null) garantit
-    // qu'un seul agent peut l'obtenir même en cas de réponse simultanée).
+    // on s'y assigne. Pas de garde d'atomicité côté serveur ici (contrairement
+    // à l'ancien .is("assigned_to", null)) — cas limite de deux agents
+    // répondant à la même seconde jugé négligeable.
     if (!selectedChat.assigned_to) {
-      const { data: updated } = await supabase
-        .from("enterprise_chats")
-        .update({ assigned_to: tenant.user_id })
-        .eq("id", selectedChat.id)
-        .is("assigned_to", null) // Seulement si toujours non attribué
-        .select("assigned_to")
-        .single();
-
-      if (updated) {
-        setSelectedChat((prev) => prev ? { ...prev, assigned_to: tenant.user_id } : prev);
+      try {
+        await api.updateChat(selectedChat.id, { assigned_to: tenant.user_id });
+        setSelectedChat((prev) => (prev ? { ...prev, assigned_to: tenant.user_id } : prev));
+      } catch {
+        // Non bloquant pour l'envoi du message
       }
     }
 
-    await supabase.from("enterprise_chat_messages").insert({
-      chat_id: selectedChat.id,
-      sender_type: "admin",
-      sender_name: tenant?.enterprise_name || "Admin",
-      message: text,
-    });
-
-    await supabase
-      .from("enterprise_chats")
-      .update({ last_message: text, last_message_at: new Date().toISOString() })
-      .eq("id", selectedChat.id);
-
-    // Notifier le client de la réponse (fire-and-forget, si le client a un token Expo)
-    notifyChatClientReply(
-      selectedChat.id,
-      tenant?.enterprise_name || "Admin",
-      text,
-    ).catch(console.error);
+    try {
+      const saved = (await api.sendAdminMessage(selectedChat.id, text)) as Message;
+      setMessages((prev) => [...prev, saved]);
+    } catch (e: any) {
+      Alert.alert("Erreur", e.message || "Message non envoyé.");
+    }
 
     setSending(false);
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   };
 
   const closeChat = async (chatId: string) => {
-    await supabase.from("enterprise_chats").update({ status: "closed" }).eq("id", chatId);
+    try {
+      await api.updateChat(chatId, { status: "closed" });
+    } catch (e: any) {
+      Alert.alert("Erreur", e.message);
+      return;
+    }
     setSelectedChat(null);
     fetchChats();
   };
