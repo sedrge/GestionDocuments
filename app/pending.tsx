@@ -1,8 +1,7 @@
 import { router } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { useTenant } from '../context/TenantContext';
 
 const theme = {
@@ -48,8 +47,7 @@ export default function PendingScreen() {
   const info = getPendingInfo(pendingState, tenant?.enterprise_name);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    await SecureStore.deleteItemAsync('LAST_USER_ID');
+    await api.logout().catch(() => {});
     router.replace('/onboarding');
   };
 

@@ -17,7 +17,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { supabase } from "../lib/supabase";
+import { api } from "../lib/api";
 
 type Notif = {
   id: string;
@@ -84,27 +84,15 @@ export default function NotificationsScreen() {
 
   const fetchNotifs = async () => {
     setLoading(true);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("notifications")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (error) {
+    try {
+      const result = await api.listNotifications();
+      setItems((result.data ?? result) as Notif[]);
+    } catch (error: any) {
       Alert.alert("Erreur", error.message);
       setItems([]);
-    } else {
-      setItems((data as Notif[]) || []);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useFocusEffect(
@@ -115,13 +103,14 @@ export default function NotificationsScreen() {
 
   const markAsRead = async (n: Notif) => {
     if (!n.lu) {
-      await supabase
-        .from("notifications")
-        .update({ lu: true, updated_at: new Date().toISOString() })
-        .eq("id", n.id);
-      setItems((prev) =>
-        prev.map((x) => (x.id === n.id ? { ...x, lu: true } : x)),
-      );
+      try {
+        await api.markNotificationRead(n.id);
+        setItems((prev) =>
+          prev.map((x) => (x.id === n.id ? { ...x, lu: true } : x)),
+        );
+      } catch {
+        // Non bloquant pour la navigation ci-dessous
+      }
     }
     if (n.rendezvous_id) {
       router.push({
@@ -132,15 +121,8 @@ export default function NotificationsScreen() {
   };
 
   const markAllRead = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
-    await supabase
-      .from("notifications")
-      .update({ lu: true, updated_at: new Date().toISOString() })
-      .eq("user_id", user.id)
-      .eq("lu", false);
+    const unread = items.filter((n) => !n.lu);
+    await Promise.all(unread.map((n) => api.markNotificationRead(n.id).catch(() => {})));
     fetchNotifs();
   };
 
@@ -151,7 +133,7 @@ export default function NotificationsScreen() {
         text: "Supprimer",
         style: "destructive",
         onPress: async () => {
-          await supabase.from("notifications").delete().eq("id", n.id);
+          await api.deleteNotification(n.id).catch(() => {});
           fetchNotifs();
         },
       },
@@ -168,14 +150,9 @@ export default function NotificationsScreen() {
           text: "Tout effacer",
           style: "destructive",
           onPress: async () => {
-            const {
-              data: { user },
-            } = await supabase.auth.getUser();
-            if (!user) return;
-            await supabase
-              .from("notifications")
-              .delete()
-              .eq("user_id", user.id);
+            await Promise.all(
+              items.map((n) => api.deleteNotification(n.id).catch(() => {})),
+            );
             fetchNotifs();
           },
         },

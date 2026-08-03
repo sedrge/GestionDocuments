@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { api } from "@/lib/api";
 import { useTheme } from "@/context/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
@@ -51,19 +51,11 @@ export default function ContactScreen() {
     }
     // Récupérer le logo de l'entreprise et les infos de contact en parallèle
     Promise.all([
-      supabase
-        .from("enterprises")
-        .select("logo_url")
-        .eq("id", enterprise_id)
-        .single(),
-      supabase
-        .from("enterprise_contacts")
-        .select("*")
-        .eq("enterprise_id", enterprise_id)
-        .maybeSingle(),
-    ]).then(([logoRes, contactRes]) => {
-      if (logoRes.data?.logo_url) setLogoUrl(logoRes.data.logo_url);
-      setContact(contactRes.data ?? null);
+      api.getEnterprise(enterprise_id).catch(() => null),
+      api.getEnterpriseContact(enterprise_id).catch(() => null),
+    ]).then(([enterprise, contactData]) => {
+      if (enterprise?.logo_url) setLogoUrl(enterprise.logo_url);
+      setContact(contactData ?? null);
       setLoading(false);
     });
   }, [enterprise_id]);

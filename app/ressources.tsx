@@ -5,7 +5,6 @@ import { Stack } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     ScrollView,
     StyleSheet,
     Text,
@@ -16,7 +15,6 @@ import {
     formatBytes,
     StorageStats,
 } from "../lib/storageUtils";
-import { supabase } from "../lib/supabase";
 
 const StorageCategories = [
   {
@@ -61,16 +59,7 @@ export default function RessourcesScreen() {
 
   const fetchStorageStats = async () => {
     setLoading(true);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      setLoading(false);
-      Alert.alert("Erreur", "Session expirée");
-      return;
-    }
-
-    const stats = await calculateTotalStorage(user.id, supabase);
+    const stats = await calculateTotalStorage();
     setStats(stats);
     setLoading(false);
   };
@@ -196,7 +185,7 @@ export default function RessourcesScreen() {
           <View style={styles.infoRow}>
             <Ionicons name="information-circle" size={20} color="#007AFF" />
             <Text style={styles.infoText}>
-              Ces données sont stockées dans votre base de données Supabase.
+              Ces données sont stockées sur le serveur de l'application.
             </Text>
           </View>
         </View>
