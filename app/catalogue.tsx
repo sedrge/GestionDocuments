@@ -21,7 +21,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { supabase } from "../lib/supabase";
+import { api } from "../lib/api";
 import { FeatureGate } from "../components/FeatureGate";
 
 const { width: WIN_W } = Dimensions.get("window");
@@ -43,7 +43,7 @@ type Moto = {
   prix_achat: number | null;
   prix_vente: number | null;
   etat: string | null;
-  moto_images?: { id: string; image_uri: string; is_principal: boolean; position: number }[];
+  images?: { id: string; image_uri: string; is_principal: boolean; position: number }[];
 };
 
 const matchMoto = (m: Moto, q: string): boolean => {
@@ -68,29 +68,24 @@ function CatalogueContent() {
 
   const fetchMotos = async () => {
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    try {
+      const result = await api.listMyMotos();
+      const list = (result.data ?? result) as Moto[];
+      list.forEach((m) => {
+        if (m.images) {
+          m.images.sort((a, b) => {
+            if (a.is_principal && !b.is_principal) return -1;
+            if (!a.is_principal && b.is_principal) return 1;
+            return (a.position ?? 0) - (b.position ?? 0);
+          });
+        }
+      });
+      setMotos(list);
+    } catch {
+      // Liste vide en cas d'erreur
+    } finally {
       setLoading(false);
-      return;
     }
-    const { data } = await supabase
-      .from("motos")
-      .select("*, moto_images(id, image_uri, is_principal, position)")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-
-    const list = (data || []) as Moto[];
-    list.forEach((m) => {
-      if (m.moto_images) {
-        m.moto_images.sort((a, b) => {
-          if (a.is_principal && !b.is_principal) return -1;
-          if (!a.is_principal && b.is_principal) return 1;
-          return (a.position ?? 0) - (b.position ?? 0);
-        });
-      }
-    });
-    setMotos(list);
-    setLoading(false);
   };
 
   useEffect(() => { fetchMotos(); }, []);
@@ -143,7 +138,7 @@ function CatalogueContent() {
 
 function MotoCatalogCard({ moto, onPress }: { moto: Moto; onPress: () => void }) {
   const router = useRouter();
-  const imgs = moto.moto_images || [];
+  const imgs = moto.images || [];
   const cardWidth = WIN_W - 24;
   const imgWidth = cardWidth - CARD_PADDING * 2;
 

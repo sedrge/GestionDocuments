@@ -17,7 +17,18 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { printAndSharePdf } from "../../lib/sharePdf";
 import { WebView } from "react-native-webview";
-import { supabase } from "../../lib/supabase";
+import { api } from "../../lib/api";
+import { appendMaybeImage } from "../../lib/formUpload";
+import { fetchAuthImageDataUri, resolveAuthImages } from "../../lib/authImageDataUri";
+
+const DECHARGE_PHOTO_FIELDS = [
+  "signature_uri",
+  "signature_acheteur_uri",
+  "vendeur_id_recto",
+  "vendeur_id_verso",
+  "carte_grise_recto",
+  "carte_grise_verso",
+];
 
 type PhotoColumn =
   | "vendeur_id_recto"
@@ -37,6 +48,10 @@ export default function DechargeDetail() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const [decharge, setDecharge] = useState<any>(null);
+  // Fichiers privés résolus en data URI (voir lib/authImageDataUri) : requis
+  // aussi bien pour <Image> que pour l'embarquement dans le HTML exporté/
+  // prévisualisé, où un header Authorization ne peut pas être envoyé.
+  const [imageData, setImageData] = useState<Record<string, string | null>>({});
   const [preview, setPreview] = useState<PreviewData | null>(null);
   const [previewFace, setPreviewFace] = useState<"recto" | "verso">("recto");
 
@@ -46,27 +61,41 @@ export default function DechargeDetail() {
   };
 
   const fetchDecharge = async () => {
-    const { data, error } = await supabase
-      .from("decharges")
-      .select("*")
-      .eq("id", id)
-      .single();
-    if (error) { Alert.alert("Erreur", error.message); return; }
+    let data: any;
+    try {
+      data = await api.getDecharge(String(id));
+    } catch (e: any) {
+      Alert.alert("Erreur", e.message);
+      return;
+    }
     setDecharge(data);
+
+    const resolved = await resolveAuthImages(
+      "decharges",
+      String(id),
+      DECHARGE_PHOTO_FIELDS,
+      api.fileUrl,
+      (field) => !!data[field],
+    );
+    setImageData(resolved);
   };
 
   useEffect(() => { fetchDecharge(); }, []);
 
-  const updatePhoto = async (column: PhotoColumn, value: string | null) => {
-    const { error } = await supabase
-      .from("decharges")
-      .update({ [column]: value })
-      .eq("id", id);
-    if (error) {
-      Alert.alert("Erreur", error.message);
-      return;
+  const updatePhoto = async (column: PhotoColumn, action: "replace" | "remove", localUri?: string) => {
+    const form = new FormData();
+    form.append("_method", "PATCH");
+    if (action === "remove") {
+      form.append("remove_files[]", column);
+    } else if (localUri) {
+      await appendMaybeImage(form, column, localUri);
     }
-    fetchDecharge();
+    try {
+      await api.updateDecharge(String(id), form);
+      fetchDecharge();
+    } catch (e: any) {
+      Alert.alert("Erreur", e.message || "Échec de la mise à jour de la photo.");
+    }
   };
 
   const aspectFor = (column: PhotoColumn): [number, number] => {
@@ -91,10 +120,9 @@ export default function DechargeDetail() {
             allowsEditing: true,
             aspect,
             quality: 0.5,
-            base64: true,
           });
-          if (!result.canceled && result.assets?.[0]?.base64) {
-            await updatePhoto(column, `data:image/jpeg;base64,${result.assets[0].base64}`);
+          if (!result.canceled && result.assets?.[0]?.uri) {
+            await updatePhoto(column, "replace", result.assets[0].uri);
           }
         },
       },
@@ -106,17 +134,16 @@ export default function DechargeDetail() {
             allowsEditing: true,
             aspect,
             quality: 0.5,
-            base64: true,
           });
-          if (!result.canceled && result.assets?.[0]?.base64) {
-            await updatePhoto(column, `data:image/jpeg;base64,${result.assets[0].base64}`);
+          if (!result.canceled && result.assets?.[0]?.uri) {
+            await updatePhoto(column, "replace", result.assets[0].uri);
           }
         },
       },
       {
         text: "Supprimer",
         style: "destructive",
-        onPress: () => updatePhoto(column, null),
+        onPress: () => updatePhoto(column, "remove"),
       },
       { text: "Annuler", style: "cancel" },
     ]);
@@ -143,11 +170,11 @@ export default function DechargeDetail() {
     const d = decharge;
 
     // Convertir les data URI signature en balises img HTML
-    const sigVendeurHtml = d.signature_uri
-      ? `<img src="${d.signature_uri}" style="height:70px;max-width:200px;" />`
+    const sigVendeurHtml = imageData.signature_uri
+      ? `<img src="${imageData.signature_uri}" style="height:70px;max-width:200px;" />`
       : "<em>—</em>";
-    const sigAcheteurHtml = d.signature_acheteur_uri
-      ? `<img src="${d.signature_acheteur_uri}" style="height:70px;max-width:200px;" />`
+    const sigAcheteurHtml = imageData.signature_acheteur_uri
+      ? `<img src="${imageData.signature_acheteur_uri}" style="height:70px;max-width:200px;" />`
       : "<em>—</em>";
 
     const representantSection = d.nom_representant
@@ -341,8 +368,8 @@ export default function DechargeDetail() {
     const title = isPassport ? "Passeport du vendeur" : "Pièce d'identité du vendeur (CNIB)";
     const html = exportPieceHtml(
       title,
-      decharge.vendeur_id_recto,
-      decharge.vendeur_id_verso,
+      imageData.vendeur_id_recto,
+      imageData.vendeur_id_verso,
       isPassport,
     );
     await exportPdf(html, "Exporter la pièce d'identité");
@@ -354,8 +381,8 @@ export default function DechargeDetail() {
     }
     const html = exportPieceHtml(
       "Carte grise du véhicule",
-      decharge.carte_grise_recto,
-      decharge.carte_grise_verso,
+      imageData.carte_grise_recto,
+      imageData.carte_grise_verso,
       false,
     );
     await exportPdf(html, "Exporter la carte grise");
@@ -368,8 +395,8 @@ export default function DechargeDetail() {
     }
     openPreview({
       title: isPassport ? "Passeport du vendeur" : "Pièce d'identité du vendeur (CNIB)",
-      rectoUri: decharge.vendeur_id_recto,
-      versoUri: decharge.vendeur_id_verso,
+      rectoUri: imageData.vendeur_id_recto,
+      versoUri: imageData.vendeur_id_verso,
       isPassport,
       onExport: handlePrintPiece,
     });
@@ -381,8 +408,8 @@ export default function DechargeDetail() {
     }
     openPreview({
       title: "Carte grise du véhicule",
-      rectoUri: decharge.carte_grise_recto,
-      versoUri: decharge.carte_grise_verso,
+      rectoUri: imageData.carte_grise_recto,
+      versoUri: imageData.carte_grise_verso,
       isPassport: false,
       onExport: handlePrintCarteGrise,
     });
@@ -552,9 +579,9 @@ export default function DechargeDetail() {
             <Text style={styles.sigTitle}>Le Vendeur :</Text>
             <Text style={styles.sigName}>Nom : {decharge.nom_vendeur || "—"}</Text>
             <Text style={styles.sigLabel}>Signature :</Text>
-            {decharge.signature_uri ? (
+            {imageData.signature_uri ? (
               <Image
-                source={{ uri: decharge.signature_uri }}
+                source={{ uri: imageData.signature_uri }}
                 style={styles.sigImage}
                 resizeMode="contain"
               />
@@ -570,9 +597,9 @@ export default function DechargeDetail() {
               Nom : {decharge.nom_representant || decharge.nom_acheteur || "—"}
             </Text>
             <Text style={styles.sigLabel}>Signature :</Text>
-            {decharge.signature_acheteur_uri ? (
+            {imageData.signature_acheteur_uri ? (
               <Image
-                source={{ uri: decharge.signature_acheteur_uri }}
+                source={{ uri: imageData.signature_acheteur_uri }}
                 style={styles.sigImage}
                 resizeMode="contain"
               />
@@ -612,13 +639,13 @@ export default function DechargeDetail() {
         <View style={styles.docsRow}>
           <PhotoCard
             label="Recto"
-            uri={decharge.vendeur_id_recto}
+            uri={imageData.vendeur_id_recto}
             onPress={() => pickAndReplacePhoto("vendeur_id_recto")}
           />
           {decharge.vendeur_id_type !== "passport" && (
             <PhotoCard
               label="Verso"
-              uri={decharge.vendeur_id_verso}
+              uri={imageData.vendeur_id_verso}
               onPress={() => pickAndReplacePhoto("vendeur_id_verso")}
             />
           )}
@@ -640,12 +667,12 @@ export default function DechargeDetail() {
         <View style={styles.docsRow}>
           <PhotoCard
             label="Recto"
-            uri={decharge.carte_grise_recto}
+            uri={imageData.carte_grise_recto}
             onPress={() => pickAndReplacePhoto("carte_grise_recto")}
           />
           <PhotoCard
             label="Verso"
-            uri={decharge.carte_grise_verso}
+            uri={imageData.carte_grise_verso}
             onPress={() => pickAndReplacePhoto("carte_grise_verso")}
           />
         </View>

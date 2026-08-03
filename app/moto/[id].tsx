@@ -44,7 +44,7 @@ type Moto = {
   prix_achat: number | null;
   prix_vente: number | null;
   etat: string | null;
-  moto_images?: {
+  images?: {
     id: string;
     image_uri: string;
     is_principal: boolean;
@@ -90,8 +90,8 @@ export default function MotoDetail() {
     setLoading(true);
     try {
       const data = await api.getMoto(id);
-      if (data.moto_images) {
-        data.moto_images.sort((a: any, b: any) => {
+      if (data.images) {
+        data.images.sort((a: any, b: any) => {
           if (a.is_principal && !b.is_principal) return -1;
           if (!a.is_principal && b.is_principal) return 1;
           return (a.position ?? 0) - (b.position ?? 0);
@@ -129,7 +129,7 @@ export default function MotoDetail() {
     );
   }
 
-  const imgs = moto.moto_images || [];
+  const imgs = moto.images || [];
   const principal = imgs[0]; // déjà trié
 
   const openGalleryAt = (i: number) => {

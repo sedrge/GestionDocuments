@@ -19,13 +19,14 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { supabase } from "../lib/supabase";
+import { api } from "../lib/api";
+import { localUriToFormFile } from "../lib/formUpload";
 import { useTenant } from "../context/TenantContext";
 import { useFeatureFlags } from "../context/FeatureFlagsContext";
 
 type ImageItem = {
   id?: string;          // id en DB (si déjà sauvegardé)
-  uri: string;          // data:image/...;base64,...
+  uri: string;          // uri locale (nouvelle photo) ou URL publique (déjà sauvegardée)
   is_principal: boolean;
   position: number;
   isNew?: boolean;      // pas encore en DB
@@ -63,12 +64,10 @@ export default function MotoForm() {
   }, [id]);
 
   const fetchMoto = async () => {
-    const { data, error } = await supabase
-      .from("motos")
-      .select("*, moto_images(*)")
-      .eq("id", id)
-      .single();
-    if (error || !data) {
+    let data: any;
+    try {
+      data = await api.getMoto(String(id));
+    } catch {
       Alert.alert("Erreur", "Impossible de charger cette moto.");
       return;
     }
@@ -87,7 +86,7 @@ export default function MotoForm() {
     setEtat(data.etat || "");
     setIsPublished(data.is_published ?? false);
 
-    const imgs: ImageItem[] = (data.moto_images || [])
+    const imgs: ImageItem[] = (data.images || [])
       .sort((a: any, b: any) => (a.position ?? 0) - (b.position ?? 0))
       .map((img: any) => ({
         id: img.id,
@@ -111,21 +110,19 @@ export default function MotoForm() {
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: false,
             quality: 0.5,
-            base64: true,
           })
         : await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsMultipleSelection: true,
             quality: 0.5,
-            base64: true,
           });
 
     if (result.canceled || !result.assets) return;
 
     const newImages: ImageItem[] = result.assets
-      .filter((a: any) => a.base64)
+      .filter((a: any) => a.uri)
       .map((a: any, i: number) => ({
-        uri: `data:image/jpeg;base64,${a.base64}`,
+        uri: a.uri,
         is_principal: false,
         position: images.length + i,
         isNew: true,
@@ -171,12 +168,9 @@ export default function MotoForm() {
   };
 
   const handleSave = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return Alert.alert("Erreur", "Utilisateur non connecté");
-
     setSaving(true);
 
-    const motoData = {
+    const motoData: Record<string, any> = {
       marque: marque || null,
       modele: modele || null,
       categorie: categorie || null,
@@ -191,57 +185,41 @@ export default function MotoForm() {
       prix_vente: prixVente ? Number(prixVente.replace(/\s/g, "")) : null,
       etat: etat || null,
       is_published: vitrineEnabled ? isPublished : false,
-      user_id: user.id,
-      enterprise_id: tenant?.enterprise_id || null,
-      updated_at: new Date().toISOString(),
     };
+    if (!id) motoData.enterprise_id = tenant?.enterprise_id || null;
 
     try {
-      let motoId = id;
+      let motoId = id ? String(id) : null;
       if (id) {
-        const { error } = await supabase.from("motos").update(motoData).eq("id", id);
-        if (error) throw error;
+        await api.updateMoto(id, motoData);
       } else {
-        const { data, error } = await supabase
-          .from("motos")
-          .insert([motoData])
-          .select("id")
-          .single();
-        if (error || !data) throw error || new Error("Échec de la création");
-        motoId = data.id;
+        const created = await api.createMoto(motoData);
+        motoId = created.id;
       }
 
       // Supprimer les images marquées
-      if (deletedImageIds.length > 0) {
-        await supabase.from("moto_images").delete().in("id", deletedImageIds);
+      for (const imgId of deletedImageIds) {
+        await api.deleteMotoImage(imgId);
       }
 
       // Mettre à jour les images existantes (is_principal, position)
       for (let i = 0; i < images.length; i++) {
         const img = images[i];
         if (img.id) {
-          await supabase
-            .from("moto_images")
-            .update({ is_principal: img.is_principal, position: i })
-            .eq("id", img.id);
+          await api.updateMotoImage(img.id, { is_principal: img.is_principal, position: i });
         }
       }
 
-      // Insérer les nouvelles images
-      const newImages = images
-        .map((img, i) => ({ img, index: i }))
-        .filter(({ img }) => img.isNew)
-        .map(({ img, index }) => ({
-          moto_id: motoId,
-          user_id: user.id,
-          image_uri: img.uri,
-          is_principal: img.is_principal,
-          position: index,
-        }));
-
-      if (newImages.length > 0) {
-        const { error } = await supabase.from("moto_images").insert(newImages);
-        if (error) throw error;
+      // Uploader les nouvelles images (une requête multipart par photo, le
+      // serveur n'accepte qu'un seul fichier "image" par appel)
+      for (let i = 0; i < images.length; i++) {
+        const img = images[i];
+        if (!img.isNew) continue;
+        const form = new FormData();
+        form.append("image", localUriToFormFile(img.uri, `moto_${i}`) as any);
+        form.append("is_principal", img.is_principal ? "1" : "0");
+        form.append("position", String(i));
+        await api.uploadMotoImage(motoId, form);
       }
 
       Alert.alert("Succès", id ? "Moto mise à jour !" : "Moto enregistrée !");

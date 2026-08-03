@@ -36,7 +36,7 @@ type Moto = {
   prix_vente: number | null;
   etat: string | null;
   is_published?: boolean;
-  moto_images?: {
+  images?: {
     image_uri: string;
     is_principal: boolean;
     position: number;
@@ -115,7 +115,7 @@ const groupMotos = (motos: Moto[]): Folder[] => {
 
 const pickThumb = (motos: Moto[]): string | null => {
   for (const m of motos) {
-    const imgs = m.moto_images || [];
+    const imgs = m.images || [];
     const principal = imgs.find((i) => i.is_principal);
     if (principal) return principal.image_uri;
     if (imgs.length > 0) return imgs[0].image_uri;
@@ -373,7 +373,7 @@ function MotoCard({
   onPress: () => void;
   onLongPress: () => void;
 }) {
-  const imgs = moto.moto_images || [];
+  const imgs = moto.images || [];
   const principal = imgs.find((i) => i.is_principal) || imgs[0];
 
   return (

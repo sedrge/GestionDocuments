@@ -17,7 +17,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { supabase } from "../lib/supabase";
+import { api } from "../lib/api";
 import { useTenant } from "../context/TenantContext";
 import { FeatureGate } from "../components/FeatureGate";
 
@@ -78,47 +78,38 @@ function VenteContent() {
     setSearching(true);
     setMoto(null);
 
-    let req = supabase
-      .from("motos")
-      .select("*")
-      .or(
-        `numero_chassis.ilike.%${q}%,numero_moteur.ilike.%${q}%,immatriculation.ilike.%${q}%`
-      );
-
-    if (tenant?.enterprise_id) {
-      req = req.eq("enterprise_id", tenant.enterprise_id);
+    try {
+      const params: Record<string, string> = { q };
+      if (tenant?.enterprise_id) params.enterprise_id = tenant.enterprise_id;
+      const result = await api.listMyMotos(params);
+      const found = (result.data ?? result)[0];
+      if (!found) {
+        Alert.alert(
+          "Introuvable",
+          "Aucune moto trouvée pour ce numéro. Vérifiez le châssis, le moteur ou l'immatriculation."
+        );
+      } else {
+        setMoto(found as Moto);
+      }
+    } catch (e: any) {
+      Alert.alert("Erreur", e.message);
+    } finally {
+      setSearching(false);
     }
-
-    const { data, error } = await req.limit(1).maybeSingle();
-
-    if (error) {
-      Alert.alert("Erreur", error.message);
-    } else if (!data) {
-      Alert.alert(
-        "Introuvable",
-        "Aucune moto trouvée pour ce numéro. Vérifiez le châssis, le moteur ou l'immatriculation."
-      );
-    } else {
-      setMoto(data as Moto);
-    }
-    setSearching(false);
   };
 
   // ── Recherche par ID (depuis QR) ─────────────────────────────────────────────
   const searchById = async (id: string) => {
     setSearching(true);
     setMoto(null);
-    const { data, error } = await supabase
-      .from("motos")
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
-    if (error || !data) {
-      Alert.alert("Introuvable", "Moto introuvable via ce QR code.");
-    } else {
+    try {
+      const data = await api.getMoto(id);
       setMoto(data as Moto);
+    } catch {
+      Alert.alert("Introuvable", "Moto introuvable via ce QR code.");
+    } finally {
+      setSearching(false);
     }
-    setSearching(false);
   };
 
   // ── Traitement du contenu QR (JSON ou texte libre) ───────────────────────────
@@ -184,37 +175,21 @@ function VenteContent() {
       );
     }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return Alert.alert("Erreur", "Utilisateur non connecté.");
-
     const now = new Date();
     const nomDossier = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
     let dossierId: string | undefined;
-    const { data: existing } = await supabase
-      .from("annees_mois_recu")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("nom", nomDossier)
-      .maybeSingle();
-
-    if (existing) {
-      dossierId = existing.id;
-    } else {
-      const { data: created, error: createErr } = await supabase
-        .from("annees_mois_recu")
-        .insert([{ nom: nomDossier, user_id: user.id }])
-        .select("id")
-        .single();
-      if (createErr) {
-        return Alert.alert(
-          "Erreur",
-          "Impossible de créer le dossier réçu : " + createErr.message
-        );
+    try {
+      const dossiers = await api.listAnneesMoisRecu();
+      const existing = (dossiers ?? []).find((d: any) => d.nom === nomDossier);
+      if (existing) {
+        dossierId = existing.id;
+      } else {
+        const created = await api.createAnneeMoisRecu({ nom: nomDossier });
+        dossierId = created?.id;
       }
-      dossierId = created?.id;
+    } catch (e: any) {
+      return Alert.alert("Erreur", "Impossible de créer le dossier réçu : " + e.message);
     }
 
     router.push({

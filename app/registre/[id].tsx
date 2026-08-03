@@ -3,25 +3,23 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Alert, Image, ScrollView, StyleSheet, Text, View } from "react-native";
-import { supabase } from "../../lib/supabase";
+import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { AuthImage } from "../../components/AuthImage";
+import { api } from "../../lib/api";
 
 export default function RegistreDetail() {
   const { id } = useLocalSearchParams();
   const [registre, setRegistre] = useState<any>(null);
 
-  const fetchRegistre = async () => {
-    const { data, error } = await supabase
-      .from("registres")
-      .select("*")
-      .eq("id", id)
-      .single();
+  const fileUrl = (field: string) => api.fileUrl("registres", String(id), field);
 
-    if (error) {
-      Alert.alert("Erreur", error.message);
-      return;
+  const fetchRegistre = async () => {
+    try {
+      const data = await api.getRegistre(String(id));
+      setRegistre(data);
+    } catch (e: any) {
+      Alert.alert("Erreur", e.message);
     }
-    setRegistre(data);
   };
 
   useEffect(() => {
@@ -127,8 +125,8 @@ export default function RegistreDetail() {
               <View style={styles.sigBlock}>
                 <Text style={styles.sigTitle}>Récupération moto</Text>
                 {registre.signature_uri ? (
-                  <Image
-                    source={{ uri: registre.signature_uri }}
+                  <AuthImage
+                    uri={fileUrl("signature_uri")}
                     style={styles.sigImage}
                     resizeMode="contain"
                   />
@@ -141,8 +139,8 @@ export default function RegistreDetail() {
               <View style={styles.sigBlock}>
                 <Text style={styles.sigTitle}>Récupération documents</Text>
                 {registre.signature_documents_uri ? (
-                  <Image
-                    source={{ uri: registre.signature_documents_uri }}
+                  <AuthImage
+                    uri={fileUrl("signature_documents_uri")}
                     style={styles.sigImage}
                     resizeMode="contain"
                   />
@@ -166,22 +164,35 @@ export default function RegistreDetail() {
       <View style={styles.docsRow}>
         <PhotoCard
           label={registre.client_id_type === "passport" ? "Page principale" : "Recto"}
-          uri={registre.client_id_recto}
+          uri={registre.client_id_recto ? fileUrl("client_id_recto") : null}
         />
         {registre.client_id_type !== "passport" && (
-          <PhotoCard label="Verso" uri={registre.client_id_verso} />
+          <PhotoCard
+            label="Verso"
+            uri={registre.client_id_verso ? fileUrl("client_id_verso") : null}
+          />
         )}
       </View>
 
       <Text style={styles.docsGroupTitle}>Carte grise</Text>
       <View style={styles.docsRow}>
-        <PhotoCard label="Recto" uri={registre.carte_grise_recto} />
-        <PhotoCard label="Verso" uri={registre.carte_grise_verso} />
+        <PhotoCard
+          label="Recto"
+          uri={registre.carte_grise_recto ? fileUrl("carte_grise_recto") : null}
+        />
+        <PhotoCard
+          label="Verso"
+          uri={registre.carte_grise_verso ? fileUrl("carte_grise_verso") : null}
+        />
       </View>
 
       <Text style={styles.docsGroupTitle}>Certificat de vente</Text>
       <View style={styles.docsRow}>
-        <PhotoCard label="Recto" uri={registre.certificat_vente} tall />
+        <PhotoCard
+          label="Recto"
+          uri={registre.certificat_vente ? fileUrl("certificat_vente") : null}
+          tall
+        />
       </View>
     </ScrollView>
   );
@@ -200,8 +211,8 @@ function PhotoCard({
     <View style={styles.photoCard}>
       <Text style={styles.photoCardLabel}>{label}</Text>
       {uri ? (
-        <Image
-          source={{ uri }}
+        <AuthImage
+          uri={uri}
           style={[styles.photoCardImg, tall && { height: 220 }]}
           resizeMode="cover"
         />

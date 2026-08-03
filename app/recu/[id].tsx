@@ -15,35 +15,45 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { printAndSharePdf } from "../../lib/sharePdf";
-import { supabase } from "../../lib/supabase";
+import { api } from "../../lib/api";
+import { fetchAuthImageDataUri } from "../../lib/authImageDataUri";
 
 export default function RecuDetail() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const [recu, setRecu] = useState<any>(null);
   const [parametres, setParametres] = useState<any>(null);
+  // Fichiers prives resolus en data URI (signatures + logo entreprise) : requis
+  // pour l'export PDF et l'affichage <Image>, le disque n'etant pas public.
+  const [imageData, setImageData] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
 
   const fetchAll = async () => {
     setLoading(true);
-    const { data: recuData, error } = await supabase
-      .from("recus")
-      .select("*")
-      .eq("id", id)
-      .single();
-    if (error || !recuData) {
-      Alert.alert("Erreur", error?.message || "Réçu introuvable.");
+    let recuData: any;
+    try {
+      recuData = await api.getRecu(String(id));
+    } catch (e: any) {
+      Alert.alert("Erreur", e.message || "Réçu introuvable.");
       setLoading(false);
       return;
     }
     setRecu(recuData);
 
-    const { data: paramData } = await supabase
-      .from("entreprise_parametres")
-      .select("*")
-      .eq("user_id", recuData.user_id)
-      .maybeSingle();
+    const paramData = await api.getEnterpriseSettings().catch(() => null);
     setParametres(paramData);
+
+    const [sigVendeur, sigClient, logo] = await Promise.all([
+      recuData.signature_vendeur
+        ? fetchAuthImageDataUri(api.fileUrl("recus", String(id), "signature_vendeur"))
+        : Promise.resolve(null),
+      recuData.signature_client
+        ? fetchAuthImageDataUri(api.fileUrl("recus", String(id), "signature_client"))
+        : Promise.resolve(null),
+      paramData?.logo_uri ? fetchAuthImageDataUri(api.enterpriseLogoUrl()) : Promise.resolve(null),
+    ]);
+    setImageData({ signature_vendeur: sigVendeur, signature_client: sigClient, logo_uri: logo });
+
     setLoading(false);
   };
 
@@ -73,14 +83,14 @@ export default function RecuDetail() {
     const p = parametres || {};
     const dt = formatDate(d.date);
 
-    const sigVendeurHtml = d.signature_vendeur
-      ? `<img src="${d.signature_vendeur}" style="height:60px;max-width:180px;" />`
+    const sigVendeurHtml = imageData.signature_vendeur
+      ? `<img src="${imageData.signature_vendeur}" style="height:60px;max-width:180px;" />`
       : "<em>—</em>";
-    const sigClientHtml = d.signature_client
-      ? `<img src="${d.signature_client}" style="height:60px;max-width:180px;" />`
+    const sigClientHtml = imageData.signature_client
+      ? `<img src="${imageData.signature_client}" style="height:60px;max-width:180px;" />`
       : "<em>—</em>";
-    const logoHtml = p.logo_uri
-      ? `<img src="${p.logo_uri}" style="max-width:110px;max-height:90px;object-fit:contain;" />`
+    const logoHtml = imageData.logo_uri
+      ? `<img src="${imageData.logo_uri}" style="max-width:110px;max-height:90px;object-fit:contain;" />`
       : "";
 
     return `
@@ -237,9 +247,9 @@ export default function RecuDetail() {
         {/* Entête */}
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
-            {parametres?.logo_uri ? (
+            {imageData.logo_uri ? (
               <Image
-                source={{ uri: parametres.logo_uri }}
+                source={{ uri: imageData.logo_uri }}
                 style={styles.logo}
                 resizeMode="contain"
               />
@@ -380,9 +390,9 @@ export default function RecuDetail() {
         <View style={styles.footerRow}>
           <View style={styles.sigCol}>
             <Text style={styles.sigCaption}>Vendeur</Text>
-            {recu.signature_vendeur ? (
+            {imageData.signature_vendeur ? (
               <Image
-                source={{ uri: recu.signature_vendeur }}
+                source={{ uri: imageData.signature_vendeur }}
                 style={styles.sigImg}
                 resizeMode="contain"
               />
@@ -402,9 +412,9 @@ export default function RecuDetail() {
           </View>
           <View style={styles.sigCol}>
             <Text style={styles.sigCaption}>Client</Text>
-            {recu.signature_client ? (
+            {imageData.signature_client ? (
               <Image
-                source={{ uri: recu.signature_client }}
+                source={{ uri: imageData.signature_client }}
                 style={styles.sigImg}
                 resizeMode="contain"
               />
