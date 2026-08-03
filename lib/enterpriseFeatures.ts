@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { api } from './api';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -290,19 +290,14 @@ export async function getEnterpriseFeatures(enterpriseId: string): Promise<{
   error?: string;
 }> {
   try {
-    const { data, error } = await supabase
-      .from('enterprise_features')
-      .select('feature_key, is_enabled')
-      .eq('enterprise_id', enterpriseId);
-
-    if (error) throw error;
+    const data = await api.getEnterpriseFeatures(enterpriseId);
 
     if (!data || data.length === 0) {
       return { success: true, features: null };
     }
 
     const features: Record<string, boolean> = {};
-    data.forEach((row) => {
+    data.forEach((row: any) => {
       features[row.feature_key] = row.is_enabled;
     });
 
@@ -314,33 +309,14 @@ export async function getEnterpriseFeatures(enterpriseId: string): Promise<{
 
 /**
  * Sauvegarde la configuration des features pour une entreprise (super-admin).
- * Remplace toute la configuration existante.
+ * Remplace toute la configuration existante (le serveur fait le delete+insert).
  */
 export async function setEnterpriseFeatures(
   enterpriseId: string,
   features: Record<string, boolean>,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Supprimer l'ancienne configuration
-    await supabase
-      .from('enterprise_features')
-      .delete()
-      .eq('enterprise_id', enterpriseId);
-
-    // Insérer la nouvelle configuration
-    const rows = Object.entries(features).map(([feature_key, is_enabled]) => ({
-      enterprise_id: enterpriseId,
-      feature_key,
-      is_enabled,
-      updated_at: new Date().toISOString(),
-    }));
-
-    const { error } = await supabase
-      .from('enterprise_features')
-      .insert(rows);
-
-    if (error) throw error;
-
+    await api.updateEnterpriseFeatures(enterpriseId, features);
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };
@@ -379,14 +355,6 @@ export async function disableAllFeatures(
 export const QUOTA_EXCEEDED_MESSAGE =
   "Quota quotidien atteint pour cette fonctionnalité. Contactez le concepteur pour passer en mode illimité.";
 
-export type QuotaCheckResult = {
-  allowed: boolean;
-  limit?: number | null;
-  used?: number;
-  remaining?: number | null;
-  error?: string;
-};
-
 /**
  * Récupère les limites quotidiennes configurées pour une entreprise.
  * Une clé absente du résultat signifie "illimité".
@@ -397,15 +365,10 @@ export async function getEnterpriseQuotas(enterpriseId: string): Promise<{
   error?: string;
 }> {
   try {
-    const { data, error } = await supabase
-      .from('enterprise_feature_quotas')
-      .select('feature_key, daily_limit')
-      .eq('enterprise_id', enterpriseId);
-
-    if (error) throw error;
+    const data = await api.getEnterpriseFeatureQuotas(enterpriseId);
 
     const quotas: Record<string, number | null> = {};
-    (data ?? []).forEach((row) => {
+    (data ?? []).forEach((row: any) => {
       quotas[row.feature_key] = row.daily_limit;
     });
 
@@ -425,18 +388,7 @@ export async function setEnterpriseQuota(
   dailyLimit: number | null,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { error } = await supabase.from('enterprise_feature_quotas').upsert(
-      {
-        enterprise_id: enterpriseId,
-        feature_key: featureKey,
-        daily_limit: dailyLimit,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'enterprise_id,feature_key' },
-    );
-
-    if (error) throw error;
-
+    await api.updateEnterpriseFeatureQuota(enterpriseId, featureKey, dailyLimit);
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };
@@ -453,17 +405,10 @@ export async function getEnterpriseUsageToday(enterpriseId: string): Promise<{
   error?: string;
 }> {
   try {
-    const today = new Date().toISOString().slice(0, 10);
-    const { data, error } = await supabase
-      .from('enterprise_feature_usage')
-      .select('feature_key, count')
-      .eq('enterprise_id', enterpriseId)
-      .eq('usage_date', today);
-
-    if (error) throw error;
+    const data = await api.getEnterpriseFeatureUsageToday(enterpriseId);
 
     const usage: Record<string, number> = {};
-    (data ?? []).forEach((row) => {
+    (data ?? []).forEach((row: any) => {
       usage[row.feature_key] = row.count;
     });
 
@@ -474,24 +419,8 @@ export async function getEnterpriseUsageToday(enterpriseId: string): Promise<{
 }
 
 /**
- * Vérifie de façon atomique (côté DB) si l'entreprise peut encore utiliser la
- * feature aujourd'hui, et incrémente son compteur d'utilisation si c'est le cas.
- * À appeler juste avant d'exécuter l'action réelle (publication, génération, etc).
+ * Le contrôle de quota (vérif + incrément atomique) est désormais fait côté
+ * serveur, directement dans les contrôleurs des actions gatées (publications,
+ * assistant, ...) — plus besoin de l'appeler explicitement avant l'action:
+ * une réponse 403/422 du serveur signale un quota dépassé.
  */
-export async function checkAndIncrementFeatureUsage(
-  enterpriseId: string,
-  featureKey: string,
-): Promise<QuotaCheckResult> {
-  try {
-    const { data, error } = await supabase.rpc('check_and_increment_feature_usage', {
-      p_enterprise_id: enterpriseId,
-      p_feature_key: featureKey,
-    });
-
-    if (error) throw error;
-
-    return data as QuotaCheckResult;
-  } catch (err: any) {
-    return { allowed: false, error: err.message };
-  }
-}

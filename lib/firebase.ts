@@ -1,5 +1,5 @@
 import Constants from "expo-constants";
-import { supabase } from "./supabase";
+import { api } from "./api";
 
 const PROJECT_ID = "senmoto-a2f1e";
 const MESSAGING_SENDER_ID = "522344635234";
@@ -23,9 +23,7 @@ if (!isExpoGo) {
   }
 }
 
-export async function registerForPushNotifications(
-  userId: string,
-): Promise<string | null> {
+export async function registerForPushNotifications(): Promise<string | null> {
   if (!Notifications) {
     console.warn(
       "Push notifications non disponibles (Expo Go ou module manquant).",
@@ -56,14 +54,7 @@ export async function registerForPushNotifications(
     const token = await Notifications.getExpoPushTokenAsync({ projectId });
     console.log("Expo Push Token:", token.data);
 
-    await supabase.from("user_push_tokens").upsert(
-      {
-        user_id: userId,
-        expo_token: token.data,
-        created_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id" },
-    );
+    await api.registerPushToken(token.data);
 
     return token.data;
   } catch (error) {
@@ -80,6 +71,6 @@ export function setupNotificationListeners() {
   });
 }
 
-export async function removeDeviceToken(userId: string) {
-  await supabase.from("user_push_tokens").delete().eq("user_id", userId);
+export async function removeDeviceToken() {
+  await api.removePushToken();
 }

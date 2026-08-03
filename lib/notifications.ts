@@ -9,7 +9,7 @@
 
 import Constants from "expo-constants";
 import { Platform } from "react-native";
-import { supabase } from "./supabase";
+import { api } from "./api";
 
 // expo-notifications crash dans Expo Go depuis SDK 53 → chargement dynamique
 const isExpoGo = Constants.appOwnership === "expo";
@@ -151,30 +151,22 @@ async function insertNotification(row: {
   scheduled_at?: string | null;
   push_id?: string | null;
 }) {
-  const { data, error } = await supabase
-    .from("notifications")
-    .insert([
-      {
-        user_id: row.user_id,
-        type: row.type,
-        titre: row.titre,
-        message: row.message,
-        rendezvous_id: row.rendezvous_id ?? null,
-        data: row.data ?? null,
-        statut: row.statut ?? "sent",
-        scheduled_at: row.scheduled_at ?? null,
-        push_id: row.push_id ?? null,
-        updated_at: new Date().toISOString(),
-      },
-    ])
-    .select()
-    .single();
-  if (error) {
+  try {
+    return await api.createNotification({
+      type: row.type,
+      titre: row.titre,
+      message: row.message,
+      rendezvous_id: row.rendezvous_id ?? null,
+      data: row.data ?? null,
+      statut: row.statut ?? "sent",
+      scheduled_at: row.scheduled_at ?? null,
+      push_id: row.push_id ?? null,
+    });
+  } catch (error: any) {
     // On ne casse pas le flux principal en cas d'erreur
     console.warn("[notifications] insert error", error.message);
     return null;
   }
-  return data;
 }
 
 // ---------------------------------------------------------------------------
@@ -298,37 +290,15 @@ export async function scheduleRdvReminders(
  * Annule (côté push + côté DB) tous les rappels en attente pour un RDV.
  */
 export async function cancelRdvReminders(rendezvousId: string) {
-  const { data } = await supabase
-    .from("notifications")
-    .select("id, push_id")
-    .eq("rendezvous_id", rendezvousId)
-    .eq("statut", "pending");
+  const result = await api
+    .listNotifications({ rendezvous_id: rendezvousId, statut: "pending" })
+    .catch(() => null);
+  const rows: any[] = result?.data ?? [];
 
-  if (data && data.length > 0) {
-    for (const row of data) {
-      await cancelLocalPush(row.push_id);
-    }
-    await supabase
-      .from("notifications")
-      .update({ statut: "cancelled", updated_at: new Date().toISOString() })
-      .in(
-        "id",
-        data.map((d: any) => d.id),
-      );
+  for (const row of rows) {
+    await cancelLocalPush(row.push_id);
+    await api.cancelNotification(row.id).catch(() => {});
   }
-}
-
-/**
- * Renvoie le nombre de notifications non lues pour l'utilisateur courant.
- */
-export async function countUnreadNotifications(userId: string): Promise<number> {
-  const { count, error } = await supabase
-    .from("notifications")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("lu", false);
-  if (error) return 0;
-  return count ?? 0;
 }
 
 /**

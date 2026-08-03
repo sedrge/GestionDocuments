@@ -5,7 +5,7 @@ import React, {
   useEffect,
   useState,
 } from 'react';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { useTenant } from './TenantContext';
 
 interface FeatureFlagsContextType {
@@ -37,19 +37,16 @@ export const FeatureFlagsProvider = ({ children }: { children: ReactNode }) => {
 
     setLoadingFeatures(true);
     try {
-      const { data } = await supabase
-        .from('enterprise_features')
-        .select('feature_key, is_enabled')
-        .eq('enterprise_id', tenant.enterprise_id);
+      const data = await api.getEnterpriseFeatures(tenant.enterprise_id);
 
       if (!data || data.length === 0) {
         // Aucune configuration → tout activé (compatibilité avec l'existant)
         setEnabledFeatures(undefined);
       } else {
-        const enabled = new Set(
+        const enabled = new Set<string>(
           data
-            .filter((r) => r.is_enabled)
-            .map((r) => r.feature_key as string),
+            .filter((r: any) => r.is_enabled)
+            .map((r: any) => r.feature_key as string),
         );
         setEnabledFeatures(enabled);
       }

@@ -10,7 +10,7 @@ import { TenantProvider, useTenant } from '../context/TenantContext';
 import { ThemeProvider } from '../context/ThemeContext';
 import { FeatureFlagsProvider } from '../context/FeatureFlagsContext';
 import { registerForPushNotifications, setupNotificationListeners } from '@/lib/firebase';
-import { supabase } from '../lib/supabase';
+import { getToken } from '../lib/api';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -159,9 +159,9 @@ function AppStack() {
 export default function RootLayout() {
   useEffect(() => {
     const initPush = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const token = await registerForPushNotifications(user.id);
+      const authToken = await getToken();
+      if (authToken) {
+        const token = await registerForPushNotifications();
         if (token) console.log('✅ Token push enregistré:', token);
         setupNotificationListeners();
       }

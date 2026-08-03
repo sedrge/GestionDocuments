@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { api } from './api';
 
 export type AuditAction =
   | 'CREATE'
@@ -34,20 +34,9 @@ interface LogParams {
 
 export async function logAction(params: LogParams): Promise<void> {
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const user_name =
-      (user.user_metadata?.full_name as string | undefined) ||
-      user.email ||
-      'Inconnu';
-
-    await supabase.from('audit_logs').insert({
+    // user_id / user_name sont déduits côté serveur de l'utilisateur authentifié.
+    await api.logAction({
       enterprise_id: params.enterprise_id,
-      user_id: user.id,
-      user_name,
       action: params.action,
       entity_type: params.entity_type,
       entity_id: params.entity_id ?? null,

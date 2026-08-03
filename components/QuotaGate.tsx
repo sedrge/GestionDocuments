@@ -2,10 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useTenant } from '../context/TenantContext';
-import {
-  checkAndIncrementFeatureUsage,
-  QUOTA_EXCEEDED_MESSAGE,
-} from '../lib/enterpriseFeatures';
+import { api } from '../lib/api';
+import { QUOTA_EXCEEDED_MESSAGE } from '../lib/enterpriseFeatures';
 
 interface QuotaGateProps {
   featureKey: string;
@@ -39,8 +37,12 @@ export const QuotaGate = ({ featureKey, featureName, children }: QuotaGateProps)
         if (active) setStatus('allowed');
         return;
       }
-      const result = await checkAndIncrementFeatureUsage(tenant.enterprise_id, featureKey);
-      if (active) setStatus(result.allowed ? 'allowed' : 'blocked');
+      try {
+        await api.checkFeatureUsage(tenant.enterprise_id, featureKey);
+        if (active) setStatus('allowed');
+      } catch {
+        if (active) setStatus('blocked');
+      }
     })();
 
     return () => {
