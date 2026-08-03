@@ -18,52 +18,19 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import SignatureCanvas from "react-native-signature-canvas";
-import { supabase } from "../lib/supabase";
+import { AuthImage } from "../components/AuthImage";
+import { api } from "../lib/api";
+import { appendMaybeImage, buildFormData } from "../lib/formUpload";
+import { nombreEnLettres } from "../lib/nombreEnLettres";
 
-// ─── Conversion nombre → lettres (français) ───────────────────────────────────
-const UNITES = [
-  "", "un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf",
-  "dix", "onze", "douze", "treize", "quatorze", "quinze", "seize",
-  "dix-sept", "dix-huit", "dix-neuf",
-];
-const DIZAINES = ["", "", "vingt", "trente", "quarante", "cinquante", "soixante", "soixante", "quatre-vingt", "quatre-vingt"];
-
-function moinsDeMillier(n: number): string {
-  if (n === 0) return "";
-  if (n < 20) return UNITES[n];
-  if (n < 100) {
-    const d = Math.floor(n / 10);
-    const u = n % 10;
-    if (d === 7) return "soixante-" + UNITES[10 + u];
-    if (d === 8) return u === 0 ? "quatre-vingts" : "quatre-vingt-" + UNITES[u];
-    if (d === 9) return "quatre-vingt-" + UNITES[10 + u];
-    if (u === 0) return DIZAINES[d];
-    if (u === 1) return DIZAINES[d] + "-et-un";
-    return DIZAINES[d] + "-" + UNITES[u];
-  }
-  const c = Math.floor(n / 100);
-  const reste = n % 100;
-  const centStr = c === 1 ? "cent" : UNITES[c] + " cent" + (reste === 0 && c > 1 ? "s" : "");
-  return centStr + (reste > 0 ? " " + moinsDeMillier(reste) : "");
+// Une valeur "locale" (data:/file:/content:) vient d'être capturée sur cet
+// écran ; une valeur "distante" est un chemin de stockage renvoyé par le
+// serveur (mode édition) — pas directement affichable, ni à ré-uploader.
+function isLocalUri(v: string | null): boolean {
+  return !!v && (v.startsWith("data:") || v.includes("://"));
 }
-
-function nombreEnLettres(valeur: number): string {
-  if (!valeur || isNaN(valeur) || valeur === 0) return "";
-  let n = Math.floor(valeur);
-  let result = "";
-  if (n >= 1000000) {
-    const m = Math.floor(n / 1000000);
-    result += (m === 1 ? "un million" : moinsDeMillier(m) + " millions") + " ";
-    n %= 1000000;
-  }
-  if (n >= 1000) {
-    const k = Math.floor(n / 1000);
-    result += (k === 1 ? "mille" : moinsDeMillier(k) + " mille") + " ";
-    n %= 1000;
-  }
-  result += moinsDeMillier(n);
-  const lettres = result.trim();
-  return lettres.charAt(0).toUpperCase() + lettres.slice(1) + " FCFA";
+function localOnly(v: string | null): string | null {
+  return isLocalUri(v) ? v : null;
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -71,6 +38,7 @@ function nombreEnLettres(valeur: number): string {
 interface SignatureBlockProps {
   title: string;
   signatureString: string | null;
+  remoteUrl?: string;
   onScrollLock: (locked: boolean) => void;
   onValidate: (sig: string) => void;
   onClear: () => void;
@@ -82,7 +50,7 @@ const webStyle = `
   .m-signature-pad { border: none; box-shadow: none; }
 `;
 
-function SignatureBlock({ title, signatureString, onScrollLock, onValidate, onClear }: SignatureBlockProps) {
+function SignatureBlock({ title, signatureString, remoteUrl, onScrollLock, onValidate, onClear }: SignatureBlockProps) {
   const sigRef = useRef<any>(null);
 
   return (
@@ -124,11 +92,15 @@ function SignatureBlock({ title, signatureString, onScrollLock, onValidate, onCl
       {signatureString ? (
         <View style={sigStyles.previewContainer}>
           <Text style={{ fontSize: 12, color: "gray" }}>Signature mémorisée ✓</Text>
-          <Image
-            source={{ uri: signatureString }}
-            style={sigStyles.sigPreview}
-            resizeMode="contain"
-          />
+          {isLocalUri(signatureString) ? (
+            <Image
+              source={{ uri: signatureString }}
+              style={sigStyles.sigPreview}
+              resizeMode="contain"
+            />
+          ) : remoteUrl ? (
+            <AuthImage uri={remoteUrl} style={sigStyles.sigPreview} resizeMode="contain" />
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -139,12 +111,13 @@ function SignatureBlock({ title, signatureString, onScrollLock, onValidate, onCl
 interface PhotoPickerProps {
   label: string;
   uri: string | null;
+  remoteUrl?: string;
   aspect: [number, number];
   onPick: () => void;
   onClear: () => void;
 }
 
-function PhotoPicker({ label, uri, aspect, onPick, onClear }: PhotoPickerProps) {
+function PhotoPicker({ label, uri, remoteUrl, aspect, onPick, onClear }: PhotoPickerProps) {
   const ratio = aspect[0] / aspect[1];
   return (
     <View style={photoStyles.container}>
@@ -154,8 +127,10 @@ function PhotoPicker({ label, uri, aspect, onPick, onClear }: PhotoPickerProps) 
         style={[photoStyles.zone, { aspectRatio: ratio }]}
         activeOpacity={0.7}
       >
-        {uri ? (
+        {uri && isLocalUri(uri) ? (
           <Image source={{ uri }} style={photoStyles.preview} resizeMode="cover" />
+        ) : remoteUrl ? (
+          <AuthImage uri={remoteUrl} style={photoStyles.preview} resizeMode="cover" />
         ) : (
           <View style={photoStyles.empty}>
             <View style={photoStyles.frameGuide} />
@@ -314,6 +289,9 @@ export default function DechargeForm() {
 
   const [scrollEnabled, setScrollEnabled] = useState(true);
 
+  const remoteFileUrl = (field: string) =>
+    id ? api.fileUrl("decharges", String(id), field) : undefined;
+
   const pickPhoto = (
     setter: (uri: string | null) => void,
     aspect: [number, number] = [85, 54],
@@ -331,10 +309,9 @@ export default function DechargeForm() {
             allowsEditing: true,
             aspect,
             quality: 0.5,
-            base64: true,
           });
-          if (!result.canceled && result.assets?.[0]?.base64) {
-            setter(`data:image/jpeg;base64,${result.assets[0].base64}`);
+          if (!result.canceled && result.assets?.[0]?.uri) {
+            setter(result.assets[0].uri);
           }
         },
       },
@@ -346,10 +323,9 @@ export default function DechargeForm() {
             allowsEditing: true,
             aspect,
             quality: 0.5,
-            base64: true,
           });
-          if (!result.canceled && result.assets?.[0]?.base64) {
-            setter(`data:image/jpeg;base64,${result.assets[0].base64}`);
+          if (!result.canceled && result.assets?.[0]?.uri) {
+            setter(result.assets[0].uri);
           }
         },
       },
@@ -376,13 +352,10 @@ export default function DechargeForm() {
   };
 
   const fetchDecharge = async () => {
-    const { data, error } = await supabase
-      .from("decharges")
-      .select("*")
-      .eq("id", id)
-      .single();
-
-    if (error || !data) {
+    let data: any;
+    try {
+      data = await api.getDecharge(String(id));
+    } catch {
       Alert.alert("Erreur", "Impossible de charger cette décharge.");
       return;
     }
@@ -418,8 +391,6 @@ export default function DechargeForm() {
   };
 
   const handleSave = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return Alert.alert("Erreur", "Utilisateur non connecté");
     if (!nomVendeur.trim()) return Alert.alert("Erreur", "Nom du vendeur requis.");
     if (!signatureVendeur) return Alert.alert("Erreur", "Veuillez valider la signature du vendeur.");
     if (!signatureAcheteur) return Alert.alert("Erreur", "Veuillez valider la signature de l'acheteur/représentant.");
@@ -430,48 +401,50 @@ export default function DechargeForm() {
       dateBDD = `${parts[2]}-${parts[1]}-${parts[0]}`;
     }
 
-    const dechargeData = {
+    const form = buildFormData({
       date: dateBDD,
       lieu,
       nom_vendeur: nomVendeur,
       cnib_vendeur: cnibVendeur,
-      telephone_vendeur: telephoneVendeur || null,
+      telephone_vendeur: telephoneVendeur,
       nom_acheteur: nomAcheteur,
       cnib_acheteur: cnibAcheteur,
-      telephone_acheteur: telephoneAcheteur || null,
+      telephone_acheteur: telephoneAcheteur,
       nom_representant: nomRepresentant,
       cnib_representant: cnibRepresentant,
       marque,
       modele,
       couleur,
-      numero_chassis: numeroChassis || null,
-      immatriculation: immatriculation || null,
+      numero_chassis: numeroChassis,
+      immatriculation,
       prix: prix ? Number(prix.replace(/\s/g, "")) : null,
       prix_lettres: prixLettres,
-      signature_uri: signatureVendeur,
-      signature_acheteur_uri: signatureAcheteur,
       vendeur_id_type: vendeurIdType,
-      vendeur_id_recto: vendeurIdRecto,
-      vendeur_id_verso: vendeurIdType === "passport" ? null : vendeurIdVerso,
-      carte_grise_recto: carteGriseRecto,
-      carte_grise_verso: carteGriseVerso,
-      annee_mois_id: dossierId,
-      user_id: user.id,
-    };
+      annee_mois_id: id ? null : dossierId,
+    });
 
-    let result;
-    if (id) {
-      result = await supabase.from("decharges").update(dechargeData).eq("id", id);
-    } else {
-      result = await supabase.from("decharges").insert([dechargeData]);
+    // Les champs fichiers ne sont ajoutés que s'ils contiennent une NOUVELLE
+    // capture locale — une valeur "à distance" (mode édition) signifie
+    // "inchangé", on ne la ré-envoie pas.
+    await appendMaybeImage(form, "signature_uri", localOnly(signatureVendeur));
+    await appendMaybeImage(form, "signature_acheteur_uri", localOnly(signatureAcheteur));
+    await appendMaybeImage(form, "vendeur_id_recto", localOnly(vendeurIdRecto));
+    if (vendeurIdType !== "passport") {
+      await appendMaybeImage(form, "vendeur_id_verso", localOnly(vendeurIdVerso));
+    }
+    await appendMaybeImage(form, "carte_grise_recto", localOnly(carteGriseRecto));
+    await appendMaybeImage(form, "carte_grise_verso", localOnly(carteGriseVerso));
+
+    try {
+      if (id) await api.updateDecharge(String(id), form);
+      else await api.createDecharge(form);
+    } catch (e: any) {
+      Alert.alert("Erreur", e.message || "Échec de l'enregistrement.");
+      return;
     }
 
-    if (result.error) {
-      Alert.alert("Erreur", result.error.message);
-    } else {
-      Alert.alert("Succès", "Enregistrement réussi !");
-      router.back();
-    }
+    Alert.alert("Succès", "Enregistrement réussi !");
+    router.back();
   };
 
   return (
@@ -604,6 +577,7 @@ export default function DechargeForm() {
         <PhotoPicker
           label={vendeurIdType === "passport" ? "Passeport (recto)" : "CNIB — Recto"}
           uri={vendeurIdRecto}
+          remoteUrl={remoteFileUrl("vendeur_id_recto")}
           aspect={vendeurIdType === "passport" ? PASSPORT_ASPECT : ID_ASPECT}
           onPick={() =>
             pickPhoto(
@@ -617,6 +591,7 @@ export default function DechargeForm() {
           <PhotoPicker
             label="CNIB — Verso"
             uri={vendeurIdVerso}
+            remoteUrl={remoteFileUrl("vendeur_id_verso")}
             aspect={ID_ASPECT}
             onPick={() => pickPhoto(setVendeurIdVerso, ID_ASPECT)}
             onClear={() => setVendeurIdVerso(null)}
@@ -628,6 +603,7 @@ export default function DechargeForm() {
         <PhotoPicker
           label="Carte grise — Recto"
           uri={carteGriseRecto}
+          remoteUrl={remoteFileUrl("carte_grise_recto")}
           aspect={ID_ASPECT}
           onPick={() => pickPhoto(setCarteGriseRecto, ID_ASPECT)}
           onClear={() => setCarteGriseRecto(null)}
@@ -635,6 +611,7 @@ export default function DechargeForm() {
         <PhotoPicker
           label="Carte grise — Verso"
           uri={carteGriseVerso}
+          remoteUrl={remoteFileUrl("carte_grise_verso")}
           aspect={ID_ASPECT}
           onPick={() => pickPhoto(setCarteGriseVerso, ID_ASPECT)}
           onClear={() => setCarteGriseVerso(null)}
@@ -646,6 +623,7 @@ export default function DechargeForm() {
         <SignatureBlock
           title="Signature du Vendeur :"
           signatureString={signatureVendeur}
+          remoteUrl={remoteFileUrl("signature_uri")}
           onScrollLock={(locked) => setScrollEnabled(!locked)}
           onValidate={setSignatureVendeur}
           onClear={() => setSignatureVendeur(null)}
@@ -654,6 +632,7 @@ export default function DechargeForm() {
         <SignatureBlock
           title="Signature de l'Acheteur / Représentant :"
           signatureString={signatureAcheteur}
+          remoteUrl={remoteFileUrl("signature_acheteur_uri")}
           onScrollLock={(locked) => setScrollEnabled(!locked)}
           onValidate={setSignatureAcheteur}
           onClear={() => setSignatureAcheteur(null)}

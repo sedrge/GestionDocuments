@@ -18,8 +18,20 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import SignatureCanvas from "react-native-signature-canvas";
+import { AuthImage } from "../components/AuthImage";
+import { api } from "../lib/api";
+import { appendMaybeImage, buildFormData } from "../lib/formUpload";
 import { nombreEnLettres } from "../lib/nombreEnLettres";
-import { supabase } from "../lib/supabase";
+
+// Une valeur "locale" (data:/file:/content:) vient d'être capturée sur cet
+// écran ; une valeur "distante" est un chemin de stockage renvoyé par le
+// serveur (mode édition) — pas directement affichable, ni à ré-uploader.
+function isLocalUri(v: string | null): boolean {
+  return !!v && (v.startsWith("data:") || v.includes("://"));
+}
+function localOnly(v: string | null): string | null {
+  return isLocalUri(v) ? v : null;
+}
 
 // ─── Composant signature ────────────────────────────────────────────────────
 const webStyle = `
@@ -31,6 +43,7 @@ const webStyle = `
 interface SignatureBlockProps {
   title: string;
   signatureString: string | null;
+  remoteUrl?: string;
   onScrollLock: (locked: boolean) => void;
   onValidate: (sig: string) => void;
   onClear: () => void;
@@ -39,6 +52,7 @@ interface SignatureBlockProps {
 function SignatureBlock({
   title,
   signatureString,
+  remoteUrl,
   onScrollLock,
   onValidate,
   onClear,
@@ -84,11 +98,15 @@ function SignatureBlock({
       {signatureString ? (
         <View style={sigStyles.previewContainer}>
           <Text style={{ fontSize: 12, color: "gray" }}>Signature mémorisée ✓</Text>
-          <Image
-            source={{ uri: signatureString }}
-            style={sigStyles.sigPreview}
-            resizeMode="contain"
-          />
+          {isLocalUri(signatureString) ? (
+            <Image
+              source={{ uri: signatureString }}
+              style={sigStyles.sigPreview}
+              resizeMode="contain"
+            />
+          ) : remoteUrl ? (
+            <AuthImage uri={remoteUrl} style={sigStyles.sigPreview} resizeMode="contain" />
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -135,6 +153,9 @@ export default function RecuForm() {
   } = useLocalSearchParams();
   const router = useRouter();
 
+  const remoteFileUrl = (field: string) =>
+    id ? api.fileUrl("recus", String(id), field) : undefined;
+
   const today = new Date();
   const [jour, setJour] = useState(String(today.getDate()).padStart(2, "0"));
   const [mois, setMois] = useState(String(today.getMonth() + 1).padStart(2, "0"));
@@ -176,7 +197,6 @@ export default function RecuForm() {
     if (id) {
       fetchRecu();
     } else if (parametres) {
-      generateNumeroFacture(parametres, Number(annee));
       // Préremplissage depuis la vente rapide (params passés par /vente)
       if (prefill_article) setArticle(prefill_article as string);
       if (prefill_couleur) setCouleur(prefill_couleur as string);
@@ -191,61 +211,23 @@ export default function RecuForm() {
     }
   }, [parametres]);
 
-  // Quand l'année change (et qu'on est en création), régénérer le numéro
-  useEffect(() => {
-    if (!id && parametres) {
-      const yr = Number(annee);
-      if (!isNaN(yr) && yr > 1900) {
-        generateNumeroFacture(parametres, yr);
-      }
-    }
-  }, [annee]);
-
   const fetchParametres = async () => {
     setLoadingParams(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    try {
+      const data = await api.getEnterpriseSettings();
+      setParametres(data);
+    } catch {
+      setParametres(null);
+    } finally {
       setLoadingParams(false);
-      return;
     }
-    const { data } = await supabase
-      .from("entreprise_parametres")
-      .select("*")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    setParametres(data);
-    setLoadingParams(false);
-  };
-
-  const generateNumeroFacture = async (params: any, yr: number) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const prefix = (params?.prefix_facture || "XX").toUpperCase();
-
-    // Récupérer la séquence max de l'utilisateur pour cette année
-    const { data } = await supabase
-      .from("recus")
-      .select("sequence_num")
-      .eq("user_id", user.id)
-      .eq("year", yr)
-      .order("sequence_num", { ascending: false })
-      .limit(1);
-
-    const nextSeq = data && data.length > 0 ? Number(data[0].sequence_num) + 1 : 1;
-    const seqStr = String(nextSeq).padStart(5, "0");
-    setNumeroFacture(`${prefix}_${seqStr}_${yr}`);
-    setSequenceNum(nextSeq);
-    setYear(yr);
   };
 
   const fetchRecu = async () => {
-    const { data, error } = await supabase
-      .from("recus")
-      .select("*")
-      .eq("id", id)
-      .single();
-    if (error || !data) {
+    let data: any;
+    try {
+      data = await api.getRecu(String(id));
+    } catch {
       Alert.alert("Erreur", "Impossible de charger ce réçu.");
       return;
     }
@@ -320,9 +302,6 @@ export default function RecuForm() {
       );
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return Alert.alert("Erreur", "Utilisateur non connecté");
-
     if (!nomClient.trim()) return Alert.alert("Erreur", "Nom du client requis.");
     if (!signatureVendeur) return Alert.alert("Erreur", "Signature du vendeur requise.");
     if (!signatureClient) return Alert.alert("Erreur", "Signature du client requise.");
@@ -333,31 +312,11 @@ export default function RecuForm() {
     const mm = mois.padStart(2, "0");
     const aaaa = annee.padStart(4, "0");
     const dateBDD = `${aaaa}-${mm}-${jj}`;
-    const yr = Number(aaaa);
 
-    let finalNumero = numeroFacture;
-    let finalSeq = sequenceNum;
-
-    if (!id) {
-      // Re-générer juste avant l'insert pour éviter les collisions
-      const prefix = (parametres.prefix_facture || "XX").toUpperCase();
-      const { data: maxData } = await supabase
-        .from("recus")
-        .select("sequence_num")
-        .eq("user_id", user.id)
-        .eq("year", yr)
-        .order("sequence_num", { ascending: false })
-        .limit(1);
-      finalSeq = maxData && maxData.length > 0 ? Number(maxData[0].sequence_num) + 1 : 1;
-      finalNumero = `${prefix}_${String(finalSeq).padStart(5, "0")}_${yr}`;
-    }
-
-    const payload = {
-      annee_mois_id: dossierId,
-      user_id: user.id,
-      numero_facture: finalNumero,
-      sequence_num: finalSeq,
-      year: yr,
+    // Le numéro de facture (préfixe, séquence, année) est généré côté serveur
+    // (verrou atomique sur le dossier) — on ne le calcule plus ici.
+    const form = buildFormData({
+      annee_mois_id: id ? null : dossierId,
       date: dateBDD,
       nom_client: nomClient,
       adresse_client: adresseClient,
@@ -371,35 +330,36 @@ export default function RecuForm() {
       prix_unitaire: Number(prixUnitaire.replace(/\s/g, "").replace(",", ".")) || 0,
       prix_total: Number(prixTotal.replace(/\s/g, "").replace(",", ".")) || 0,
       prix_total_lettres: prixTotalLettres,
-      signature_vendeur: signatureVendeur,
-      signature_client: signatureClient,
-    };
+    });
 
-    let result;
-    if (id) {
-      result = await supabase.from("recus").update(payload).eq("id", id);
-    } else {
-      result = await supabase.from("recus").insert([payload]);
+    await appendMaybeImage(form, "signature_vendeur", localOnly(signatureVendeur));
+    await appendMaybeImage(form, "signature_client", localOnly(signatureClient));
+
+    let saved: any;
+    try {
+      saved = id ? await api.updateRecu(String(id), form) : await api.createRecu(form);
+    } catch (e: any) {
+      setSaving(false);
+      Alert.alert("Erreur", e.message || "Échec de l'enregistrement.");
+      return;
     }
-    setSaving(false);
 
-    if (result.error) {
-      Alert.alert("Erreur", result.error.message);
-    } else {
-      // Marquer la moto comme vendue dans le stock
-      if (moto_id && !id) {
-        await supabase
-          .from("motos")
-          .update({
-            statut: "vendu",
-            date_vente: dateBDD,
-            nom_acheteur: nomClient || null,
-          })
-          .eq("id", moto_id as string);
+    // Marquer la moto comme vendue dans le stock
+    if (moto_id && !id) {
+      try {
+        await api.updateMoto(moto_id as string, {
+          statut: "vendu",
+          date_vente: dateBDD,
+          nom_acheteur: nomClient || null,
+        });
+      } catch {
+        // Non bloquant : le reçu est déjà enregistré, seul le statut de la moto n'a pas pu être mis à jour.
       }
-      Alert.alert("Succès", `Réçu enregistré ! N° ${finalNumero}`);
-      router.back();
     }
+
+    setSaving(false);
+    Alert.alert("Succès", `Réçu enregistré ! N° ${saved?.numero_facture || numeroFacture}`);
+    router.back();
   };
 
   if (loadingParams) {
@@ -654,6 +614,7 @@ export default function RecuForm() {
         <SignatureBlock
           title="Signature du Vendeur :"
           signatureString={signatureVendeur}
+          remoteUrl={remoteFileUrl("signature_vendeur")}
           onScrollLock={(locked) => setScrollEnabled(!locked)}
           onValidate={setSignatureVendeur}
           onClear={() => setSignatureVendeur(null)}
@@ -661,6 +622,7 @@ export default function RecuForm() {
         <SignatureBlock
           title="Signature du Client :"
           signatureString={signatureClient}
+          remoteUrl={remoteFileUrl("signature_client")}
           onScrollLock={(locked) => setScrollEnabled(!locked)}
           onValidate={setSignatureClient}
           onClear={() => setSignatureClient(null)}

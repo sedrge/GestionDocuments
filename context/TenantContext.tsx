@@ -1,11 +1,11 @@
-import React, {
-    createContext,
-    ReactNode,
-    useContext,
-    useEffect,
-    useState,
+import {
+  createContext,
+  ReactNode,
+  useContext,
+  useEffect,
+  useState,
 } from "react";
-import { supabase } from "../lib/supabase";
+import { api, getToken } from "../lib/api";
 
 export interface TenantInfo {
   enterprise_id: string;
@@ -18,7 +18,11 @@ export interface TenantInfo {
   is_user_active: boolean;
 }
 
-export type PendingState = "enterprise_pending" | "user_pending" | "no_enterprise" | null;
+export type PendingState =
+  | "enterprise_pending"
+  | "user_pending"
+  | "no_enterprise"
+  | null;
 
 interface TenantContextType {
   tenant: TenantInfo | null;
@@ -39,7 +43,10 @@ const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
 export const TenantProvider = ({ children }: { children: ReactNode }) => {
   const [realTenant, setRealTenant] = useState<TenantInfo | null>(null);
-  const [impersonation, setImpersonation] = useState<{ enterprise_id: string; enterprise_name: string } | null>(null);
+  const [impersonation, setImpersonation] = useState<{
+    enterprise_id: string;
+    enterprise_name: string;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -51,34 +58,25 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
       setError(null);
       setPendingState(null);
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData.session?.user) {
+      const token = await getToken();
+      if (!token) {
         setIsAuthenticated(false);
         setRealTenant(null);
         return;
       }
 
+      const userData = await api.me();
       setIsAuthenticated(true);
-      const userId = sessionData.session.user.id;
 
-      // 1. Super-admin
-      const { data: superAdminData, error: superAdminError } = await supabase
-        .from("super_admins")
-        .select("id")
-        .eq("user_id", userId)
-        .single();
+      const user = userData.user;
 
-      if (superAdminError && superAdminError.code !== 'PGRST116') {
-        console.warn('[TenantContext] super_admins query error:', superAdminError.code, superAdminError.message);
-      }
-
-      if (superAdminData) {
+      if (userData.is_super_admin) {
         setRealTenant({
           enterprise_id: "",
           enterprise_name: "Super-Admin",
           enterprise_code: "",
           enterprise_logo_url: null,
-          user_id: userId,
+          user_id: user.id,
           user_role: "super_admin",
           is_enterprise_active: true,
           is_user_active: true,
@@ -86,55 +84,47 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      // 2. Admin d'entreprise (actif ou en attente)
-      const { data: adminData } = await supabase
-        .from("enterprise_admins")
-        .select(
-          "enterprise_id, user_id, is_active, enterprises(id, name, code, logo_url, is_active)"
-        )
-        .eq("user_id", userId)
-        .single();
-
-      if (adminData && adminData.enterprises) {
-        const enterprise = adminData.enterprises as any;
+      // 2. Admin d'entreprise
+      if (
+        userData.enterprise_admin_of &&
+        userData.enterprise_admin_of.length > 0
+      ) {
+        const enterprise = userData.enterprise_admin_of[0];
         setRealTenant({
           enterprise_id: enterprise.id,
           enterprise_name: enterprise.name,
           enterprise_code: enterprise.code,
           enterprise_logo_url: enterprise.logo_url,
-          user_id: userId,
+          user_id: user.id,
           user_role: "enterprise_admin",
           is_enterprise_active: enterprise.is_active,
-          is_user_active: adminData.is_active ?? true,
+          is_user_active: enterprise.is_user_active,
         });
-        if (!enterprise.is_active) {
+        if (!enterprise.is_user_active) {
+          setPendingState("user_pending");
+        } else if (!enterprise.is_active) {
           setPendingState("enterprise_pending");
         }
         return;
       }
 
-      // 3. Utilisateur d'entreprise (actif ou en attente)
-      const { data: userData } = await supabase
-        .from("enterprise_users")
-        .select(
-          "enterprise_id, is_active, enterprises(id, name, code, logo_url, is_active)"
-        )
-        .eq("user_id", userId)
-        .single();
-
-      if (userData && userData.enterprises) {
-        const enterprise = userData.enterprises as any;
+      // 3. Membre d'entreprise
+      if (
+        userData.enterprise_member_of &&
+        userData.enterprise_member_of.length > 0
+      ) {
+        const enterprise = userData.enterprise_member_of[0];
         setRealTenant({
           enterprise_id: enterprise.id,
           enterprise_name: enterprise.name,
           enterprise_code: enterprise.code,
           enterprise_logo_url: enterprise.logo_url,
-          user_id: userId,
+          user_id: user.id,
           user_role: "user",
           is_enterprise_active: enterprise.is_active,
-          is_user_active: userData.is_active,
+          is_user_active: enterprise.is_user_active,
         });
-        if (!userData.is_active) {
+        if (!enterprise.is_user_active) {
           setPendingState("user_pending");
         } else if (!enterprise.is_active) {
           setPendingState("enterprise_pending");
@@ -155,16 +145,6 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     loadTenant();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      loadTenant();
-    });
-
-    return () => {
-      subscription?.unsubscribe();
-    };
   }, []);
 
   // Impersonation — super admin emprunte l'identité d'une entreprise
@@ -180,7 +160,10 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
       }
     : realTenant;
 
-  const startImpersonation = (enterprise_id: string, enterprise_name: string) => {
+  const startImpersonation = (
+    enterprise_id: string,
+    enterprise_name: string,
+  ) => {
     setImpersonation({ enterprise_id, enterprise_name });
   };
 

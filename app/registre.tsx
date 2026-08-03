@@ -17,13 +17,26 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import SignatureCanvas from "react-native-signature-canvas";
+import { AuthImage } from "../components/AuthImage";
 import { nombreEnLettres } from "../lib/nombreEnLettres";
-import { supabase } from "../lib/supabase";
+import { api } from "../lib/api";
+import { appendMaybeImage, buildFormData } from "../lib/formUpload";
+
+// Une valeur "locale" (data:/file:/content:) vient d'être capturée sur cet
+// écran ; une valeur "distante" est un chemin de stockage renvoyé par le
+// serveur (mode édition) — pas directement affichable, ni à ré-uploader.
+function isLocalUri(v: string | null): boolean {
+  return !!v && (v.startsWith("data:") || v.includes("://"));
+}
+function localOnly(v: string | null): string | null {
+  return isLocalUri(v) ? v : null;
+}
 
 // ─── Composant signature isolé ───────────────────────────────────────────────
 interface SignatureBlockProps {
   title: string;
   signatureString: string | null;
+  remoteUrl?: string;
   onScrollLock: (locked: boolean) => void;
   onValidate: (sig: string) => void;
   onClear: () => void;
@@ -38,6 +51,7 @@ const webStyle = `
 function SignatureBlock({
   title,
   signatureString,
+  remoteUrl,
   onScrollLock,
   onValidate,
   onClear,
@@ -83,11 +97,15 @@ function SignatureBlock({
       {signatureString ? (
         <View style={sigStyles.previewContainer}>
           <Text style={{ fontSize: 12, color: "gray" }}>Signature mémorisée ✓</Text>
-          <Image
-            source={{ uri: signatureString }}
-            style={sigStyles.sigPreview}
-            resizeMode="contain"
-          />
+          {isLocalUri(signatureString) ? (
+            <Image
+              source={{ uri: signatureString }}
+              style={sigStyles.sigPreview}
+              resizeMode="contain"
+            />
+          ) : remoteUrl ? (
+            <AuthImage uri={remoteUrl} style={sigStyles.sigPreview} resizeMode="contain" />
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -98,12 +116,13 @@ function SignatureBlock({
 interface PhotoPickerProps {
   label: string;
   uri: string | null;
+  remoteUrl?: string;
   aspect: [number, number];
   onPick: () => void;
   onClear: () => void;
 }
 
-function PhotoPicker({ label, uri, aspect, onPick, onClear }: PhotoPickerProps) {
+function PhotoPicker({ label, uri, remoteUrl, aspect, onPick, onClear }: PhotoPickerProps) {
   const ratio = aspect[0] / aspect[1];
   return (
     <View style={photoStyles.container}>
@@ -113,8 +132,10 @@ function PhotoPicker({ label, uri, aspect, onPick, onClear }: PhotoPickerProps) 
         style={[photoStyles.zone, { aspectRatio: ratio }]}
         activeOpacity={0.7}
       >
-        {uri ? (
+        {uri && isLocalUri(uri) ? (
           <Image source={{ uri }} style={photoStyles.preview} resizeMode="cover" />
+        ) : remoteUrl ? (
+          <AuthImage uri={remoteUrl} style={photoStyles.preview} resizeMode="cover" />
         ) : (
           <View style={photoStyles.empty}>
             <View style={photoStyles.frameGuide} />
@@ -179,6 +200,9 @@ export default function RegistreForm() {
   const { dossierId, id } = useLocalSearchParams();
   const router = useRouter();
 
+  const remoteFileUrl = (field: string) =>
+    id ? api.fileUrl("registres", String(id), field) : undefined;
+
   const getTodayDateFR = () => {
     const now = new Date();
     const j = String(now.getDate()).padStart(2, "0");
@@ -230,14 +254,12 @@ export default function RegistreForm() {
 
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data } = await supabase
-        .from("entreprise_parametres")
-        .select("nom_entreprise")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (data?.nom_entreprise) setNomEntreprise(data.nom_entreprise);
+      try {
+        const parametres = await api.getEnterpriseSettings();
+        if (parametres?.nom_entreprise) setNomEntreprise(parametres.nom_entreprise);
+      } catch {
+        // Pas bloquant : le champ lieu du RDV restera vide, l'utilisateur peut le compléter.
+      }
     })();
   }, []);
 
@@ -254,27 +276,20 @@ export default function RegistreForm() {
   const besoinRDV = !motoRecuperee || !documentsRecuperes;
 
   const lookupMotoFromDB = async (chassis: string, immat: string) => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return null;
-
     const c = chassis.trim();
     const i = immat.trim();
     if (!c && !i) return null;
 
-    const orClauses: string[] = [];
-    if (c) orClauses.push(`numero_chassis.eq.${c}`);
-    if (i) orClauses.push(`immatriculation.eq.${i}`);
-
-    const { data } = await supabase
-      .from("motos")
-      .select("*")
-      .eq("user_id", user.id)
-      .or(orClauses.join(","))
-      .limit(1);
-
-    return data && data.length > 0 ? data[0] : null;
+    try {
+      const motos = await api.listMyMotos();
+      const found = (motos?.data ?? motos ?? []).find(
+        (m: any) =>
+          (c && m.numero_chassis === c) || (i && m.immatriculation === i),
+      );
+      return found ?? null;
+    } catch {
+      return null;
+    }
   };
 
   const handleMotoLookup = async () => {
@@ -324,10 +339,9 @@ export default function RegistreForm() {
             allowsEditing: true,
             aspect,
             quality: 0.5,
-            base64: true,
           });
-          if (!result.canceled && result.assets?.[0]?.base64) {
-            setter(`data:image/jpeg;base64,${result.assets[0].base64}`);
+          if (!result.canceled && result.assets?.[0]?.uri) {
+            setter(result.assets[0].uri);
           }
         },
       },
@@ -339,10 +353,9 @@ export default function RegistreForm() {
             allowsEditing: true,
             aspect,
             quality: 0.5,
-            base64: true,
           });
-          if (!result.canceled && result.assets?.[0]?.base64) {
-            setter(`data:image/jpeg;base64,${result.assets[0].base64}`);
+          if (!result.canceled && result.assets?.[0]?.uri) {
+            setter(result.assets[0].uri);
           }
         },
       },
@@ -355,13 +368,10 @@ export default function RegistreForm() {
   }, [id]);
 
   const fetchRegistre = async () => {
-    const { data, error } = await supabase
-      .from("registres")
-      .select("*")
-      .eq("id", id)
-      .single();
-
-    if (error || !data) {
+    let data: any;
+    try {
+      data = await api.getRegistre(String(id));
+    } catch {
       Alert.alert("Erreur", "Impossible de charger ce registre.");
       return;
     }
@@ -397,10 +407,6 @@ export default function RegistreForm() {
   };
 
   const handleSave = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return Alert.alert("Erreur", "Utilisateur non connecté");
     if (!nomPrenom.trim()) return Alert.alert("Erreur", "Nom & prénom requis.");
 
     if (motoRecuperee && !signatureMoto) {
@@ -428,7 +434,16 @@ export default function RegistreForm() {
       dateBDD = `${parts[2]}-${parts[1]}-${parts[0]}`;
     }
 
-    const registreData = {
+    // Validation rendez-vous : si la moto ou les documents ne sont pas récupérés
+    // et que l'auto-création est cochée, on exige au moins la date
+    if (!id && besoinRDV && autoCreerRDV && !rdvDate.trim()) {
+      return Alert.alert(
+        "Rendez-vous requis",
+        "Veuillez préciser la date du rendez-vous pour la récupération (ou décochez la création automatique du rendez-vous).",
+      );
+    }
+
+    const form = buildFormData({
       date: dateBDD,
       nom_prenom: nomPrenom,
       telephone,
@@ -442,54 +457,36 @@ export default function RegistreForm() {
       moto_recuperee: motoRecuperee,
       documents_recuperes: documentsRecuperes,
       types_documents: documentsRecuperes ? typesDocuments : null,
-      signature_uri: motoRecuperee ? signatureMoto : null,
-      signature_documents_uri: documentsRecuperes ? signatureDocuments : null,
       client_id_type: clientIdType,
-      client_id_recto: clientIdRecto,
-      client_id_verso: clientIdType === "passport" ? null : clientIdVerso,
-      carte_grise_recto: carteGriseRecto,
-      carte_grise_verso: carteGriseVerso,
-      certificat_vente: certificatVente,
-      annee_mois_id: dossierId,
-      user_id: user.id,
-    };
+      annee_mois_id: id ? null : dossierId,
+    });
 
-    // Validation rendez-vous : si la moto ou les documents ne sont pas récupérés
-    // et que l'auto-création est cochée, on exige au moins la date
-    if (!id && besoinRDV && autoCreerRDV && !rdvDate.trim()) {
-      return Alert.alert(
-        "Rendez-vous requis",
-        "Veuillez préciser la date du rendez-vous pour la récupération (ou décochez la création automatique du rendez-vous).",
-      );
+    // Les champs fichiers ne sont ajoutés que s'ils contiennent une NOUVELLE
+    // capture locale (data:/file:) — une valeur "à distance" (chemin renvoyé
+    // par le serveur en mode édition) signifie "inchangé", on ne la ré-envoie pas.
+    await appendMaybeImage(form, "signature_uri", motoRecuperee ? localOnly(signatureMoto) : null);
+    await appendMaybeImage(form, "signature_documents_uri", documentsRecuperes ? localOnly(signatureDocuments) : null);
+    await appendMaybeImage(form, "client_id_recto", localOnly(clientIdRecto));
+    if (clientIdType !== "passport") {
+      await appendMaybeImage(form, "client_id_verso", localOnly(clientIdVerso));
     }
+    await appendMaybeImage(form, "carte_grise_recto", localOnly(carteGriseRecto));
+    await appendMaybeImage(form, "carte_grise_verso", localOnly(carteGriseVerso));
+    await appendMaybeImage(form, "certificat_vente", localOnly(certificatVente));
 
-    let result;
-    let insertedRegistreId: string | null = id ? String(id) : null;
-    if (id) {
-      result = await supabase
-        .from("registres")
-        .update(registreData)
-        .eq("id", id);
-    } else {
-      result = await supabase
-        .from("registres")
-        .insert([registreData])
-        .select("id")
-        .single();
-      if ((result as any).data?.id) {
-        insertedRegistreId = (result as any).data.id;
-      }
-    }
-
-    if (result.error) {
-      Alert.alert("Erreur", result.error.message);
+    let saved: any;
+    try {
+      saved = id ? await api.updateRegistre(String(id), form) : await api.createRegistre(form);
+    } catch (e: any) {
+      Alert.alert("Erreur", e.message || "Échec de l'enregistrement.");
       return;
     }
+    const insertedRegistreId: string | null = id ? String(id) : saved?.id ?? null;
 
     // Auto-création du reçu correspondant (uniquement en création de registre)
     let recuMessage = "";
     if (!id && autoCreerRecu) {
-      const recuRes = await autoCreateRecu(user.id, dateBDD);
+      const recuRes = await autoCreateRecu(dateBDD);
       if (recuRes.ok) {
         recuMessage = `\nRéçu auto-créé : ${recuRes.numero}. À compléter dans la partie Réçus (signatures, prix, etc.).`;
       } else if (recuRes.warning) {
@@ -500,7 +497,7 @@ export default function RegistreForm() {
     // Auto-création du rendez-vous (uniquement en création de registre et si besoin)
     let rdvMessage = "";
     if (!id && besoinRDV && autoCreerRDV) {
-      const rdvRes = await autoCreateRDV(user.id, insertedRegistreId);
+      const rdvRes = await autoCreateRDV(insertedRegistreId);
       if (rdvRes.ok) {
         rdvMessage = `\nRendez-vous programmé : ${rdvRes.date}${rdvRes.heure ? " à " + rdvRes.heure : ""}.`;
       } else if (rdvRes.warning) {
@@ -514,7 +511,6 @@ export default function RegistreForm() {
 
   // Crée un rendez-vous lié au registre pour la récupération restante
   const autoCreateRDV = async (
-    userId: string,
     registreLinkId: string | null,
   ): Promise<{ ok: boolean; date?: string; heure?: string; warning?: string }> => {
     if (!rdvDate.trim()) {
@@ -531,71 +527,50 @@ export default function RegistreForm() {
     const motif = computeMotifRDV() || "Récupération";
     const lieuFinal = nomEntreprise || "Siège de l'entreprise";
 
-    const payload = {
-      user_id: userId,
-      date_rdv: dateBDD,
-      heure_rdv: rdvHeure.trim() || null,
-      lieu: lieuFinal,
-      nom_prenom: nomPrenom.trim(),
-      telephone: telephone.trim() || null,
-      motif,
-      description: typesDocuments.trim()
-        ? `Documents concernés : ${typesDocuments.trim()}`
-        : null,
-      statut: "en_attente",
-      registre_id: registreLinkId,
-    };
-
-    const { error } = await supabase.from("rendez_vous").insert([payload]);
-    if (error) {
-      return { ok: false, warning: `Rendez-vous non créé : ${error.message}` };
+    try {
+      await api.createRendezVous({
+        date_rdv: dateBDD,
+        heure_rdv: rdvHeure.trim() || null,
+        lieu: lieuFinal,
+        nom_prenom: nomPrenom.trim(),
+        telephone: telephone.trim() || null,
+        motif,
+        description: typesDocuments.trim()
+          ? `Documents concernés : ${typesDocuments.trim()}`
+          : null,
+        statut: "en_attente",
+        registre_id: registreLinkId,
+      });
+      return { ok: true, date: rdvDate, heure: rdvHeure };
+    } catch (e: any) {
+      return { ok: false, warning: `Rendez-vous non créé : ${e.message}` };
     }
-    return { ok: true, date: rdvDate, heure: rdvHeure };
   };
 
   // Cherche (ou crée) le dossier annees_mois_recu portant le même nom que le dossier registre courant
-  const findOrCreateRecuDossier = async (userId: string): Promise<string | null> => {
-    // Récupère le nom du dossier registre actuel
-    const { data: dossierRegistre } = await supabase
-      .from("annees_mois")
-      .select("nom")
-      .eq("id", dossierId)
-      .maybeSingle();
-
+  const findOrCreateRecuDossier = async (): Promise<string | null> => {
+    const dossiers = await api.listAnneesMois();
+    const dossierRegistre = (dossiers ?? []).find((d: any) => d.id === dossierId);
     const nomDossier = dossierRegistre?.nom?.trim();
     if (!nomDossier) return null;
 
-    // Existe déjà côté reçus ?
-    const { data: existing } = await supabase
-      .from("annees_mois_recu")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("nom", nomDossier)
-      .maybeSingle();
-
+    const dossiersRecu = await api.listAnneesMoisRecu();
+    const existing = (dossiersRecu ?? []).find((d: any) => d.nom === nomDossier);
     if (existing?.id) return existing.id;
 
-    // Sinon on crée
-    const { data: created, error } = await supabase
-      .from("annees_mois_recu")
-      .insert([{ nom: nomDossier, user_id: userId }])
-      .select("id")
-      .single();
-
-    if (error || !created) return null;
-    return created.id;
+    try {
+      const created = await api.createAnneeMoisRecu({ nom: nomDossier });
+      return created?.id ?? null;
+    } catch {
+      return null;
+    }
   };
 
   const autoCreateRecu = async (
-    userId: string,
     dateBDD: string,
   ): Promise<{ ok: boolean; numero?: string; warning?: string }> => {
     // Vérifie les paramètres entreprise (préfixe facture obligatoire)
-    const { data: parametres } = await supabase
-      .from("entreprise_parametres")
-      .select("*")
-      .eq("user_id", userId)
-      .maybeSingle();
+    const parametres = await api.getEnterpriseSettings().catch(() => null);
 
     if (!parametres || !parametres.nom_entreprise) {
       return {
@@ -613,27 +588,13 @@ export default function RegistreForm() {
     }
 
     // Dossier reçus correspondant
-    const recuDossierId = await findOrCreateRecuDossier(userId);
+    const recuDossierId = await findOrCreateRecuDossier();
     if (!recuDossierId) {
       return {
         ok: false,
         warning: "Réçu non créé : dossier reçus introuvable.",
       };
     }
-
-    // Numéro de facture
-    const yr = Number(dateBDD.split("-")[0]);
-    const prefix = (parametres.prefix_facture || "XX").toUpperCase();
-    const { data: maxData } = await supabase
-      .from("recus")
-      .select("sequence_num")
-      .eq("user_id", userId)
-      .eq("year", yr)
-      .order("sequence_num", { ascending: false })
-      .limit(1);
-    const seq =
-      maxData && maxData.length > 0 ? Number(maxData[0].sequence_num) + 1 : 1;
-    const numero = `${prefix}_${String(seq).padStart(5, "0")}_${yr}`;
 
     // Adresse client : le formulaire reçu n'a pas de champ téléphone, on l'injecte ici comme amorce
     const adresseClient = telephone.trim() ? `Tél: ${telephone.trim()}` : "";
@@ -642,12 +603,10 @@ export default function RegistreForm() {
     const prixTotal = prixUnitaire; // quantité 1 par défaut
     const prixLettres = prixTotal > 0 ? nombreEnLettres(prixTotal) : "";
 
-    const payload = {
+    // Le numéro de facture (préfixe, séquence, année) est désormais généré
+    // côté serveur (verrou atomique) — plus besoin de le calculer ici.
+    const form = buildFormData({
       annee_mois_id: recuDossierId,
-      user_id: userId,
-      numero_facture: numero,
-      sequence_num: seq,
-      year: yr,
       date: dateBDD,
       nom_client: nomPrenom,
       adresse_client: adresseClient,
@@ -661,15 +620,14 @@ export default function RegistreForm() {
       prix_unitaire: prixUnitaire,
       prix_total: prixTotal,
       prix_total_lettres: prixLettres,
-      signature_vendeur: null,
-      signature_client: null,
-    };
+    });
 
-    const { error } = await supabase.from("recus").insert([payload]);
-    if (error) {
-      return { ok: false, warning: `Réçu non créé : ${error.message}` };
+    try {
+      const created = await api.createRecu(form);
+      return { ok: true, numero: created?.numero_facture };
+    } catch (e: any) {
+      return { ok: false, warning: `Réçu non créé : ${e.message}` };
     }
-    return { ok: true, numero };
   };
 
   return (
@@ -838,6 +796,7 @@ export default function RegistreForm() {
         <PhotoPicker
           label={clientIdType === "passport" ? "Passeport (recto)" : "CNIB — Recto"}
           uri={clientIdRecto}
+          remoteUrl={remoteFileUrl("client_id_recto")}
           aspect={clientIdType === "passport" ? PASSPORT_ASPECT : ID_ASPECT}
           onPick={() =>
             pickPhoto(
@@ -851,6 +810,7 @@ export default function RegistreForm() {
           <PhotoPicker
             label="CNIB — Verso"
             uri={clientIdVerso}
+            remoteUrl={remoteFileUrl("client_id_verso")}
             aspect={ID_ASPECT}
             onPick={() => pickPhoto(setClientIdVerso, ID_ASPECT)}
             onClear={() => setClientIdVerso(null)}
@@ -862,6 +822,7 @@ export default function RegistreForm() {
         <PhotoPicker
           label="Carte grise — Recto"
           uri={carteGriseRecto}
+          remoteUrl={remoteFileUrl("carte_grise_recto")}
           aspect={ID_ASPECT}
           onPick={() => pickPhoto(setCarteGriseRecto, ID_ASPECT)}
           onClear={() => setCarteGriseRecto(null)}
@@ -869,6 +830,7 @@ export default function RegistreForm() {
         <PhotoPicker
           label="Carte grise — Verso"
           uri={carteGriseVerso}
+          remoteUrl={remoteFileUrl("carte_grise_verso")}
           aspect={ID_ASPECT}
           onPick={() => pickPhoto(setCarteGriseVerso, ID_ASPECT)}
           onClear={() => setCarteGriseVerso(null)}
@@ -879,6 +841,7 @@ export default function RegistreForm() {
         <PhotoPicker
           label="Certificat de vente"
           uri={certificatVente}
+          remoteUrl={remoteFileUrl("certificat_vente")}
           aspect={CERT_ASPECT}
           onPick={() => pickPhoto(setCertificatVente, CERT_ASPECT)}
           onClear={() => setCertificatVente(null)}
@@ -927,6 +890,7 @@ export default function RegistreForm() {
               <SignatureBlock
                 title="Récupération moto :"
                 signatureString={signatureMoto}
+                remoteUrl={remoteFileUrl("signature_uri")}
                 onScrollLock={(locked) => setScrollEnabled(!locked)}
                 onValidate={setSignatureMoto}
                 onClear={() => setSignatureMoto(null)}
@@ -936,6 +900,7 @@ export default function RegistreForm() {
               <SignatureBlock
                 title="Récupération documents :"
                 signatureString={signatureDocuments}
+                remoteUrl={remoteFileUrl("signature_documents_uri")}
                 onScrollLock={(locked) => setScrollEnabled(!locked)}
                 onValidate={setSignatureDocuments}
                 onClear={() => setSignatureDocuments(null)}

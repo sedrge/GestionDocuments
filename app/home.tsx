@@ -1,20 +1,18 @@
-import { Ionicons } from '@expo/vector-icons';
-import { decode } from 'base64-arraybuffer';
-import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
-//import { File } from 'expo-file-system'; // Nouvelle API du SDK 54+
+import { Ionicons } from "@expo/vector-icons";
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system";
 import { File, Paths } from "expo-file-system";
-import * as ImagePicker from 'expo-image-picker';
-import * as LocalAuthentication from 'expo-local-authentication';
-import { router } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
-import * as Sharing from 'expo-sharing';
-import * as WebBrowser from 'expo-web-browser';
-import { HamburgerMenu } from '../components/HamburgerMenu';
-import { useTheme } from '../context/ThemeContext';
+import * as ImagePicker from "expo-image-picker";
+import * as LocalAuthentication from "expo-local-authentication";
+import { router } from "expo-router";
+import * as SecureStore from "expo-secure-store";
+import * as Sharing from "expo-sharing";
+import * as WebBrowser from "expo-web-browser";
+import { HamburgerMenu } from "../components/HamburgerMenu";
+import { useTheme } from "../context/ThemeContext";
 
-import React, { useCallback, useEffect, useState } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -28,19 +26,15 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { supabase } from '../lib/supabase';
-import { useTenant } from '../context/TenantContext';
-import { useFeatureFlags } from '../context/FeatureFlagsContext';
-import {
-  countUnreadNotifications,
-  ensureNotificationPermissions,
-} from '../lib/notifications';
-import { logAction } from '../lib/auditLog';
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useFeatureFlags } from "../context/FeatureFlagsContext";
+import { useTenant } from "../context/TenantContext";
+import { api } from "../lib/api";
+import { ensureNotificationPermissions } from "../lib/notifications";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
 // --- TYPES & INTERFACES ---
 interface Doc {
@@ -69,78 +63,71 @@ function HomeScreenContent() {
   const { theme, toggleTheme, isDark } = useTheme();
   const { tenant, isEnterpriseAdmin, isSuperAdmin } = useTenant();
   const { enabledFeatures } = useFeatureFlags();
-  
+
   const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
-  const [search, setSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(
+    null,
+  );
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
-  
-  const [viewMode, setViewMode] = useState<'list' | 'details' | 'grid'>('list');
-  
-  const [isModalVisible, setIsModalVisible] = useState(false); 
-  const [isAddDocModal, setIsAddDocModal] = useState(false); 
+
+  const [viewMode, setViewMode] = useState<"list" | "details" | "grid">("list");
+
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isAddDocModal, setIsAddDocModal] = useState(false);
   const [editingDoc, setEditingDoc] = useState<Doc | null>(null);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [isPinModalVisible, setIsPinModalVisible] = useState(false);
-  
-  const [newDocTitle, setNewDocTitle] = useState('');
+
+  const [newDocTitle, setNewDocTitle] = useState("");
   const [tempFile, setTempFile] = useState<any>(null);
-  const [newCatName, setNewCatName] = useState('');
-  const [newPin, setNewPin] = useState('');
+  const [newCatName, setNewCatName] = useState("");
+  const [newPin, setNewPin] = useState("");
 
   const [unreadNotif, setUnreadNotif] = useState(0);
-  const [permittedKeys, setPermittedKeys] = useState<Set<string> | undefined>(undefined);
+  const [permittedKeys, setPermittedKeys] = useState<Set<string> | undefined>(
+    undefined,
+  );
 
-  useEffect(() => { fetchData(); fetchUnread(); ensureNotificationPermissions(); loadMenuPermissions(); }, []);
-
-  const loadMenuPermissions = async () => {
-    // Les admins voient tout sans restriction
-    if (isEnterpriseAdmin || isSuperAdmin) return;
-    if (!tenant?.enterprise_id) return;
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase
-      .from('user_menu_permissions')
-      .select('menu_key, is_enabled')
-      .eq('enterprise_id', tenant.enterprise_id)
-      .eq('user_id', user.id);
-    // Si aucune ligne → aucune restriction (undefined = tout visible)
-    if (!data || data.length === 0) return;
-    const allowed = new Set(data.filter((r: any) => r.is_enabled).map((r: any) => r.menu_key as string));
-    setPermittedKeys(allowed);
-  };
+  useEffect(() => {
+    fetchData();
+    fetchUnread();
+    ensureNotificationPermissions();
+  }, []);
 
   // Rafraîchit le compteur de notifications non lues à chaque retour sur l'écran
-  useFocusEffect(useCallback(() => { fetchUnread(); }, []));
+  useFocusEffect(
+    useCallback(() => {
+      fetchUnread();
+    }, []),
+  );
 
   const fetchUnread = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const n = await countUnreadNotifications(user.id);
-    setUnreadNotif(n);
+    try {
+      const data = await api.countUnreadNotifications();
+      setUnreadNotif(data.count);
+    } catch (e) {
+      console.error("Error fetching unread notifications:", e);
+    }
   };
 
   const fetchData = async () => {
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (user) {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*, documents(*)')
-        .eq('user_id', user.id) // Filtrage multi-utilisateur
-        .order('nom');
-
-      if (data) {
-        setCategories(data as Category[]);
-        if (selectedCategory) {
-          const updated = (data as Category[]).find((c: Category) => c.id === selectedCategory.id);
-          if (updated) setSelectedCategory(updated);
-        }
+    try {
+      const data = await api.listCategories();
+      setCategories(data);
+      if (selectedCategory) {
+        const updated = data.find(
+          (c: Category) => c.id === selectedCategory.id,
+        );
+        if (updated) setSelectedCategory(updated);
       }
+    } catch (e: any) {
+      console.error("Error fetching categories:", e);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleUpdateLogo = async () => {
@@ -155,211 +142,150 @@ function HomeScreenContent() {
       const sourceUri = result.assets[0].uri;
       const fileName = `app_logo_${Date.now()}.png`;
       const docUri = Paths.document.uri;
-      //const destinationUri = `${FileSystem.documentDirectory}${fileName}`;
       const destinationUri = `${docUri}${fileName}`;
       try {
         await FileSystem.copyAsync({ from: sourceUri, to: destinationUri });
-        await SecureStore.setItemAsync('APP_LOGO_URI', destinationUri);
-        Alert.alert('Succès', 'Logo mis à jour.');
-      } catch (e) { Alert.alert('Erreur', 'Impossible de sauvegarder.'); }
+        await SecureStore.setItemAsync("APP_LOGO_URI", destinationUri);
+        Alert.alert("Succès", "Logo mis à jour.");
+      } catch (e) {
+        Alert.alert("Erreur", "Impossible de sauvegarder.");
+      }
     }
   };
 
   const handleCreateCategory = async () => {
-  if (!newCatName.trim()) return;
-  
-  // On récupère l'ID de l'utilisateur connecté
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    Alert.alert("Erreur", "Session expirée, veuillez vous reconnecter.");
-    return;
-  }
+    if (!newCatName.trim()) return;
 
-  const { error } = await supabase
-    .from('categories')
-    .insert([{
-      nom: newCatName.trim(),
-      user_id: user.id,
-      enterprise_id: tenant?.enterprise_id || null,
-    }]);
-
-  if (error) {
-    Alert.alert("Erreur Supabase", error.message);
-  } else {
-    if (tenant?.enterprise_id) {
-      logAction({ enterprise_id: tenant.enterprise_id, action: 'CREATE', entity_type: 'categorie', entity_name: newCatName.trim() });
+    try {
+      await api.createCategory({
+        nom: newCatName.trim(),
+      });
+      setNewCatName("");
+      setIsModalVisible(false);
+      fetchData();
+    } catch (error: any) {
+      Alert.alert("Erreur", error.message);
     }
-    setNewCatName('');
-    setIsModalVisible(false);
-    fetchData();
-  }
-};
+  };
 
   const handleDeleteCategory = async (cat: Category) => {
-    Alert.alert("Supprimer le dossier", `Supprimer "${cat.nom}" et tous ses documents ?`, [
-      { text: "Annuler" },
-      {
-        text: "Supprimer", style: "destructive", onPress: async () => {
-          // Supprimer les fichiers du storage pour chaque document
-          for (const doc of cat.documents || []) {
-            if (doc.autres?.path) {
-              await supabase.storage.from('fichiers_documents').remove([doc.autres.path]);
+    Alert.alert(
+      "Supprimer le dossier",
+      `Supprimer "${cat.nom}" et tous ses documents ?`,
+      [
+        { text: "Annuler" },
+        {
+          text: "Supprimer",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await api.deleteCategory(cat.id);
+              if (selectedCategory?.id === cat.id) setSelectedCategory(null);
+              fetchData();
+            } catch (error: any) {
+              Alert.alert("Erreur", error.message);
             }
-          }
-          // Supprimer les documents de la catégorie
-          await supabase.from('documents').delete().eq('categorie_id', cat.id);
-          // Supprimer la catégorie
-          const { error } = await supabase.from('categories').delete().eq('id', cat.id);
-          if (error) Alert.alert("Erreur", error.message);
-          else {
-            if (tenant?.enterprise_id) {
-              logAction({ enterprise_id: tenant.enterprise_id, action: 'DELETE', entity_type: 'categorie', entity_id: cat.id, entity_name: cat.nom });
-            }
-            if (selectedCategory?.id === cat.id) setSelectedCategory(null);
-            fetchData();
-          }
-        }
-      }
-    ]);
+          },
+        },
+      ],
+    );
   };
 
   const handleUpdatePin = async () => {
-    const auth = await LocalAuthentication.authenticateAsync({ promptMessage: 'Authentification' });
+    const auth = await LocalAuthentication.authenticateAsync({
+      promptMessage: "Authentification",
+    });
     if (!auth.success) return;
     if (newPin.length !== 4) return Alert.alert("Erreur", "4 chiffres requis.");
-    await SecureStore.setItemAsync('USER_PIN', newPin);
+    await SecureStore.setItemAsync("USER_PIN", newPin);
     Alert.alert("Succès", "PIN modifié.");
-    setIsPinModalVisible(false); setNewPin('');
+    setIsPinModalVisible(false);
+    setNewPin("");
   };
 
   const processUpload = async () => {
-  if (!newDocTitle.trim() || !tempFile || !selectedCategory) return;
-  setIsUploading(true);
-  
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Utilisateur non connecté");
+    if (!newDocTitle.trim() || !tempFile || !selectedCategory) return;
+    setIsUploading(true);
 
-    const storagePath = `${user.id}/${Date.now()}_${tempFile.name}`;
+    try {
+      const formData = new FormData();
+      formData.append("titre", newDocTitle.trim());
+      formData.append("categorie_id", selectedCategory.id);
+      formData.append("file", {
+        uri: tempFile.uri,
+        name: tempFile.name,
+        type: tempFile.mimeType,
+      } as any);
 
-    // ✅ NOUVELLE MÉTHODE 2025 (SDK 54+)
-    // On crée une instance de la classe File à partir de l'URI
-    const fileToUpload = new File(tempFile.uri);
-    
-    // On récupère le contenu en base64 via la méthode de classe
-    const base64Data = await fileToUpload.base64();
+      await api.uploadDocument(formData);
 
-    // Envoi vers Supabase Storage
-    const { error: upErr } = await supabase.storage
-      .from('fichiers_documents')
-      .upload(storagePath, decode(base64Data), { 
-          contentType: tempFile.mimeType, 
-          upsert: true 
-      });
-
-    if (upErr) throw upErr;
-
-    const { data: urlData } = supabase.storage.from('fichiers_documents').getPublicUrl(storagePath);
-
-    const { error: dbErr } = await supabase.from('documents').insert([{
-      titre: newDocTitle.trim(),
-      file_url: urlData.publicUrl,
-      categorie_id: selectedCategory.id,
-      user_id: user.id,
-      enterprise_id: tenant?.enterprise_id || null,
-      autres: { size: tempFile.size, type: tempFile.mimeType, path: storagePath }
-    }]);
-
-    if (dbErr) throw dbErr;
-
-    if (tenant?.enterprise_id) {
-      logAction({ enterprise_id: tenant.enterprise_id, action: 'UPLOAD', entity_type: 'document', entity_name: newDocTitle.trim() });
+      fetchData();
+      setTempFile(null);
+      setIsAddDocModal(false);
+      Alert.alert("Succès", "Document ajouté !");
+    } catch (e: any) {
+      Alert.alert("Erreur", e.message);
+    } finally {
+      setIsUploading(false);
     }
-    fetchData();
-    setTempFile(null);
-    setIsAddDocModal(false);
-    Alert.alert("Succès", "Document ajouté !");
-  } catch (e: any) { 
-    Alert.alert("Erreur", e.message); 
-  } finally { 
-    setIsUploading(false); 
-  }
-};
-
+  };
 
   const handlePickDocument = async () => {
-    const result = await DocumentPicker.getDocumentAsync({ type: '*/*' });
+    const result = await DocumentPicker.getDocumentAsync({ type: "*/*" });
     if (result.canceled || !result.assets) return;
     setTempFile(result.assets[0]);
     setNewDocTitle(result.assets[0].name);
     setIsAddDocModal(true);
   };
 
-  const handleCapture = async (type: 'photo' | 'video') => {
+  const handleCapture = async (type: "photo" | "video") => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') return Alert.alert("Permission refusée");
+    if (status !== "granted") return Alert.alert("Permission refusée");
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: type === 'photo' ? ImagePicker.MediaTypeOptions.Images : ImagePicker.MediaTypeOptions.Videos,
+      mediaTypes:
+        type === "photo"
+          ? ImagePicker.MediaTypeOptions.Images
+          : ImagePicker.MediaTypeOptions.Videos,
       quality: 0.7,
     });
     if (result.canceled || !result.assets) return;
     const asset = result.assets[0];
-    setTempFile({ uri: asset.uri, name: `cap.${type === 'photo' ? 'jpg' : 'mp4'}`, mimeType: asset.mimeType, size: asset.fileSize });
+    setTempFile({
+      uri: asset.uri,
+      name: `cap.${type === "photo" ? "jpg" : "mp4"}`,
+      mimeType: asset.mimeType,
+      size: asset.fileSize,
+    });
     setNewDocTitle(`Capture ${new Date().toLocaleDateString()}`);
     setIsAddDocModal(true);
   };
-/*
+
   const handleOpenDoc = async (doc: Doc) => {
     try {
-      const ext = doc.file_url.split('.').pop()?.toLowerCase();
-      if (['jpg', 'jpeg', 'png', 'gif'].includes(ext || '')) {
+      const ext = doc.file_url.split(".").pop()?.toLowerCase();
+
+      if (["jpg", "jpeg", "png", "gif"].includes(ext || "")) {
         await WebBrowser.openBrowserAsync(doc.file_url);
         return;
       }
-      const fileUri = `${FileSystem.documentDirectory}${doc.titre.replace(/[^a-zA-Z0-9.]/g, '_')}`;
-      const { exists } = await FileSystem.getInfoAsync(fileUri);
+
+      const safeName = doc.titre.replace(/[^a-zA-Z0-9.]/g, "_");
+      const localFile = new File(Paths.document, safeName);
+      const exists = await localFile.exists;
+
       if (!exists) {
         Alert.alert("Téléchargement", "Veuillez patienter...");
-        await FileSystem.downloadAsync(doc.file_url, fileUri);
+        await File.downloadFileAsync(
+          doc.file_url,
+          new File(Paths.document, safeName),
+        );
       }
-      await Sharing.shareAsync(fileUri);
-    } catch (e) { Alert.alert("Erreur", "Impossible d'ouvrir."); }
+
+      await Sharing.shareAsync(localFile.uri);
+    } catch (e) {
+      Alert.alert("Erreur", "Impossible d'ouvrir.");
+    }
   };
-*/
-const handleOpenDoc = async (doc: Doc) => {
-  try {
-    const ext = doc.file_url.split('.').pop()?.toLowerCase();
-
-    if (['jpg', 'jpeg', 'png', 'gif'].includes(ext || '')) {
-      await WebBrowser.openBrowserAsync(doc.file_url);
-      return;
-    }
-
-    // base URI document
-    const baseUri = Paths.document.uri;
-    const safeName = doc.titre.replace(/[^a-zA-Z0-9.]/g, '_');
-
-    // créer une instance File dans Documents
-    const localFile = new File(Paths.document, safeName);
-
-    // vérifier s'il existe déjà
-    const exists = await localFile.exists;
-
-    if (!exists) {
-      Alert.alert("Téléchargement", "Veuillez patienter...");
-
-      // télécharger avec new API
-      await File.downloadFileAsync(doc.file_url, new File(Paths.document, safeName));
-    }
-
-    // partager
-    await Sharing.shareAsync(localFile.uri);
-
-  } catch (e) {
-    Alert.alert("Erreur", "Impossible d'ouvrir.");
-  }
-};
   const getFilteredDocs = () => {
     if (!selectedCategory?.documents) return [];
     return selectedCategory.documents.filter((doc: Doc) => {
@@ -371,40 +297,77 @@ const handleOpenDoc = async (doc: Doc) => {
   const handleDeleteDoc = async (doc: Doc) => {
     Alert.alert("Supprimer", "Confirmer ?", [
       { text: "Non" },
-      { text: "Oui", style: 'destructive', onPress: async () => {
-        if (doc.autres?.path) await supabase.storage.from('fichiers_documents').remove([doc.autres.path]);
-        await supabase.from('documents').delete().eq('id', doc.id);
-        fetchData();
-      }}
+      {
+        text: "Oui",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await api.deleteDocument(doc.id);
+            fetchData();
+          } catch (error: any) {
+            Alert.alert("Erreur", error.message);
+          }
+        },
+      },
     ]);
   };
 
   const renderDocItem = ({ item }: { item: Doc }) => {
     const getIcon = (url: string): any => {
-      const ext = url.split('.').pop()?.toLowerCase();
-      if (ext === 'pdf') return 'document-text';
-      if (['jpg','png','jpeg'].includes(ext!)) return 'image';
-      if (['mp4','mov'].includes(ext!)) return 'videocam';
-      return 'document';
+      const ext = url.split(".").pop()?.toLowerCase();
+      if (ext === "pdf") return "document-text";
+      if (["jpg", "png", "jpeg"].includes(ext!)) return "image";
+      if (["mp4", "mov"].includes(ext!)) return "videocam";
+      return "document";
     };
 
-    const isGrid = viewMode === 'grid';
+    const isGrid = viewMode === "grid";
     return (
-      <TouchableOpacity 
-        onPress={() => handleOpenDoc(item)} 
+      <TouchableOpacity
+        onPress={() => handleOpenDoc(item)}
         onLongPress={() => {
           Alert.alert("Actions", item.titre, [
             { text: "Renommer", onPress: () => setEditingDoc(item) },
-            { text: "Supprimer", onPress: () => handleDeleteDoc(item), style: 'destructive' },
-            { text: "Fermer", style: 'cancel' }
+            {
+              text: "Supprimer",
+              onPress: () => handleDeleteDoc(item),
+              style: "destructive",
+            },
+            { text: "Fermer", style: "cancel" },
           ]);
         }}
-        style={isGrid ? [styles.gridCard, { backgroundColor: theme.card }] : [styles.detailRow, { backgroundColor: theme.card, borderBottomColor: theme.border }]}
+        style={
+          isGrid
+            ? [styles.gridCard, { backgroundColor: theme.card }]
+            : [
+                styles.detailRow,
+                {
+                  backgroundColor: theme.card,
+                  borderBottomColor: theme.border,
+                },
+              ]
+        }
       >
-        <Ionicons name={getIcon(item.file_url)} size={isGrid ? 40 : 24} color={theme.primary} />
+        <Ionicons
+          name={getIcon(item.file_url)}
+          size={isGrid ? 40 : 24}
+          color={theme.primary}
+        />
         <View style={isGrid ? null : { flex: 1, marginLeft: 15 }}>
-          <Text style={[{ color: theme.text, fontWeight: '600' }, isGrid && styles.gridText]} numberOfLines={2}>{item.titre}</Text>
-          {!isGrid && <Text style={{ color: theme.subText, fontSize: 11 }}>{new Date(item.created_at).toLocaleDateString()}</Text>}
+          <Text
+            style={[
+              { color: theme.text, fontWeight: "600" },
+              isGrid && styles.gridText,
+            ]}
+            numberOfLines={2}
+          >
+            {item.titre}
+          </Text>
+          {!isGrid && (
+            <Text style={{ color: theme.subText, fontSize: 11 }}>
+              {new Date(item.created_at).toLocaleDateString()}
+            </Text>
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -414,13 +377,16 @@ const handleOpenDoc = async (doc: Doc) => {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.card }]}>
       <HamburgerMenu
         isDark={isDark}
-        headerTitle={tenant?.enterprise_name || 'Gestion de Documents'}
+        headerTitle={tenant?.enterprise_name || "Gestion de Documents"}
         onToggleTheme={toggleTheme}
-        onLogout={async () => { await supabase.auth.signOut(); router.replace('/'); }}
+        onLogout={async () => {
+          await api.logout();
+          router.replace("/");
+        }}
         onOpenNewFolderModal={() => setIsModalVisible(true)}
         onPickDocument={handlePickDocument}
-        onCapturePhoto={() => handleCapture('photo')}
-        onCaptureVideo={() => handleCapture('video')}
+        onCapturePhoto={() => handleCapture("photo")}
+        onCaptureVideo={() => handleCapture("video")}
         viewMode={viewMode}
         onSetViewMode={setViewMode}
         onChangePin={() => setIsPinModalVisible(true)}
@@ -434,47 +400,88 @@ const handleOpenDoc = async (doc: Doc) => {
         {/* RECHERCHE */}
         <View style={[styles.searchBox, { backgroundColor: theme.card }]}>
           <Ionicons name="search" size={18} color={theme.subText} />
-          <TextInput placeholder="Rechercher..." placeholderTextColor={theme.subText} style={{ marginLeft: 10, color: theme.text, flex: 1 }} value={search} onChangeText={setSearch} />
+          <TextInput
+            placeholder="Rechercher..."
+            placeholderTextColor={theme.subText}
+            style={{ marginLeft: 10, color: theme.text, flex: 1 }}
+            value={search}
+            onChangeText={setSearch}
+          />
         </View>
 
         {/* CONTENU */}
         <View style={{ flex: 1, backgroundColor: theme.bg }}>
-          {loading || isUploading ? <ActivityIndicator style={{ marginTop: 50 }} color={theme.primary} /> : (
-            selectedCategory ? (
-              <View style={{ flex: 1, padding: 15 }}>
-                <TouchableOpacity onPress={() => setSelectedCategory(null)} style={styles.backBtn}>
-                  <Ionicons name="chevron-back" size={24} color={theme.primary} />
-                  <Text style={{ color: theme.primary, fontSize: 16 }}>Retour</Text>
-                </TouchableOpacity>
-                <Text style={[styles.title, { color: theme.text }]}>{selectedCategory.nom}</Text>
-                <FlatList key={viewMode === 'grid' ? 'G' : 'L'} data={getFilteredDocs()} numColumns={viewMode === 'grid' ? 3 : 1} renderItem={renderDocItem} keyExtractor={(item) => item.id} />
-                <TouchableOpacity style={[styles.fab, { backgroundColor: theme.primary }]} onPress={handlePickDocument}>
-                  <Ionicons name="add" size={32} color="white" />
-                </TouchableOpacity>
-              </View>
-            ) : (
+          {loading || isUploading ? (
+            <ActivityIndicator
+              style={{ marginTop: 50 }}
+              color={theme.primary}
+            />
+          ) : selectedCategory ? (
+            <View style={{ flex: 1, padding: 15 }}>
+              <TouchableOpacity
+                onPress={() => setSelectedCategory(null)}
+                style={styles.backBtn}
+              >
+                <Ionicons name="chevron-back" size={24} color={theme.primary} />
+                <Text style={{ color: theme.primary, fontSize: 16 }}>
+                  Retour
+                </Text>
+              </TouchableOpacity>
+              <Text style={[styles.title, { color: theme.text }]}>
+                {selectedCategory.nom}
+              </Text>
               <FlatList
-                data={categories.filter((c: Category) => c.nom.toLowerCase().includes(search.toLowerCase()))}
-                numColumns={2}
-                renderItem={({ item }: { item: Category }) => (
-                  <TouchableOpacity
-                    style={[styles.folderCard, { backgroundColor: theme.card }]}
-                    onPress={() => setSelectedCategory(item)}
-                    onLongPress={() =>
-                      Alert.alert("Actions sur le dossier", item.nom, [
-                        { text: "Renommer", onPress: () => setEditingCategory({ ...item }) },
-                        { text: "Supprimer", style: "destructive", onPress: () => handleDeleteCategory(item) },
-                        { text: "Fermer", style: "cancel" }
-                      ])
-                    }
-                  >
-                    <Ionicons name="folder" size={55} color="#FFCA28" />
-                    <Text style={[styles.folderName, { color: theme.text }]} numberOfLines={1}>{item.nom}</Text>
-                    <Text style={{ color: theme.subText, fontSize: 11 }}>{item.documents?.length || 0} éléments</Text>
-                  </TouchableOpacity>
-                )}
+                key={viewMode === "grid" ? "G" : "L"}
+                data={getFilteredDocs()}
+                numColumns={viewMode === "grid" ? 3 : 1}
+                renderItem={renderDocItem}
+                keyExtractor={(item) => item.id}
               />
-            )
+              <TouchableOpacity
+                style={[styles.fab, { backgroundColor: theme.primary }]}
+                onPress={handlePickDocument}
+              >
+                <Ionicons name="add" size={32} color="white" />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <FlatList
+              data={categories.filter((c: Category) =>
+                c.nom.toLowerCase().includes(search.toLowerCase()),
+              )}
+              numColumns={2}
+              renderItem={({ item }: { item: Category }) => (
+                <TouchableOpacity
+                  style={[styles.folderCard, { backgroundColor: theme.card }]}
+                  onPress={() => setSelectedCategory(item)}
+                  onLongPress={() =>
+                    Alert.alert("Actions sur le dossier", item.nom, [
+                      {
+                        text: "Renommer",
+                        onPress: () => setEditingCategory({ ...item }),
+                      },
+                      {
+                        text: "Supprimer",
+                        style: "destructive",
+                        onPress: () => handleDeleteCategory(item),
+                      },
+                      { text: "Fermer", style: "cancel" },
+                    ])
+                  }
+                >
+                  <Ionicons name="folder" size={55} color="#FFCA28" />
+                  <Text
+                    style={[styles.folderName, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
+                    {item.nom}
+                  </Text>
+                  <Text style={{ color: theme.subText, fontSize: 11 }}>
+                    {item.documents?.length || 0} éléments
+                  </Text>
+                </TouchableOpacity>
+              )}
+            />
           )}
         </View>
 
@@ -482,11 +489,42 @@ const handleOpenDoc = async (doc: Doc) => {
         <Modal visible={isAddDocModal} transparent animationType="slide">
           <View style={styles.overlay}>
             <View style={[styles.modal, { backgroundColor: theme.card }]}>
-              <Text style={{ color: theme.text, fontWeight: 'bold', fontSize: 18 }}>Enregistrer</Text>
-              <TextInput style={[styles.input, { color: theme.text, borderColor: theme.border }]} value={newDocTitle} onChangeText={setNewDocTitle} placeholder="Nom..." placeholderTextColor={theme.subText} autoFocus />
-              <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-                <TouchableOpacity onPress={() => {setIsAddDocModal(false); setTempFile(null);}}><Text style={{ color: 'red', marginRight: 20, paddingTop: 10 }}>Annuler</Text></TouchableOpacity>
-                <Button title="Ok" onPress={processUpload} color={theme.primary} />
+              <Text
+                style={{ color: theme.text, fontWeight: "bold", fontSize: 18 }}
+              >
+                Enregistrer
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  { color: theme.text, borderColor: theme.border },
+                ]}
+                value={newDocTitle}
+                onChangeText={setNewDocTitle}
+                placeholder="Nom..."
+                placeholderTextColor={theme.subText}
+                autoFocus
+              />
+              <View
+                style={{ flexDirection: "row", justifyContent: "flex-end" }}
+              >
+                <TouchableOpacity
+                  onPress={() => {
+                    setIsAddDocModal(false);
+                    setTempFile(null);
+                  }}
+                >
+                  <Text
+                    style={{ color: "red", marginRight: 20, paddingTop: 10 }}
+                  >
+                    Annuler
+                  </Text>
+                </TouchableOpacity>
+                <Button
+                  title="Ok"
+                  onPress={processUpload}
+                  color={theme.primary}
+                />
               </View>
             </View>
           </View>
@@ -496,10 +534,30 @@ const handleOpenDoc = async (doc: Doc) => {
         <Modal visible={isPinModalVisible} transparent animationType="fade">
           <View style={styles.overlay}>
             <View style={[styles.modal, { backgroundColor: theme.card }]}>
-              <Text style={{ color: theme.text, fontWeight: 'bold' }}>Nouveau PIN</Text>
-              <TextInput style={[styles.input, { color: theme.text, borderColor: theme.border, textAlign:'center' }]} value={newPin} onChangeText={setNewPin} maxLength={4} keyboardType="numeric" secureTextEntry />
-              <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-                <TouchableOpacity onPress={() => setIsPinModalVisible(false)}><Text style={{ color: 'red', marginRight: 20 }}>Annuler</Text></TouchableOpacity>
+              <Text style={{ color: theme.text, fontWeight: "bold" }}>
+                Nouveau PIN
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    color: theme.text,
+                    borderColor: theme.border,
+                    textAlign: "center",
+                  },
+                ]}
+                value={newPin}
+                onChangeText={setNewPin}
+                maxLength={4}
+                keyboardType="numeric"
+                secureTextEntry
+              />
+              <View
+                style={{ flexDirection: "row", justifyContent: "flex-end" }}
+              >
+                <TouchableOpacity onPress={() => setIsPinModalVisible(false)}>
+                  <Text style={{ color: "red", marginRight: 20 }}>Annuler</Text>
+                </TouchableOpacity>
                 <Button title="Valider" onPress={handleUpdatePin} />
               </View>
             </View>
@@ -510,10 +568,24 @@ const handleOpenDoc = async (doc: Doc) => {
         <Modal visible={isModalVisible} transparent animationType="fade">
           <View style={styles.overlay}>
             <View style={[styles.modal, { backgroundColor: theme.card }]}>
-              <Text style={{ color: theme.text, fontWeight: 'bold' }}>Nouveau Dossier</Text>
-              <TextInput style={[styles.input, { color: theme.text, borderColor: theme.border }]} value={newCatName} onChangeText={setNewCatName} placeholder="Nom..." />
-              <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-                <TouchableOpacity onPress={() => setIsModalVisible(false)}><Text style={{ color: 'red', marginRight: 20 }}>Annuler</Text></TouchableOpacity>
+              <Text style={{ color: theme.text, fontWeight: "bold" }}>
+                Nouveau Dossier
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  { color: theme.text, borderColor: theme.border },
+                ]}
+                value={newCatName}
+                onChangeText={setNewCatName}
+                placeholder="Nom..."
+              />
+              <View
+                style={{ flexDirection: "row", justifyContent: "flex-end" }}
+              >
+                <TouchableOpacity onPress={() => setIsModalVisible(false)}>
+                  <Text style={{ color: "red", marginRight: 20 }}>Annuler</Text>
+                </TouchableOpacity>
                 <Button title="Créer" onPress={handleCreateCategory} />
               </View>
             </View>
@@ -524,16 +596,37 @@ const handleOpenDoc = async (doc: Doc) => {
         <Modal visible={!!editingDoc} transparent animationType="fade">
           <View style={styles.overlay}>
             <View style={[styles.modal, { backgroundColor: theme.card }]}>
-              <Text style={{ color: theme.text, fontWeight: 'bold' }}>Renommer</Text>
-              <TextInput style={[styles.input, { color: theme.text, borderColor: theme.border }]} value={editingDoc?.titre} onChangeText={(t) => editingDoc && setEditingDoc({...editingDoc, titre: t})} />
-              <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-                <TouchableOpacity onPress={() => setEditingDoc(null)}><Text style={{ color: 'red', marginRight: 20 }}>Annuler</Text></TouchableOpacity>
-                <Button title="Ok" onPress={async () => {
-                   if (editingDoc) {
-                     await supabase.from('documents').update({ titre: editingDoc.titre }).eq('id', editingDoc.id);
-                     setEditingDoc(null); fetchData();
-                   }
-                }} />
+              <Text style={{ color: theme.text, fontWeight: "bold" }}>
+                Renommer
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  { color: theme.text, borderColor: theme.border },
+                ]}
+                value={editingDoc?.titre}
+                onChangeText={(t) =>
+                  editingDoc && setEditingDoc({ ...editingDoc, titre: t })
+                }
+              />
+              <View
+                style={{ flexDirection: "row", justifyContent: "flex-end" }}
+              >
+                <TouchableOpacity onPress={() => setEditingDoc(null)}>
+                  <Text style={{ color: "red", marginRight: 20 }}>Annuler</Text>
+                </TouchableOpacity>
+                <Button
+                  title="Ok"
+                  onPress={async () => {
+                    if (editingDoc) {
+                      await api.updateDocument(editingDoc.id, {
+                        titre: editingDoc.titre,
+                      });
+                      setEditingDoc(null);
+                      fetchData();
+                    }
+                  }}
+                />
               </View>
             </View>
           </View>
@@ -543,16 +636,39 @@ const handleOpenDoc = async (doc: Doc) => {
         <Modal visible={!!editingCategory} transparent animationType="fade">
           <View style={styles.overlay}>
             <View style={[styles.modal, { backgroundColor: theme.card }]}>
-              <Text style={{ color: theme.text, fontWeight: 'bold' }}>Renommer le dossier</Text>
-              <TextInput style={[styles.input, { color: theme.text, borderColor: theme.border }]} value={editingCategory?.nom} onChangeText={(t) => editingCategory && setEditingCategory({...editingCategory, nom: t})} autoFocus />
-              <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-                <TouchableOpacity onPress={() => setEditingCategory(null)}><Text style={{ color: 'red', marginRight: 20 }}>Annuler</Text></TouchableOpacity>
-                <Button title="Ok" onPress={async () => {
-                   if (editingCategory && editingCategory.nom.trim()) {
-                     await supabase.from('categories').update({ nom: editingCategory.nom.trim() }).eq('id', editingCategory.id);
-                     setEditingCategory(null); fetchData();
-                   }
-                }} />
+              <Text style={{ color: theme.text, fontWeight: "bold" }}>
+                Renommer le dossier
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  { color: theme.text, borderColor: theme.border },
+                ]}
+                value={editingCategory?.nom}
+                onChangeText={(t) =>
+                  editingCategory &&
+                  setEditingCategory({ ...editingCategory, nom: t })
+                }
+                autoFocus
+              />
+              <View
+                style={{ flexDirection: "row", justifyContent: "flex-end" }}
+              >
+                <TouchableOpacity onPress={() => setEditingCategory(null)}>
+                  <Text style={{ color: "red", marginRight: 20 }}>Annuler</Text>
+                </TouchableOpacity>
+                <Button
+                  title="Ok"
+                  onPress={async () => {
+                    if (editingCategory && editingCategory.nom.trim()) {
+                      await api.updateCategory(editingCategory.id, {
+                        nom: editingCategory.nom.trim(),
+                      });
+                      setEditingCategory(null);
+                      fetchData();
+                    }
+                  }}
+                />
               </View>
             </View>
           </View>
@@ -562,20 +678,64 @@ const handleOpenDoc = async (doc: Doc) => {
   );
 }
 
-export default function HomeScreen() { return <HomeScreenContent />; }
+export default function HomeScreen() {
+  return <HomeScreenContent />;
+}
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
-  searchBox: { flexDirection: 'row', alignItems: 'center', margin: 15, padding: 10, borderRadius: 10 },
-  folderCard: { width: width / 2 - 22, margin: 11, padding: 20, borderRadius: 15, alignItems: 'center', elevation: 2 },
-  folderName: { marginTop: 10, fontWeight: '600' },
-  title: { fontSize: 24, fontWeight: 'bold', marginVertical: 10 },
-  backBtn: { flexDirection: 'row', alignItems: 'center' },
-  detailRow: { flexDirection: 'row', alignItems: 'center', padding: 15, borderBottomWidth: 0.5 },
-  gridCard: { width: width / 3 - 20, margin: 10, padding: 15, borderRadius: 12, alignItems: 'center' },
-  gridText: { marginTop: 8, fontSize: 11, textAlign: 'center' },
-  fab: { position: 'absolute', bottom: 30, right: 20, width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 8 },
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-  modal: { width: '85%', padding: 25, borderRadius: 20 },
+  safeArea: {
+    flex: 1,
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+  },
+  searchBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    margin: 15,
+    padding: 10,
+    borderRadius: 10,
+  },
+  folderCard: {
+    width: width / 2 - 22,
+    margin: 11,
+    padding: 20,
+    borderRadius: 15,
+    alignItems: "center",
+    elevation: 2,
+  },
+  folderName: { marginTop: 10, fontWeight: "600" },
+  title: { fontSize: 24, fontWeight: "bold", marginVertical: 10 },
+  backBtn: { flexDirection: "row", alignItems: "center" },
+  detailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 15,
+    borderBottomWidth: 0.5,
+  },
+  gridCard: {
+    width: width / 3 - 20,
+    margin: 10,
+    padding: 15,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  gridText: { marginTop: 8, fontSize: 11, textAlign: "center" },
+  fab: {
+    position: "absolute",
+    bottom: 30,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 8,
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modal: { width: "85%", padding: 25, borderRadius: 20 },
   input: { borderBottomWidth: 1, paddingVertical: 10, marginVertical: 20 },
 });

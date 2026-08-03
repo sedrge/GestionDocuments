@@ -84,7 +84,7 @@ export default function SuperAdminEnterprisesScreen() {
       {
         text: "Activer",
         onPress: async () => {
-          const result = await activateEnterprise(enterpriseId, enterpriseName);
+          const result = await activateEnterprise(enterpriseId);
           if (result.success) { Alert.alert("Succès", "Entreprise activée — l'admin a été notifié."); loadEnterprises(); }
           else Alert.alert("Erreur", result.error);
         },
@@ -99,7 +99,7 @@ export default function SuperAdminEnterprisesScreen() {
         text: "Désactiver",
         style: "destructive",
         onPress: async () => {
-          const result = await deactivateEnterprise(enterpriseId, enterpriseName);
+          const result = await deactivateEnterprise(enterpriseId);
           if (result.success) { Alert.alert("Succès", "Entreprise désactivée — l'admin a été notifié."); loadEnterprises(); }
           else Alert.alert("Erreur", result.error);
         },
@@ -382,9 +382,9 @@ function EnterpriseUsersView({ enterpriseId, enterpriseName, onBack, theme, isDa
               </View>
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={[styles.userName, { color: theme.text }]}>
-                  {item.auth_users?.user_metadata?.full_name || "Utilisateur"}
+                  {item.full_name || "Utilisateur"}
                 </Text>
-                <Text style={[styles.userEmail, { color: theme.subText }]}>{item.auth_users?.email}</Text>
+                <Text style={[styles.userEmail, { color: theme.subText }]}>{item.email}</Text>
               </View>
               {tab === "pending" ? (
                 <TouchableOpacity style={[styles.userActionBtn, { backgroundColor: "#34C759" }]} onPress={() => handleActivate(item.user_id)}>

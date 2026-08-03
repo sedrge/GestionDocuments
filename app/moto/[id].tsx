@@ -7,7 +7,7 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -21,11 +21,11 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { printAndSharePdf } from "../../lib/sharePdf";
 import QRCode from "react-native-qrcode-svg";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
-import { supabase } from "../../lib/supabase";
+import { api } from "../../lib/api";
+import { printAndSharePdf } from "../../lib/sharePdf";
 
 const { width: WINDOW_W, height: WINDOW_H } = Dimensions.get("window");
 
@@ -88,25 +88,22 @@ export default function MotoDetail() {
 
   const fetchMoto = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("motos")
-      .select("*, moto_images(id, image_uri, is_principal, position)")
-      .eq("id", id)
-      .single();
-    if (error || !data) {
+    try {
+      const data = await api.getMoto(id);
+      if (data.moto_images) {
+        data.moto_images.sort((a: any, b: any) => {
+          if (a.is_principal && !b.is_principal) return -1;
+          if (!a.is_principal && b.is_principal) return 1;
+          return (a.position ?? 0) - (b.position ?? 0);
+        });
+      }
+      setMoto(data as Moto);
+    } catch (error: any) {
       Alert.alert("Erreur", "Impossible de charger cette moto.");
       router.back();
-      return;
+    } finally {
+      setLoading(false);
     }
-    if (data.moto_images) {
-      data.moto_images.sort((a: any, b: any) => {
-        if (a.is_principal && !b.is_principal) return -1;
-        if (!a.is_principal && b.is_principal) return 1;
-        return (a.position ?? 0) - (b.position ?? 0);
-      });
-    }
-    setMoto(data as Moto);
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -234,10 +231,12 @@ export default function MotoDetail() {
         text: "Supprimer",
         style: "destructive",
         onPress: async () => {
-          await supabase.from("moto_images").delete().eq("moto_id", moto.id);
-          const { error } = await supabase.from("motos").delete().eq("id", moto.id);
-          if (error) Alert.alert("Erreur", error.message);
-          else router.back();
+          try {
+            await api.deleteMoto(moto.id);
+            router.back();
+          } catch (error: any) {
+            Alert.alert("Erreur", error.message);
+          }
         },
       },
     ]);
@@ -245,171 +244,211 @@ export default function MotoDetail() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#f5f5f7" }}>
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 50 }}>
-      <Stack.Screen
-        options={{
-          title: [moto.marque, moto.modele].filter(Boolean).join(" ") || "Moto",
-          headerRight: () => (
-            <TouchableOpacity onPress={handlePrint} style={{ marginRight: 10 }}>
-              <Ionicons name="print-outline" size={24} color="#FF9500" />
-            </TouchableOpacity>
-          ),
-        }}
-      />
-
-      {/* Photo principale (petite) */}
-      <View style={styles.heroWrap}>
-        {principal ? (
-          <TouchableOpacity onPress={() => openGalleryAt(0)} activeOpacity={0.9}>
-            <Image source={{ uri: principal.image_uri }} style={styles.hero} resizeMode="cover" />
-            {imgs.length > 1 && (
-              <View style={styles.heroBadge}>
-                <Ionicons name="images-outline" size={14} color="#fff" />
-                <Text style={styles.heroBadgeText}>{imgs.length}</Text>
-              </View>
-            )}
-            <View style={styles.heroExpand}>
-              <Ionicons name="expand-outline" size={16} color="#fff" />
-            </View>
-          </TouchableOpacity>
-        ) : (
-          <View style={[styles.hero, styles.heroEmpty]}>
-            <Ionicons name="bicycle-outline" size={50} color="#bbb" />
-            <Text style={{ color: "#999", marginTop: 8 }}>Aucune photo</Text>
-          </View>
-        )}
-      </View>
-
-      {/* Bouton Modifier */}
-      <View style={styles.actionsRow}>
-        <TouchableOpacity
-          style={[styles.actionBtn, { backgroundColor: "#FF9500" }]}
-          onPress={() => router.push({ pathname: "/moto", params: { id: moto.id } })}
-        >
-          <Ionicons name="create-outline" size={16} color="#fff" />
-          <Text style={styles.actionBtnText}>Modifier</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.actionBtn, { backgroundColor: "#007AFF" }]}
-          onPress={handlePrint}
-        >
-          <Ionicons name="print-outline" size={16} color="#fff" />
-          <Text style={styles.actionBtnText}>Imprimer QR</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.actionBtn, { backgroundColor: "#ff4444" }]}
-          onPress={handleDelete}
-        >
-          <Ionicons name="trash-outline" size={16} color="#fff" />
-          <Text style={styles.actionBtnText}>Supprimer</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* QR code */}
-      <View style={styles.qrCard}>
-        <Text style={styles.cardTitle}>QR Code</Text>
-        <View style={styles.qrBox}>
-          <QRCode
-            value={buildQrPayload(moto)}
-            size={180}
-            backgroundColor="#fff"
-            color="#000"
-            getRef={(c) => (qrRef.current = c)}
-            onError={() => setQrBase64(null)}
-          />
-        </View>
-        <Text style={styles.qrHint}>
-          Scannez pour afficher les informations de cette moto.
-        </Text>
-      </View>
-
-      {/* Infos */}
-      <View style={styles.infoCard}>
-        <Text style={styles.cardTitle}>Informations</Text>
-        <InfoRow label="Marque" value={moto.marque} />
-        <InfoRow label="Modèle" value={moto.modele} />
-        <InfoRow label="Type" value={moto.type} />
-        <InfoRow label="Catégorie" value={moto.categorie} />
-        <InfoRow label="Couleur" value={moto.couleur} />
-        <InfoRow label="Année" value={moto.annee_fabrication} />
-        <InfoRow label="Cylindrée" value={moto.cylindree} />
-        <InfoRow label="État" value={moto.etat} />
-        <InfoRow label="N° Châssis" value={moto.numero_chassis} />
-        <InfoRow label="N° Moteur" value={moto.numero_moteur} />
-        <InfoRow label="Immatriculation" value={moto.immatriculation} />
-        <InfoRow
-          label="Prix d'achat"
-          value={moto.prix_achat != null ? `${moto.prix_achat.toLocaleString("fr-FR")} FCFA` : null}
-        />
-        <InfoRow
-          label="Prix de vente"
-          value={moto.prix_vente != null ? `${moto.prix_vente.toLocaleString("fr-FR")} FCFA` : null}
-          highlight
-        />
-      </View>
-
-      {/* Vignettes images */}
-      {imgs.length > 1 && (
-        <View style={styles.infoCard}>
-          <Text style={styles.cardTitle}>Photos ({imgs.length})</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-            {imgs.map((img, i) => (
-              <TouchableOpacity key={img.id} onPress={() => openGalleryAt(i)}>
-                <Image source={{ uri: img.image_uri }} style={styles.thumb} />
-                {img.is_principal && (
-                  <View style={styles.thumbBadge}>
-                    <Ionicons name="star" size={10} color="#fff" />
-                  </View>
-                )}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 50 }}
+      >
+        <Stack.Screen
+          options={{
+            title:
+              [moto.marque, moto.modele].filter(Boolean).join(" ") || "Moto",
+            headerRight: () => (
+              <TouchableOpacity
+                onPress={handlePrint}
+                style={{ marginRight: 10 }}
+              >
+                <Ionicons name="print-outline" size={24} color="#FF9500" />
               </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      )}
+            ),
+          }}
+        />
 
-      {/* Galerie plein écran */}
-      <Modal visible={galleryOpen} animationType="fade" onRequestClose={() => setGalleryOpen(false)} statusBarTranslucent>
-        <View style={styles.galleryOverlay}>
-          <View style={styles.galleryHeader}>
-            <TouchableOpacity onPress={() => setGalleryOpen(false)} style={styles.galleryCloseBtn}>
-              <Ionicons name="close" size={26} color="#fff" />
-            </TouchableOpacity>
-            <Text style={styles.galleryCounter}>
-              {galleryIndex + 1} / {imgs.length}
-            </Text>
-            <View style={{ width: 40 }} />
-          </View>
-          <FlatList
-            data={imgs}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            initialScrollIndex={galleryIndex}
-            getItemLayout={(_, i) => ({ length: WINDOW_W, offset: WINDOW_W * i, index: i })}
-            onMomentumScrollEnd={(e) => {
-              const i = Math.round(e.nativeEvent.contentOffset.x / WINDOW_W);
-              setGalleryIndex(i);
-            }}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <View style={{ width: WINDOW_W, height: WINDOW_H - 100 }}>
-                <WebView
-                  originWhitelist={["*"]}
-                  source={{ html: buildZoomHtml(item.image_uri) }}
-                  style={{ flex: 1, backgroundColor: "#000" }}
-                  scalesPageToFit={false}
-                  javaScriptEnabled={false}
-                  bounces={false}
-                />
+        {/* Photo principale (petite) */}
+        <View style={styles.heroWrap}>
+          {principal ? (
+            <TouchableOpacity
+              onPress={() => openGalleryAt(0)}
+              activeOpacity={0.9}
+            >
+              <Image
+                source={{ uri: principal.image_uri }}
+                style={styles.hero}
+                resizeMode="cover"
+              />
+              {imgs.length > 1 && (
+                <View style={styles.heroBadge}>
+                  <Ionicons name="images-outline" size={14} color="#fff" />
+                  <Text style={styles.heroBadgeText}>{imgs.length}</Text>
+                </View>
+              )}
+              <View style={styles.heroExpand}>
+                <Ionicons name="expand-outline" size={16} color="#fff" />
               </View>
-            )}
-          />
-          <Text style={styles.galleryHint}>
-            Glissez gauche/droite · Pincez pour zoomer
+            </TouchableOpacity>
+          ) : (
+            <View style={[styles.hero, styles.heroEmpty]}>
+              <Ionicons name="bicycle-outline" size={50} color="#bbb" />
+              <Text style={{ color: "#999", marginTop: 8 }}>Aucune photo</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Bouton Modifier */}
+        <View style={styles.actionsRow}>
+          <TouchableOpacity
+            style={[styles.actionBtn, { backgroundColor: "#FF9500" }]}
+            onPress={() =>
+              router.push({ pathname: "/moto", params: { id: moto.id } })
+            }
+          >
+            <Ionicons name="create-outline" size={16} color="#fff" />
+            <Text style={styles.actionBtnText}>Modifier</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionBtn, { backgroundColor: "#007AFF" }]}
+            onPress={handlePrint}
+          >
+            <Ionicons name="print-outline" size={16} color="#fff" />
+            <Text style={styles.actionBtnText}>Imprimer QR</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionBtn, { backgroundColor: "#ff4444" }]}
+            onPress={handleDelete}
+          >
+            <Ionicons name="trash-outline" size={16} color="#fff" />
+            <Text style={styles.actionBtnText}>Supprimer</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* QR code */}
+        <View style={styles.qrCard}>
+          <Text style={styles.cardTitle}>QR Code</Text>
+          <View style={styles.qrBox}>
+            <QRCode
+              value={buildQrPayload(moto)}
+              size={180}
+              backgroundColor="#fff"
+              color="#000"
+              getRef={(c) => (qrRef.current = c)}
+              onError={() => setQrBase64(null)}
+            />
+          </View>
+          <Text style={styles.qrHint}>
+            Scannez pour afficher les informations de cette moto.
           </Text>
         </View>
-      </Modal>
-    </ScrollView>
+
+        {/* Infos */}
+        <View style={styles.infoCard}>
+          <Text style={styles.cardTitle}>Informations</Text>
+          <InfoRow label="Marque" value={moto.marque} />
+          <InfoRow label="Modèle" value={moto.modele} />
+          <InfoRow label="Type" value={moto.type} />
+          <InfoRow label="Catégorie" value={moto.categorie} />
+          <InfoRow label="Couleur" value={moto.couleur} />
+          <InfoRow label="Année" value={moto.annee_fabrication} />
+          <InfoRow label="Cylindrée" value={moto.cylindree} />
+          <InfoRow label="État" value={moto.etat} />
+          <InfoRow label="N° Châssis" value={moto.numero_chassis} />
+          <InfoRow label="N° Moteur" value={moto.numero_moteur} />
+          <InfoRow label="Immatriculation" value={moto.immatriculation} />
+          <InfoRow
+            label="Prix d'achat"
+            value={
+              moto.prix_achat != null
+                ? `${moto.prix_achat.toLocaleString("fr-FR")} FCFA`
+                : null
+            }
+          />
+          <InfoRow
+            label="Prix de vente"
+            value={
+              moto.prix_vente != null
+                ? `${moto.prix_vente.toLocaleString("fr-FR")} FCFA`
+                : null
+            }
+            highlight
+          />
+        </View>
+
+        {/* Vignettes images */}
+        {imgs.length > 1 && (
+          <View style={styles.infoCard}>
+            <Text style={styles.cardTitle}>Photos ({imgs.length})</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 8 }}
+            >
+              {imgs.map((img, i) => (
+                <TouchableOpacity key={img.id} onPress={() => openGalleryAt(i)}>
+                  <Image source={{ uri: img.image_uri }} style={styles.thumb} />
+                  {img.is_principal && (
+                    <View style={styles.thumbBadge}>
+                      <Ionicons name="star" size={10} color="#fff" />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Galerie plein écran */}
+        <Modal
+          visible={galleryOpen}
+          animationType="fade"
+          onRequestClose={() => setGalleryOpen(false)}
+          statusBarTranslucent
+        >
+          <View style={styles.galleryOverlay}>
+            <View style={styles.galleryHeader}>
+              <TouchableOpacity
+                onPress={() => setGalleryOpen(false)}
+                style={styles.galleryCloseBtn}
+              >
+                <Ionicons name="close" size={26} color="#fff" />
+              </TouchableOpacity>
+              <Text style={styles.galleryCounter}>
+                {galleryIndex + 1} / {imgs.length}
+              </Text>
+              <View style={{ width: 40 }} />
+            </View>
+            <FlatList
+              data={imgs}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              initialScrollIndex={galleryIndex}
+              getItemLayout={(_, i) => ({
+                length: WINDOW_W,
+                offset: WINDOW_W * i,
+                index: i,
+              })}
+              onMomentumScrollEnd={(e) => {
+                const i = Math.round(e.nativeEvent.contentOffset.x / WINDOW_W);
+                setGalleryIndex(i);
+              }}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <View style={{ width: WINDOW_W, height: WINDOW_H - 100 }}>
+                  <WebView
+                    originWhitelist={["*"]}
+                    source={{ html: buildZoomHtml(item.image_uri) }}
+                    style={{ flex: 1, backgroundColor: "#000" }}
+                    scalesPageToFit={false}
+                    javaScriptEnabled={false}
+                    bounces={false}
+                  />
+                </View>
+              )}
+            />
+            <Text style={styles.galleryHint}>
+              Glissez gauche/droite · Pincez pour zoomer
+            </Text>
+          </View>
+        </Modal>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -453,7 +492,12 @@ const buildZoomHtml = (uri: string) => `
 </body></html>`;
 
 const styles = StyleSheet.create({
-  loaderWrap: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#f5f5f7" },
+  loaderWrap: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f5f5f7",
+  },
   heroWrap: { padding: 15 },
   hero: {
     width: "100%",
@@ -514,7 +558,13 @@ const styles = StyleSheet.create({
     borderColor: "#eee",
     marginTop: 10,
   },
-  qrHint: { marginTop: 10, fontSize: 11, color: "#888", textAlign: "center", fontStyle: "italic" },
+  qrHint: {
+    marginTop: 10,
+    fontSize: 11,
+    color: "#888",
+    textAlign: "center",
+    fontStyle: "italic",
+  },
   infoCard: {
     margin: 15,
     marginTop: 0,
@@ -551,7 +601,9 @@ const styles = StyleSheet.create({
     height: 16,
     justifyContent: "center",
     alignItems: "center",
+    zIndex: 5,
   },
+
   galleryOverlay: { flex: 1, backgroundColor: "#000" },
   galleryHeader: {
     flexDirection: "row",
@@ -561,8 +613,19 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     backgroundColor: "#111",
   },
-  galleryCloseBtn: { width: 40, height: 40, justifyContent: "center", alignItems: "center" },
-  galleryCounter: { flex: 1, color: "#fff", textAlign: "center", fontSize: 14, fontWeight: "700" },
+  galleryCloseBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  galleryCounter: {
+    flex: 1,
+    color: "#fff",
+    textAlign: "center",
+    fontSize: 14,
+    fontWeight: "700",
+  },
   galleryHint: {
     color: "#888",
     fontSize: 11,

@@ -1,8 +1,8 @@
 // app/annees_mois.tsx
 
-import { Ionicons } from '@expo/vector-icons';
-import { Stack, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { Stack, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -13,11 +13,11 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { supabase } from '../lib/supabase';
-import { FeatureGate } from '../components/FeatureGate';
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { FeatureGate } from "../components/FeatureGate";
+import { api } from "../lib/api";
 
 function AnneesMoisContent() {
   const router = useRouter();
@@ -27,12 +27,14 @@ function AnneesMoisContent() {
 
   const fetchDossiers = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('annees_mois')
-      .select('*, registres(id)')
-      .order('nom'); // Tri par nom (ex: 2026_janvier)
-    setDossiers(data || []);
-    setLoading(false);
+    try {
+      const data = await api.listAnneesMois();
+      setDossiers(data);
+    } catch (error: any) {
+      Alert.alert("Erreur", error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -40,39 +42,56 @@ function AnneesMoisContent() {
   }, []);
 
   const handleDeleteDossier = async (dossier: any) => {
-    Alert.alert("Supprimer le dossier", `Supprimer "${dossier.nom}" et tous ses registres ?`, [
-      { text: "Annuler" },
-      {
-        text: "Supprimer", style: "destructive", onPress: async () => {
-          // Supprimer les registres liés
-          await supabase.from('registres').delete().eq('annee_mois_id', dossier.id);
-          // Supprimer le dossier
-          const { error } = await supabase.from('annees_mois').delete().eq('id', dossier.id);
-          if (error) Alert.alert("Erreur", error.message);
-          else fetchDossiers();
-        }
-      }
-    ]);
+    Alert.alert(
+      "Supprimer le dossier",
+      `Supprimer "${dossier.nom}" et tous ses registres ?`,
+      [
+        { text: "Annuler" },
+        {
+          text: "Supprimer",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await api.deleteAnneeMois(dossier.id);
+              fetchDossiers();
+            } catch (error: any) {
+              Alert.alert("Erreur", error.message);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const renderFolder = ({ item }: { item: any }) => (
     <TouchableOpacity
       style={styles.folderCard}
-      onPress={() => router.push({
-        pathname: '/registres',
-        params: { dossierId: item.id, nom: item.nom }
-      })}
+      onPress={() =>
+        router.push({
+          pathname: "/registres",
+          params: { dossierId: item.id, nom: item.nom },
+        })
+      }
       onLongPress={() =>
         Alert.alert("Actions sur le dossier", item.nom, [
           { text: "Renommer", onPress: () => setEditingDossier({ ...item }) },
-          { text: "Supprimer", style: "destructive", onPress: () => handleDeleteDossier(item) },
-          { text: "Fermer", style: "cancel" }
+          {
+            text: "Supprimer",
+            style: "destructive",
+            onPress: () => handleDeleteDossier(item),
+          },
+          { text: "Fermer", style: "cancel" },
         ])
       }
     >
       <Ionicons name="folder" size={50} color="#FFCA28" />
-      <Text style={styles.folderName} numberOfLines={1}>{item.nom}</Text>
-      <Text style={styles.folderCount}>{item.registres?.length || 0} registre{(item.registres?.length || 0) !== 1 ? 's' : ''}</Text>
+      <Text style={styles.folderName} numberOfLines={1}>
+        {item.nom}
+      </Text>
+      <Text style={styles.folderCount}>
+        {item.registres_count || 0} registre
+        {(item.registres_count || 0) !== 1 ? "s" : ""}
+      </Text>
     </TouchableOpacity>
   );
 
@@ -86,7 +105,7 @@ function AnneesMoisContent() {
         <FlatList
           data={dossiers}
           renderItem={renderFolder}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.id.toString()}
           numColumns={2} // Affiche en grille 2 colonnes
           contentContainerStyle={{ padding: 15 }}
         />
@@ -95,7 +114,7 @@ function AnneesMoisContent() {
       {/* Bouton flottant pour ajouter un dossier */}
       <TouchableOpacity
         style={styles.fab}
-        onPress={() => router.push('/annees_mois_new')}
+        onPress={() => router.push("/annees_mois_new")}
       >
         <Ionicons name="add" size={28} color="white" />
       </TouchableOpacity>
@@ -104,24 +123,41 @@ function AnneesMoisContent() {
       <Modal visible={!!editingDossier} transparent animationType="fade">
         <View style={styles.overlay}>
           <View style={styles.modal}>
-            <Text style={{ fontWeight: 'bold', fontSize: 16 }}>Renommer le dossier</Text>
+            <Text style={{ fontWeight: "bold", fontSize: 16 }}>
+              Renommer le dossier
+            </Text>
             <TextInput
               style={styles.modalInput}
               value={editingDossier?.nom}
-              onChangeText={(t) => editingDossier && setEditingDossier({ ...editingDossier, nom: t })}
+              onChangeText={(t) =>
+                editingDossier &&
+                setEditingDossier({ ...editingDossier, nom: t })
+              }
               autoFocus
             />
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+            <View style={{ flexDirection: "row", justifyContent: "flex-end" }}>
               <TouchableOpacity onPress={() => setEditingDossier(null)}>
-                <Text style={{ color: 'red', marginRight: 20 }}>Annuler</Text>
+                <Text style={{ color: "red", marginRight: 20 }}>Annuler</Text>
               </TouchableOpacity>
-              <Button title="Ok" onPress={async () => {
-                if (editingDossier && editingDossier.nom.trim()) {
-                  const { error } = await supabase.from('annees_mois').update({ nom: editingDossier.nom.trim() }).eq('id', editingDossier.id);
-                  if (error) Alert.alert("Erreur", error.message);
-                  else { setEditingDossier(null); fetchDossiers(); }
-                }
-              }} />
+              <Button
+                title="Ok"
+                onPress={async () => {
+                  if (editingDossier && editingDossier.nom.trim()) {
+                    try {
+                      // Update non implémenté dans api.js pour annees-mois,
+                      // je pourrais l'ajouter mais je vais voir si j'en ai vraiment besoin ou si create fait l'affaire (non).
+                      // Je vais l'ajouter à api.js par soucis de cohérence.
+                      await api.updateAnneeMois(editingDossier.id, {
+                        nom: editingDossier.nom.trim(),
+                      });
+                      setEditingDossier(null);
+                      fetchDossiers();
+                    } catch (error: any) {
+                      Alert.alert("Erreur", error.message);
+                    }
+                  }
+                }}
+              />
             </View>
           </View>
         </View>
@@ -139,57 +175,57 @@ export default function AnneesMoisScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: "#fff" },
   folderCard: {
-    width: '45%',
-    margin: '2.5%',
-    alignItems: 'center',
+    width: "45%",
+    margin: "2.5%",
+    alignItems: "center",
     padding: 15,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 12,
-    elevation: 2
+    elevation: 2,
   },
   folderName: {
     marginTop: 10,
-    fontWeight: '600',
+    fontWeight: "600",
     fontSize: 16,
-    textAlign: 'center'
+    textAlign: "center",
   },
   folderCount: {
     marginTop: 4,
     fontSize: 11,
-    color: '#888',
-    textAlign: 'center'
+    color: "#888",
+    textAlign: "center",
   },
   fab: {
-    position: 'absolute',
+    position: "absolute",
     right: 20,
     bottom: 30,
-    backgroundColor: '#007AFF',
+    backgroundColor: "#007AFF",
     width: 56,
     height: 56,
     borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 8
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 8,
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'center',
-    alignItems: 'center'
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modal: {
-    width: '85%',
+    width: "85%",
     padding: 25,
     borderRadius: 20,
-    backgroundColor: '#fff'
+    backgroundColor: "#fff",
   },
   modalInput: {
     borderBottomWidth: 1,
-    borderColor: '#ccc',
+    borderColor: "#ccc",
     paddingVertical: 10,
     marginVertical: 20,
-    fontSize: 15
-  }
+    fontSize: 15,
+  },
 });

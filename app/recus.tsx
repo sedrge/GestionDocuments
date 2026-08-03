@@ -2,7 +2,7 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -14,7 +14,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { supabase } from "../lib/supabase";
+import { api } from "../lib/api";
 
 export default function RecusList() {
   const { dossierId, nom } = useLocalSearchParams();
@@ -26,29 +26,17 @@ export default function RecusList() {
 
   const fetchRecus = async () => {
     setLoading(true);
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    try {
+      const data = await api.listRecus({
+        annee_mois_id: dossierId,
+        search: searchQuery.trim(),
+      });
+      setRecus(data);
+    } catch (error: any) {
+      Alert.alert("Erreur", error.message);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    let query = supabase
-      .from("recus")
-      .select("*")
-      .eq("annee_mois_id", dossierId)
-      .eq("user_id", user.id);
-
-    if (searchQuery.trim()) {
-      const s = searchQuery.trim();
-      query = query.or(
-        `numero_facture.ilike.%${s}%,nom_client.ilike.%${s}%,adresse_client.ilike.%${s}%,marque.ilike.%${s}%,type.ilike.%${s}%,chassis_no.ilike.%${s}%,article.ilike.%${s}%`
-      );
-    }
-
-    const { data } = await query.order("created_at", { ascending: false });
-    setRecus(data || []);
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -62,9 +50,12 @@ export default function RecusList() {
         text: "Supprimer",
         style: "destructive",
         onPress: async () => {
-          const { error } = await supabase.from("recus").delete().eq("id", id);
-          if (error) Alert.alert("Erreur", error.message);
-          else fetchRecus();
+          try {
+            await api.deleteRecu(id);
+            fetchRecus();
+          } catch (error: any) {
+            Alert.alert("Erreur", error.message);
+          }
         },
       },
     ]);
@@ -144,7 +135,9 @@ export default function RecusList() {
           numColumns={2}
           contentContainerStyle={{ padding: 15 }}
           ListEmptyComponent={
-            <Text style={{ textAlign: "center", marginTop: 30 }}>Aucun réçu</Text>
+            <Text style={{ textAlign: "center", marginTop: 30 }}>
+              Aucun réçu
+            </Text>
           }
         />
       )}
@@ -184,7 +177,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: "center",
   },
-  cardName: { marginTop: 8, fontWeight: "700", textAlign: "center", color: "#007AFF" },
+  cardName: {
+    marginTop: 8,
+    fontWeight: "700",
+    textAlign: "center",
+    color: "#007AFF",
+  },
   cardSub: { marginTop: 4, fontSize: 11, color: "#777", textAlign: "center" },
   cardDate: { fontSize: 11, color: "#555", marginTop: 2 },
   fab: {

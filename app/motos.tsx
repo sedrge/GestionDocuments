@@ -1,13 +1,6 @@
-// app/motos.tsx
-//
-// Vue d'ensemble des motos sous forme de "dossiers" groupés par marque + type.
-// Cliquer sur un dossier ouvre la liste des motos. On peut aussi ajouter une moto
-// directement depuis cet écran — le classement se fait automatiquement.
-
 import { Ionicons } from "@expo/vector-icons";
-import { Stack, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
-import { useFocusEffect } from "expo-router";
+import { Stack, useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -21,8 +14,8 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { supabase } from "../lib/supabase";
 import { FeatureGate } from "../components/FeatureGate";
+import { api } from "../lib/api";
 
 const { width } = Dimensions.get("window");
 const CARD_W = (width - 45) / 2;
@@ -43,7 +36,11 @@ type Moto = {
   prix_vente: number | null;
   etat: string | null;
   is_published?: boolean;
-  moto_images?: { image_uri: string; is_principal: boolean; position: number }[];
+  moto_images?: {
+    image_uri: string;
+    is_principal: boolean;
+    position: number;
+  }[];
 };
 
 type Folder = {
@@ -70,11 +67,15 @@ const groupMotos = (motos: Moto[]): Folder[] => {
   const folders: Folder[] = [];
 
   parMarque.forEach((listMarque, marque) => {
-    const types = new Set(listMarque.map((m) => (m.type || "").trim()).filter(Boolean));
+    const types = new Set(
+      listMarque.map((m) => (m.type || "").trim()).filter(Boolean),
+    );
     if (types.size > 1) {
       // Plusieurs types → un dossier par (marque, type)
       types.forEach((t) => {
-        const motosTypees = listMarque.filter((m) => (m.type || "").trim() === t);
+        const motosTypees = listMarque.filter(
+          (m) => (m.type || "").trim() === t,
+        );
         folders.push({
           key: `${marque}__${t}`,
           marque,
@@ -126,9 +127,16 @@ const matchMoto = (m: Moto, q: string): boolean => {
   if (!q) return true;
   const s = q.toLowerCase();
   return [
-    m.marque, m.modele, m.type, m.categorie,
-    m.numero_chassis, m.numero_moteur, m.immatriculation,
-    m.couleur, m.cylindree, m.etat,
+    m.marque,
+    m.modele,
+    m.type,
+    m.categorie,
+    m.numero_chassis,
+    m.numero_moteur,
+    m.immatriculation,
+    m.couleur,
+    m.cylindree,
+    m.etat,
     m.annee_fabrication ? String(m.annee_fabrication) : "",
   ]
     .filter(Boolean)
@@ -144,21 +152,14 @@ function MotosContent() {
 
   const fetchMotos = async () => {
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-    const { data, error } = await supabase
-      .from("motos")
-      .select("*, moto_images(image_uri, is_principal, position)")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-    if (error) {
+    try {
+      const data = await api.listMyMotos();
+      setAllMotos(data);
+    } catch (error: any) {
       Alert.alert("Erreur", error.message);
+    } finally {
+      setLoading(false);
     }
-    setAllMotos((data as Moto[]) || []);
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -166,7 +167,11 @@ function MotosContent() {
   }, []);
 
   // Recharger à chaque retour sur l'écran
-  useFocusEffect(useCallback(() => { fetchMotos(); }, []));
+  useFocusEffect(
+    useCallback(() => {
+      fetchMotos();
+    }, []),
+  );
 
   const handleDeleteMoto = (motoId: string) => {
     Alert.alert("Supprimer la moto", "Cette action est irréversible.", [
@@ -175,10 +180,15 @@ function MotosContent() {
         text: "Supprimer",
         style: "destructive",
         onPress: async () => {
-          await supabase.from("moto_images").delete().eq("moto_id", motoId);
-          const { error } = await supabase.from("motos").delete().eq("id", motoId);
-          if (error) Alert.alert("Erreur", error.message);
-          else fetchMotos();
+          try {
+            // Dans Laravel, on pourrait avoir une méthode dédiée ou utiliser updateMoto
+            // Ici je vais supposer qu'on a besoin d'une méthode de suppression réelle
+            // Je vais l'ajouter à api.js si nécessaire.
+            await api.deleteMoto(motoId);
+            fetchMotos();
+          } catch (error: any) {
+            Alert.alert("Erreur", error.message);
+          }
         },
       },
     ]);
@@ -192,7 +202,13 @@ function MotosContent() {
         <Stack.Screen options={{ title: folderLabel(openedFolder) }} />
 
         <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => { setOpenedFolder(null); setSearch(""); }} style={styles.backBtn}>
+          <TouchableOpacity
+            onPress={() => {
+              setOpenedFolder(null);
+              setSearch("");
+            }}
+            style={styles.backBtn}
+          >
             <Ionicons name="chevron-back" size={22} color="#FF9500" />
             <Text style={{ color: "#FF9500", fontSize: 15 }}>Retour</Text>
           </TouchableOpacity>
@@ -212,12 +228,23 @@ function MotosContent() {
           data={filtered}
           keyExtractor={(item) => item.id}
           numColumns={2}
-          renderItem={({ item }) => <MotoCard moto={item} onPress={() => router.push({ pathname: "/moto/[id]", params: { id: item.id } })} onLongPress={() => handleDeleteMoto(item.id)} />}
+          renderItem={({ item }) => (
+            <MotoCard
+              moto={item}
+              onPress={() =>
+                router.push({ pathname: "/moto/[id]", params: { id: item.id } })
+              }
+              onLongPress={() => handleDeleteMoto(item.id)}
+            />
+          )}
           contentContainerStyle={{ padding: 10, paddingBottom: 80 }}
           ListEmptyComponent={<Text style={styles.empty}>Aucune moto</Text>}
         />
 
-        <TouchableOpacity style={styles.fab} onPress={() => router.push("/moto")}>
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => router.push("/moto")}
+        >
           <Ionicons name="add" size={28} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -225,7 +252,6 @@ function MotosContent() {
   }
 
   // ── Vue principale : dossiers ──────────────────────────────────────────────
-  // Si une recherche est en cours, on affiche les motos correspondantes à plat.
   const trimmedSearch = search.trim();
   const folders = groupMotos(allMotos);
   const folderFiltered = trimmedSearch
@@ -264,18 +290,27 @@ function MotosContent() {
           renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.folderCard}
-              onPress={() => { setOpenedFolder(item); setSearch(""); }}
+              onPress={() => {
+                setOpenedFolder(item);
+                setSearch("");
+              }}
             >
               <View style={styles.folderThumbWrap}>
                 {item.thumb ? (
-                  <Image source={{ uri: item.thumb }} style={styles.folderThumb} resizeMode="cover" />
+                  <Image
+                    source={{ uri: item.thumb }}
+                    style={styles.folderThumb}
+                    resizeMode="cover"
+                  />
                 ) : (
                   <View style={[styles.folderThumb, styles.folderThumbEmpty]}>
                     <Ionicons name="bicycle-outline" size={36} color="#bbb" />
                   </View>
                 )}
               </View>
-              <Text style={styles.folderName} numberOfLines={1}>{folderLabel(item)}</Text>
+              <Text style={styles.folderName} numberOfLines={1}>
+                {folderLabel(item)}
+              </Text>
               <Text style={styles.folderCount}>
                 {item.count} moto{item.count > 1 ? "s" : ""}
               </Text>
@@ -292,7 +327,12 @@ function MotosContent() {
                     <MotoCard
                       key={m.id}
                       moto={m}
-                      onPress={() => router.push({ pathname: "/moto/[id]", params: { id: m.id } })}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/moto/[id]",
+                          params: { id: m.id },
+                        })
+                      }
                       onLongPress={() => handleDeleteMoto(m.id)}
                     />
                   ))}
@@ -337,9 +377,18 @@ function MotoCard({
   const principal = imgs.find((i) => i.is_principal) || imgs[0];
 
   return (
-    <TouchableOpacity style={styles.motoCard} onPress={onPress} onLongPress={onLongPress} activeOpacity={0.85}>
+    <TouchableOpacity
+      style={styles.motoCard}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      activeOpacity={0.85}
+    >
       {principal ? (
-        <Image source={{ uri: principal.image_uri }} style={styles.motoThumb} resizeMode="cover" />
+        <Image
+          source={{ uri: principal.image_uri }}
+          style={styles.motoThumb}
+          resizeMode="cover"
+        />
       ) : (
         <View style={[styles.motoThumb, styles.folderThumbEmpty]}>
           <Ionicons name="bicycle-outline" size={36} color="#bbb" />
@@ -349,10 +398,13 @@ function MotoCard({
         {[moto.marque, moto.modele].filter(Boolean).join(" ") || "Moto"}
       </Text>
       <Text style={styles.motoSub} numberOfLines={1}>
-        {[moto.type, moto.couleur, moto.etat].filter(Boolean).join(" · ") || "—"}
+        {[moto.type, moto.couleur, moto.etat].filter(Boolean).join(" · ") ||
+          "—"}
       </Text>
       {moto.prix_vente != null ? (
-        <Text style={styles.motoPrice}>{moto.prix_vente.toLocaleString("fr-FR")} FCFA</Text>
+        <Text style={styles.motoPrice}>
+          {moto.prix_vente.toLocaleString("fr-FR")} FCFA
+        </Text>
       ) : null}
       {moto.is_published ? (
         <View style={styles.publishedBadge}>
@@ -410,7 +462,12 @@ const styles = StyleSheet.create({
   },
   folderThumb: { width: 80, height: 80 },
   folderThumbEmpty: { justifyContent: "center", alignItems: "center" },
-  folderName: { marginTop: 8, fontWeight: "700", fontSize: 14, textAlign: "center" },
+  folderName: {
+    marginTop: 8,
+    fontWeight: "700",
+    fontSize: 14,
+    textAlign: "center",
+  },
   folderCount: { marginTop: 2, fontSize: 11, color: "#888" },
   motoCard: {
     width: CARD_W,
@@ -424,10 +481,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
   },
-  motoThumb: { width: "100%", height: 110, borderRadius: 8, backgroundColor: "#f3f3f3" },
+  motoThumb: {
+    width: "100%",
+    height: 110,
+    borderRadius: 8,
+    backgroundColor: "#f3f3f3",
+  },
   motoName: { marginTop: 6, fontWeight: "700", fontSize: 13 },
   motoSub: { marginTop: 2, fontSize: 11, color: "#666" },
-  motoPrice: { marginTop: 4, fontSize: 12, fontWeight: "700", color: "#FF9500" },
+  motoPrice: {
+    marginTop: 4,
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#FF9500",
+  },
   publishedBadge: {
     flexDirection: "row",
     alignItems: "center",
