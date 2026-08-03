@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { supabase } from "../../lib/supabase";
+import { api } from "../../lib/api";
 import { useFocusEffect } from "expo-router";
 import { useTenant } from "../../context/TenantContext";
 import { FeatureGate } from "../../components/FeatureGate";
@@ -119,11 +119,15 @@ function AssistantContent() {
 
   const fetchData = useCallback(async () => {
     if (!tenant?.enterprise_id) { setLoading(false); return; }
-    const { data } = await supabase
-      .from("motos")
-      .select("id,marque,modele,type,prix_achat,prix_vente,statut,date_vente,like_count,created_at")
-      .eq("enterprise_id", tenant.enterprise_id);
-    if (data) setMotos(data as Moto[]);
+    try {
+      const result = await api.listMyMotos({
+        enterprise_id: tenant.enterprise_id,
+        per_page: 1000,
+      });
+      setMotos((result.data ?? result) as Moto[]);
+    } catch {
+      // Garde la liste precedente en cas d'erreur reseau
+    }
     setLoading(false);
     setRefreshing(false);
   }, [tenant?.enterprise_id]);

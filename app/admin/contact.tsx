@@ -14,7 +14,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { supabase } from "@/lib/supabase";
+import { api } from "@/lib/api";
 import { useTenant } from "@/context/TenantContext";
 import { useTheme } from "@/context/ThemeContext";
 import MapPickerModal, { LocationResult } from "@/components/MapPickerModal";
@@ -120,12 +120,9 @@ function AdminContactContent() {
       setLoading(false);
       return;
     }
-    supabase
-      .from("enterprise_contacts")
-      .select("*")
-      .eq("enterprise_id", enterpriseId)
-      .maybeSingle()
-      .then(({ data }) => {
+    api
+      .getEnterpriseContact(enterpriseId)
+      .then((data: any) => {
         if (data) {
           setExistingId(data.id);
           setForm({
@@ -139,8 +136,11 @@ function AdminContactContent() {
             website: data.website ?? "",
           });
         }
-        setLoading(false);
-      });
+      })
+      .catch(() => {
+        // 404 : aucun contact enregistre pour le moment, formulaire vide
+      })
+      .finally(() => setLoading(false));
   }, [enterpriseId]);
 
   const set = (key: keyof ContactForm) => (val: string) =>
@@ -154,7 +154,6 @@ function AdminContactContent() {
     setSaving(true);
 
     const payload = {
-      enterprise_id: enterpriseId,
       description: form.description.trim() || null,
       whatsapp: form.whatsapp.trim() || null,
       phone1: form.phone1.trim() || null,
@@ -163,30 +162,16 @@ function AdminContactContent() {
       address: form.address.trim() || null,
       localisation: form.localisation.trim() || null,
       website: form.website.trim() || null,
-      updated_at: new Date().toISOString(),
     };
 
-    let error;
-    if (existingId) {
-      ({ error } = await supabase
-        .from("enterprise_contacts")
-        .update(payload)
-        .eq("id", existingId));
-    } else {
-      const res = await supabase
-        .from("enterprise_contacts")
-        .insert(payload)
-        .select("id")
-        .single();
-      error = res.error;
-      if (res.data) setExistingId(res.data.id);
-    }
-
-    setSaving(false);
-    if (error) {
-      Alert.alert("Erreur", error.message);
-    } else {
+    try {
+      const saved = await api.updateEnterpriseContact(enterpriseId, payload);
+      setExistingId(saved.id);
       Alert.alert("✅ Succès", "Contacts enregistrés. Les clients les verront immédiatement.");
+    } catch (e: any) {
+      Alert.alert("Erreur", e.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -201,16 +186,13 @@ function AdminContactContent() {
           text: "Supprimer",
           style: "destructive",
           onPress: async () => {
-            const { error } = await supabase
-              .from("enterprise_contacts")
-              .delete()
-              .eq("id", existingId);
-            if (error) {
-              Alert.alert("Erreur", error.message);
-            } else {
+            try {
+              await api.deleteEnterpriseContact(enterpriseId);
               setExistingId(null);
               setForm(EMPTY);
               Alert.alert("Supprimé", "Les contacts ont été supprimés.");
+            } catch (e: any) {
+              Alert.alert("Erreur", e.message);
             }
           },
         },

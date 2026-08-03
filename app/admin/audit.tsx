@@ -20,7 +20,7 @@ import {
   ENTITY_LABELS,
   EntityType,
 } from '../../lib/auditLog';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { FeatureGate } from '../../components/FeatureGate';
 
 type AuditLog = {
@@ -97,31 +97,27 @@ function AuditContent() {
   const fetchLogs = useCallback(async () => {
     if (!tenant?.enterprise_id || !isEnterpriseAdmin) return;
 
-    let query = supabase
-      .from('audit_logs')
-      .select('*')
-      .eq('enterprise_id', tenant.enterprise_id)
-      .order('created_at', { ascending: false })
-      .limit(500);
-
-    if (filter !== 'ALL') query = query.eq('action', filter);
-    if (selectedUser !== 'ALL') query = query.eq('user_id', selectedUser);
+    const params: Record<string, string> = { enterprise_id: tenant.enterprise_id };
+    if (filter !== 'ALL') params.action = filter;
+    if (selectedUser !== 'ALL') params.user_id = selectedUser;
 
     const fromDate = parseDMY(dateFrom);
-    if (fromDate) query = query.gte('created_at', fromDate.toISOString());
+    if (fromDate) params.date_from = fromDate.toISOString();
     const toDate = parseDMY(dateTo);
-    if (toDate) { toDate.setHours(23, 59, 59, 999); query = query.lte('created_at', toDate.toISOString()); }
+    if (toDate) { toDate.setHours(23, 59, 59, 999); params.date_to = toDate.toISOString(); }
 
-    const { data } = await query;
-    if (data) {
-      setLogs(data as AuditLog[]);
+    try {
+      const data = (await api.listAuditLogs(params)) as AuditLog[];
+      setLogs(data);
 
       // Construire la liste des utilisateurs uniques
       const seen = new Map<string, string>();
-      (data as AuditLog[]).forEach((l) => {
+      data.forEach((l) => {
         if (!seen.has(l.user_id)) seen.set(l.user_id, l.user_name ?? l.user_id);
       });
       setUniqueUsers(Array.from(seen.entries()).map(([id, name]) => ({ id, name })));
+    } catch {
+      // Garde la liste precedente en cas d'erreur reseau
     }
     setLoading(false);
     setRefreshing(false);

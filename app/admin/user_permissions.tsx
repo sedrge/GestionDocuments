@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTenant } from '../../context/TenantContext';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 // ─── Définition de tous les éléments de menu contrôlables ────────────────────
 
@@ -107,11 +107,9 @@ export default function UserPermissionsScreen() {
 
   const loadPermissions = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('user_menu_permissions')
-      .select('menu_key, is_enabled')
-      .eq('enterprise_id', tenant!.enterprise_id)
-      .eq('user_id', userId);
+    const data = await api
+      .getUserMenuPermissions(tenant!.enterprise_id, userId)
+      .catch(() => []);
 
     if (data && data.length > 0) {
       setHasCustomPerms(true);
@@ -119,7 +117,7 @@ export default function UserPermissionsScreen() {
       const map: Record<string, boolean> = Object.fromEntries(
         ALL_KEYS.map((k) => [k, false])
       );
-      data.forEach((row) => {
+      data.forEach((row: any) => {
         if (row.menu_key in map) map[row.menu_key] = row.is_enabled;
       });
       setPermissions(map);
@@ -148,29 +146,15 @@ export default function UserPermissionsScreen() {
     if (!userId || !tenant?.enterprise_id) return;
     setSaving(true);
 
-    // Supprimer les anciennes entrées, réinsérer les nouvelles
-    await supabase
-      .from('user_menu_permissions')
-      .delete()
-      .eq('enterprise_id', tenant.enterprise_id)
-      .eq('user_id', userId);
-
-    const rows = ALL_KEYS.map((key) => ({
-      enterprise_id: tenant.enterprise_id,
-      user_id:       userId,
-      menu_key:      key,
-      is_enabled:    permissions[key],
-    }));
-
-    const { error } = await supabase.from('user_menu_permissions').insert(rows);
-
-    setSaving(false);
-    if (error) {
-      Alert.alert('Erreur', error.message);
-    } else {
+    try {
+      await api.updateUserMenuPermissions(tenant.enterprise_id, userId, permissions);
       Alert.alert('Succès', 'Permissions mises à jour.', [
         { text: 'OK', onPress: () => router.back() },
       ]);
+    } catch (error: any) {
+      Alert.alert('Erreur', error.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -185,11 +169,7 @@ export default function UserPermissionsScreen() {
           style: 'destructive',
           onPress: async () => {
             if (!userId || !tenant?.enterprise_id) return;
-            await supabase
-              .from('user_menu_permissions')
-              .delete()
-              .eq('enterprise_id', tenant.enterprise_id)
-              .eq('user_id', userId);
+            await api.deleteUserMenuPermissions(tenant.enterprise_id, userId).catch(() => {});
             setHasCustomPerms(false);
             setPermissions(Object.fromEntries(ALL_KEYS.map((k) => [k, true])));
           },

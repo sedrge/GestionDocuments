@@ -16,7 +16,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { supabase } from "../../lib/supabase";
+import { api } from "../../lib/api";
 import { useTenant } from "../../context/TenantContext";
 import { FeatureGate } from "../../components/FeatureGate";
 
@@ -34,7 +34,7 @@ type Vente = {
   date_vente: string | null;
   notes_vente: string | null;
   created_at: string;
-  moto_images?: { image_uri: string; is_principal: boolean }[];
+  images?: { image_uri: string; is_principal: boolean }[];
 };
 
 type Period = "mois" | "trimestre" | "annee" | "tout" | "custom";
@@ -92,8 +92,8 @@ function VenteDetailModal({ vente, onClose, onAnnuler }: {
   if (!vente) return null;
 
   const benefice = (vente.prix_vente || 0) - (vente.prix_achat || 0);
-  const thumb = vente.moto_images?.find((i) => i.is_principal)?.image_uri
-    || vente.moto_images?.[0]?.image_uri
+  const thumb = vente.images?.find((i) => i.is_principal)?.image_uri
+    || vente.images?.[0]?.image_uri
     || null;
 
   return (
@@ -193,8 +193,8 @@ function DetailRow({ icon, label, value }: { icon: string; label: string; value:
 
 function VenteCard({ vente, onPress }: { vente: Vente; onPress: () => void }) {
   const benefice = (vente.prix_vente || 0) - (vente.prix_achat || 0);
-  const thumb = vente.moto_images?.find((i) => i.is_principal)?.image_uri
-    || vente.moto_images?.[0]?.image_uri
+  const thumb = vente.images?.find((i) => i.is_principal)?.image_uri
+    || vente.images?.[0]?.image_uri
     || null;
 
   return (
@@ -263,14 +263,22 @@ function VentesContent() {
 
   const fetchVentes = async () => {
     if (!tenant?.enterprise_id) { setLoading(false); return; }
-    const { data, error } = await supabase
-      .from("motos")
-      .select("id,marque,modele,type,couleur,etat,prix_achat,prix_vente,nom_acheteur,telephone_acheteur,date_vente,notes_vente,created_at,moto_images(image_uri,is_principal)")
-      .eq("enterprise_id", tenant.enterprise_id)
-      .eq("statut", "vendu")
-      .order("date_vente", { ascending: false, nullsFirst: false });
-
-    if (!error && data) setVentes(data as Vente[]);
+    try {
+      const result = await api.listMyMotos({
+        enterprise_id: tenant.enterprise_id,
+        statut: "vendu",
+        per_page: 1000,
+      });
+      const list = (result.data ?? result) as Vente[];
+      list.sort((a, b) => {
+        if (!a.date_vente) return 1;
+        if (!b.date_vente) return -1;
+        return new Date(b.date_vente).getTime() - new Date(a.date_vente).getTime();
+      });
+      setVentes(list);
+    } catch {
+      // Garde la liste precedente en cas d'erreur reseau
+    }
     setLoading(false);
     setRefreshing(false);
   };
@@ -289,13 +297,17 @@ function VentesContent() {
           text: "Oui, annuler",
           style: "destructive",
           onPress: async () => {
-            await supabase.from("motos").update({
-              statut: "disponible",
-              date_vente: null,
-              nom_acheteur: null,
-              telephone_acheteur: null,
-              notes_vente: null,
-            }).eq("id", selectedVente.id);
+            try {
+              await api.updateMoto(selectedVente.id, {
+                statut: "disponible",
+                date_vente: null,
+                nom_acheteur: null,
+                telephone_acheteur: null,
+                notes_vente: null,
+              });
+            } catch (e: any) {
+              Alert.alert("Erreur", e.message);
+            }
             setSelectedVente(null);
             fetchVentes();
           },

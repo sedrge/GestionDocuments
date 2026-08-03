@@ -13,7 +13,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { supabase } from "../../lib/supabase";
+import { api } from "../../lib/api";
 import { useTenant } from "../../context/TenantContext";
 
 const { width } = Dimensions.get("window");
@@ -194,15 +194,15 @@ export default function AdminDashboard() {
       setLoading(false);
       return;
     }
-    const { data, error } = await supabase
-      .from("motos")
-      .select(
-        "id,marque,modele,type,prix_achat,prix_vente,statut,date_vente,nom_acheteur,like_count,created_at"
-      )
-      .eq("enterprise_id", tenant.enterprise_id)
-      .order("created_at", { ascending: false });
-
-    if (!error && data) setMotos(data as Moto[]);
+    try {
+      const result = await api.listMyMotos({
+        enterprise_id: tenant.enterprise_id,
+        per_page: 1000,
+      });
+      setMotos((result.data ?? result) as Moto[]);
+    } catch {
+      // Garde la liste precedente en cas d'erreur reseau
+    }
     setLoading(false);
     setRefreshing(false);
   };

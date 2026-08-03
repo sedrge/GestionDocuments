@@ -18,7 +18,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { supabase } from "../../lib/supabase";
+import { api } from "../../lib/api";
 import { useTenant } from "../../context/TenantContext";
 import { FeatureGate } from "../../components/FeatureGate";
 
@@ -35,7 +35,7 @@ type Moto = {
   immatriculation: string | null;
   numero_chassis: string | null;
   created_at: string;
-  moto_images?: { image_uri: string; is_principal: boolean }[];
+  images?: { image_uri: string; is_principal: boolean }[];
 };
 
 type FilterStatus = "tous" | "disponible" | "réservé";
@@ -241,8 +241,8 @@ function MotoStockCard({
   onDispo: () => void;
   onDelete: () => void;
 }) {
-  const thumb = moto.moto_images?.find((i) => i.is_principal)?.image_uri
-    || moto.moto_images?.[0]?.image_uri
+  const thumb = moto.images?.find((i) => i.is_principal)?.image_uri
+    || moto.images?.[0]?.image_uri
     || null;
 
   const statut = moto.statut || "disponible";
@@ -339,14 +339,16 @@ function StockContent() {
 
   const fetchMotos = async () => {
     if (!tenant?.enterprise_id) { setLoading(false); return; }
-    const { data, error } = await supabase
-      .from("motos")
-      .select("id,marque,modele,type,couleur,etat,prix_achat,prix_vente,statut,immatriculation,numero_chassis,created_at,moto_images(image_uri,is_principal)")
-      .eq("enterprise_id", tenant.enterprise_id)
-      .neq("statut", "vendu")
-      .order("created_at", { ascending: false });
-
-    if (!error && data) setMotos(data as Moto[]);
+    try {
+      const result = await api.listMyMotos({
+        enterprise_id: tenant.enterprise_id,
+        per_page: 1000,
+      });
+      const list = (result.data ?? result) as Moto[];
+      setMotos(list.filter((m) => m.statut !== "vendu"));
+    } catch {
+      // Garde la liste precedente en cas d'erreur reseau
+    }
     setLoading(false);
     setRefreshing(false);
   };
@@ -355,8 +357,12 @@ function StockContent() {
   const onRefresh = () => { setRefreshing(true); fetchMotos(); };
 
   const handleUpdateStatut = async (id: string, statut: string) => {
-    await supabase.from("motos").update({ statut }).eq("id", id);
-    fetchMotos();
+    try {
+      await api.updateMoto(id, { statut });
+      fetchMotos();
+    } catch (e: any) {
+      Alert.alert("Erreur", e.message);
+    }
   };
 
   const handleVente = async (data: {
@@ -364,22 +370,22 @@ function StockContent() {
   }) => {
     if (!sellMoto) return;
     setSaving(true);
-    const { error } = await supabase.from("motos").update({
-      statut: "vendu",
-      date_vente: data.date ? new Date(frToISO(data.date)).toISOString() : new Date().toISOString(),
-      nom_acheteur: data.nom || null,
-      telephone_acheteur: data.tel || null,
-      notes_vente: data.notes || null,
-      prix_vente: data.prix ? Number(data.prix) : sellMoto.prix_vente,
-    }).eq("id", sellMoto.id);
-
-    setSaving(false);
-    if (error) {
-      Alert.alert("Erreur", error.message);
-    } else {
+    try {
+      await api.updateMoto(sellMoto.id, {
+        statut: "vendu",
+        date_vente: data.date ? frToISO(data.date) : frToISO(todayFR()),
+        nom_acheteur: data.nom || null,
+        telephone_acheteur: data.tel || null,
+        notes_vente: data.notes || null,
+        prix_vente: data.prix ? Number(data.prix) : sellMoto.prix_vente,
+      });
       setSellMoto(null);
       Alert.alert("Succès", "Vente enregistrée !");
       fetchMotos();
+    } catch (e: any) {
+      Alert.alert("Erreur", e.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -390,9 +396,12 @@ function StockContent() {
         text: "Supprimer",
         style: "destructive",
         onPress: async () => {
-          await supabase.from("moto_images").delete().eq("moto_id", moto.id);
-          await supabase.from("motos").delete().eq("id", moto.id);
-          fetchMotos();
+          try {
+            await api.deleteMoto(moto.id);
+            fetchMotos();
+          } catch (e: any) {
+            Alert.alert("Erreur", e.message);
+          }
         },
       },
     ]);

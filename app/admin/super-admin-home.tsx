@@ -17,7 +17,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../../context/ThemeContext";
 import { useTenant } from "../../context/TenantContext";
-import { supabase } from "../../lib/supabase";
+import { api } from "../../lib/api";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 const DRAWER_WIDTH = SCREEN_W * 0.76;
@@ -71,21 +71,14 @@ export default function SuperAdminHomeScreen() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [
-        { count: total },
-        { count: active },
-        { count: pending },
-        { count: users },
-        { data: recent },
-      ] = await Promise.all([
-        supabase.from("enterprises").select("*", { count: "exact", head: true }),
-        supabase.from("enterprises").select("*", { count: "exact", head: true }).eq("is_active", true),
-        supabase.from("enterprises").select("*", { count: "exact", head: true }).eq("is_active", false),
-        supabase.from("enterprise_users").select("*", { count: "exact", head: true }),
-        supabase.from("enterprises").select("id, name, code, is_active, created_at").order("created_at", { ascending: false }).limit(6),
-      ]);
-      setStats({ total: total ?? 0, active: active ?? 0, pending: pending ?? 0, users: users ?? 0 });
-      setRecents(recent ?? []);
+      const data = await api.getEnterpriseStats();
+      setStats({
+        total: data.total ?? 0,
+        active: data.active ?? 0,
+        pending: data.pending ?? 0,
+        users: data.users ?? 0,
+      });
+      setRecents(data.recent ?? []);
     } catch (e) {
       console.warn("SuperAdminHome:", e);
     } finally {
@@ -116,7 +109,7 @@ export default function SuperAdminHomeScreen() {
           text: "Déconnecter",
           style: "destructive",
           onPress: async () => {
-            await supabase.auth.signOut();
+            await api.logout().catch(() => {});
           },
         },
       ]);

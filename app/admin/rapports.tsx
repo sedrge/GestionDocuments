@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { printAndSharePdf } from "../../lib/sharePdf";
-import { supabase } from "../../lib/supabase";
+import { api } from "../../lib/api";
 import { useTenant } from "../../context/TenantContext";
 import { FeatureGate } from "../../components/FeatureGate";
 
@@ -461,12 +461,15 @@ function RapportsContent() {
 
   const fetchMotos = async () => {
     if (!tenant?.enterprise_id) { setLoading(false); return; }
-    const { data, error } = await supabase
-      .from("motos")
-      .select("id,marque,modele,type,couleur,etat,prix_achat,prix_vente,statut,immatriculation,numero_chassis,nom_acheteur,telephone_acheteur,date_vente,notes_vente,created_at")
-      .eq("enterprise_id", tenant.enterprise_id)
-      .order("created_at", { ascending: false });
-    if (!error && data) setMotos(data as Moto[]);
+    try {
+      const result = await api.listMyMotos({
+        enterprise_id: tenant.enterprise_id,
+        per_page: 1000,
+      });
+      setMotos((result.data ?? result) as Moto[]);
+    } catch {
+      // Garde la liste precedente en cas d'erreur reseau
+    }
     setLoading(false);
   };
 

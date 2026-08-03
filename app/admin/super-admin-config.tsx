@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useTenant } from '../../context/TenantContext';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -36,12 +36,7 @@ export default function SuperAdminConfigScreen() {
   const loadConfig = async () => {
     setLoading(true);
     try {
-      const { data } = await supabase
-        .from('super_admin_config')
-        .select('*')
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .single();
+      const data = await api.getSuperAdminConfig();
       if (data) {
         setConfigId(data.id);
         setSecretType(data.secret_type as SecretType);
@@ -75,24 +70,13 @@ export default function SuperAdminConfigScreen() {
         secret_type: secretType,
         tap_count: secretType === 'taps' ? parseInt(tapCount, 10) : null,
         secret_phrase: secretType === 'phrase' ? secretPhrase.trim() : null,
-        updated_at: new Date().toISOString(),
       };
 
-      let error;
-      if (configId) {
-        ({ error } = await supabase.from('super_admin_config').update(payload).eq('id', configId));
-      } else {
-        const { data, error: insertError } = await supabase
-          .from('super_admin_config')
-          .insert(payload)
-          .select('id')
-          .single();
-        error = insertError;
-        if (data) setConfigId(data.id);
-      }
-
-      if (error) Alert.alert('Erreur', error.message);
-      else Alert.alert('Enregistré', "La règle d'accès secret a été mise à jour.");
+      const saved = await api.updateSuperAdminConfig(payload);
+      setConfigId(saved.id);
+      Alert.alert('Enregistré', "La règle d'accès secret a été mise à jour.");
+    } catch (e: any) {
+      Alert.alert('Erreur', e.message);
     } finally {
       setSaving(false);
     }
