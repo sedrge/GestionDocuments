@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { api, getToken } from "@/lib/api";
 import { useTheme } from "@/context/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -39,8 +39,8 @@ export default function OnboardingScreen() {
   const checkAuth = async () => {
     setLoading(true);
     try {
-      const { data: session } = await supabase.auth.getSession();
-      if (session?.session) {
+      const token = await getToken();
+      if (token) {
         router.replace("/(tabs)");
       }
     } catch (error) {
@@ -52,12 +52,7 @@ export default function OnboardingScreen() {
 
   const loadSecretConfig = async () => {
     try {
-      const { data } = await supabase
-        .from('super_admin_config')
-        .select('secret_type, tap_count, secret_phrase')
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .single();
+      const data = await api.getSuperAdminConfig();
       if (data) {
         setSecretConfig({
           secret_type: data.secret_type as SecretType,
@@ -66,7 +61,7 @@ export default function OnboardingScreen() {
         });
       }
     } catch {
-      // Pas de config, on garde le défaut
+      // Pas de config (première installation), on garde le défaut
     }
   };
 

@@ -24,7 +24,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { useTenant } from '../../context/TenantContext';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -83,8 +83,8 @@ type FeedMoto = {
   immatriculation: string | null;
   description?: string | null;
   like_count?: number;
-  moto_images: { image_uri: string; is_principal: boolean; position: number }[];
-  enterprises?: { name: string; logo_url: string | null; phone: string | null; is_active: boolean } | null;
+  images: { image_uri: string; is_principal: boolean; position: number }[];
+  enterprise?: { name: string; logo_url: string | null; phone: string | null; is_active: boolean } | null;
 };
 
 type EnterpriseContact = {
@@ -103,10 +103,10 @@ type FeedPub = {
   id: string;
   enterprise_id: string;
   texte: string | null;
-  images: string[];
+  image_urls: string[];
   created_at: string;
   like_count?: number;
-  enterprises?: { name: string; logo_url: string | null; is_active: boolean } | null;
+  enterprise?: { name: string; logo_url: string | null; is_active: boolean } | null;
 };
 
 type FeedItem =
@@ -116,13 +116,6 @@ type FeedItem =
 // ─── PAGINATION ─────────────────────────────────────────────────────────────
 const MOTO_PAGE_SIZE = 12;
 const PUB_PAGE_SIZE  = 6;
-
-const MOTO_SELECT = `
-  id, marque, modele, type, couleur, prix_vente, etat, created_at, enterprise_id,
-  cylindree, annee_fabrication, numero_chassis, immatriculation, like_count,
-  moto_images(image_uri, is_principal, position),
-  enterprises(name, logo_url, phone, is_active)
-`;
 
 const LIKED_MOTOS_KEY = 'LIKED_MOTOS_V1';
 const LIKED_PUBS_KEY  = 'LIKED_PUBS_V1';
@@ -176,10 +169,10 @@ function MotoCard({ item, onPress, onContact, isLiked, onLike }: {
   onLike: () => void;
 }) {
   const { C } = useColors();
-  const principalImg = item.moto_images?.find(i => i.is_principal) ?? item.moto_images?.[0];
+  const principalImg = item.images?.find(i => i.is_principal) ?? item.images?.[0];
   const imgUri = principalImg?.image_uri;
   const [imgError, setImgError] = useState(false);
-  const enterpriseName = item.enterprises?.name ?? 'Entreprise';
+  const enterpriseName = item.enterprise?.name ?? 'Entreprise';
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () =>
@@ -203,7 +196,7 @@ function MotoCard({ item, onPress, onContact, isLiked, onLike }: {
       >
         {/* En-tête carte */}
         <View style={styles.cardHeader}>
-          <EnterpriseAvatar name={enterpriseName} logoUrl={item.enterprises?.logo_url} />
+          <EnterpriseAvatar name={enterpriseName} logoUrl={item.enterprise?.logo_url} />
           <View style={styles.cardHeaderText}>
             <Text style={[styles.enterpriseName, { color: C.text }]} numberOfLines={1}>{enterpriseName}</Text>
             <View style={styles.cardMeta}>
@@ -304,7 +297,7 @@ function TrendingSection({
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 10, gap: 10 }}>
         {trending.map(moto => {
-          const principalImg = moto.moto_images?.find(i => i.is_principal) ?? moto.moto_images?.[0];
+          const principalImg = moto.images?.find(i => i.is_principal) ?? moto.images?.[0];
           const imgUri = principalImg?.image_uri;
           const isLiked = likedMotos.has(moto.id);
           return (
@@ -672,7 +665,7 @@ function PublicationCard({
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
 
-  const enterpriseName = item.enterprises?.name ?? 'Entreprise';
+  const enterpriseName = item.enterprise?.name ?? 'Entreprise';
   const TEXT_LIMIT = 120;
   const isLong = (item.texte?.length ?? 0) > TEXT_LIMIT;
 
@@ -685,7 +678,7 @@ function PublicationCard({
     <View style={[styles.card, { backgroundColor: C.card, borderColor: C.cardBorder }]}>
       {/* En-tête */}
       <View style={styles.cardHeader}>
-        <EnterpriseAvatar name={enterpriseName} logoUrl={item.enterprises?.logo_url} />
+        <EnterpriseAvatar name={enterpriseName} logoUrl={item.enterprise?.logo_url} />
         <View style={styles.cardHeaderText}>
           <Text style={[styles.enterpriseName, { color: C.text }]} numberOfLines={1}>
             {enterpriseName}
@@ -726,9 +719,9 @@ function PublicationCard({
       ) : null}
 
       {/* Grille d'images */}
-      {item.images && item.images.length > 0 ? (
+      {item.image_urls && item.image_urls.length > 0 ? (
         <View style={{ overflow: 'hidden' }}>
-          <ImageGrid images={item.images} onPressImage={openGallery} />
+          <ImageGrid images={item.image_urls} onPressImage={openGallery} />
         </View>
       ) : null}
 
@@ -754,7 +747,7 @@ function PublicationCard({
 
       {galleryOpen && (
         <ImageGalleryModal
-          images={item.images}
+          images={item.image_urls}
           startIndex={galleryIndex}
           onClose={() => setGalleryOpen(false)}
         />
@@ -773,19 +766,17 @@ function PubContactModal({
 }) {
   const { C } = useColors();
   const { height: screenHeight } = Dimensions.get('window');
-  const enterpriseName = pub.enterprises?.name ?? "l'entreprise";
+  const enterpriseName = pub.enterprise?.name ?? "l'entreprise";
 
   const [contactInfo, setContactInfo] = useState<EnterpriseContact | null>(null);
   const [contactLoading, setContactLoading] = useState(true);
 
   useEffect(() => {
     if (!pub.enterprise_id) { setContactLoading(false); return; }
-    supabase
-      .from('enterprise_contacts')
-      .select('whatsapp, phone1, phone2, localisation, email, description')
-      .eq('enterprise_id', pub.enterprise_id)
-      .maybeSingle()
-      .then(({ data }) => {
+    api
+      .getEnterpriseContact(pub.enterprise_id)
+      .catch(() => null)
+      .then((data) => {
         setContactInfo(data ?? null);
         setContactLoading(false);
       });
@@ -916,7 +907,7 @@ function PubContactModal({
                       pathname: '/chat',
                       params: {
                         enterprise_id: pub.enterprise_id,
-                        enterprise_name: pub.enterprises?.name ?? 'Entreprise',
+                        enterprise_name: pub.enterprise?.name ?? 'Entreprise',
                       },
                     } as any);
                   }}
@@ -970,8 +961,8 @@ export default function FeedScreen() {
   const [feedLoading, setFeedLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [motosOffset, setMotosOffset] = useState(0);
-  const [pubsOffset, setPubsOffset] = useState(0);
+  const [motosPage, setMotosPage] = useState(1);
+  const [pubsPage, setPubsPage] = useState(1);
   const [hasMoreMotos, setHasMoreMotos] = useState(true);
   const [hasMorePubs, setHasMorePubs] = useState(true);
   const loadingMoreRef = useRef(false);
@@ -1017,7 +1008,7 @@ export default function FeedScreen() {
         m.modele?.toLowerCase().includes(q) ||
         m.type?.toLowerCase().includes(q) ||
         m.couleur?.toLowerCase().includes(q) ||
-        m.enterprises?.name?.toLowerCase().includes(q)
+        m.enterprise?.name?.toLowerCase().includes(q)
       );
     }
     setFiltered(data);
@@ -1035,7 +1026,7 @@ export default function FeedScreen() {
         pubs = pubs.filter(
           p =>
             p.texte?.toLowerCase().includes(q) ||
-            p.enterprises?.name?.toLowerCase().includes(q),
+            p.enterprise?.name?.toLowerCase().includes(q),
         );
       }
       pubItems = pubs.map(p => ({ kind: 'pub', data: p }));
@@ -1052,8 +1043,8 @@ export default function FeedScreen() {
   const fetchFeed = async (isRefresh = false) => {
     if (isRefresh) {
       setRefreshing(true);
-      setMotosOffset(0);
-      setPubsOffset(0);
+      setMotosPage(1);
+      setPubsPage(1);
       setHasMoreMotos(true);
       setHasMorePubs(true);
     } else {
@@ -1061,42 +1052,29 @@ export default function FeedScreen() {
     }
 
     // Lance les deux fetchs EN PARALLÈLE — on n'attend plus l'un pour lancer l'autre
-    const motoFetch = supabase
-      .from('motos')
-      .select(MOTO_SELECT)
-      .eq('is_published', true)
-      .order('created_at', { ascending: false })
-      .range(0, MOTO_PAGE_SIZE - 1);
-
-    const pubFetch = supabase
-      .from('enterprise_publications')
-      .select('*, enterprises(name, logo_url, is_active)')
-      .lte('publish_at', new Date().toISOString())
-      .order('publish_at', { ascending: false })
-      .range(0, PUB_PAGE_SIZE - 1);
+    const motoFetch = api.listPublicMotos({ page: 1, per_page: MOTO_PAGE_SIZE });
+    const pubFetch = api.listPublicPublications({ page: 1, per_page: PUB_PAGE_SIZE });
 
     // Dès que les motos arrivent → on enlève le spinner et on affiche
-    const processMotos = motoFetch.then(({ data, error }) => {
-      if (error) console.error('Erreur fetchMotos:', error.message);
-      if (data) {
-        const active = (data as any[]).filter(m => m.enterprises?.is_active !== false);
-        setMotos(active as unknown as FeedMoto[]);
-        setHasMoreMotos(data.length === MOTO_PAGE_SIZE);
-        setMotosOffset(MOTO_PAGE_SIZE);
-      }
-      setFeedLoading(false); // Affiche les motos sans attendre les pubs
-    });
+    const processMotos = motoFetch
+      .then((result) => {
+        const data = (result?.data ?? []) as FeedMoto[];
+        setMotos(data);
+        setHasMoreMotos(result.current_page < result.last_page);
+        setMotosPage(2);
+      })
+      .catch((e) => console.error('Erreur fetchMotos:', e.message))
+      .finally(() => setFeedLoading(false)); // Affiche les motos sans attendre les pubs
 
     // Les pubs s'insèrent dans le fil quand elles arrivent (en arrière-plan)
-    const processPubs = pubFetch.then(({ data, error }) => {
-      if (error) console.error('Erreur fetchPubs:', error.message);
-      if (data) {
-        const activePubs = (data as any[]).filter(p => p.enterprises?.is_active !== false);
-        setPublications(activePubs as FeedPub[]);
-        setHasMorePubs(data.length === PUB_PAGE_SIZE);
-        setPubsOffset(PUB_PAGE_SIZE);
-      }
-    });
+    const processPubs = pubFetch
+      .then((result) => {
+        const data = (result?.data ?? []) as FeedPub[];
+        setPublications(data);
+        setHasMorePubs(result.current_page < result.last_page);
+        setPubsPage(2);
+      })
+      .catch((e) => console.error('Erreur fetchPubs:', e.message));
 
     try {
       await Promise.all([processMotos, processPubs]);
@@ -1116,35 +1094,26 @@ export default function FeedScreen() {
     try {
       await Promise.all([
         hasMoreMotos
-          ? supabase
-              .from('motos')
-              .select(MOTO_SELECT)
-              .eq('is_published', true)
-              .order('created_at', { ascending: false })
-              .range(motosOffset, motosOffset + MOTO_PAGE_SIZE - 1)
-              .then(({ data }) => {
-                if (!data) return;
-                const active = (data as any[]).filter(m => m.enterprises?.is_active !== false);
-                setMotos(prev => [...prev, ...active as unknown as FeedMoto[]]);
-                setHasMoreMotos(data.length === MOTO_PAGE_SIZE);
-                setMotosOffset(prev => prev + MOTO_PAGE_SIZE);
+          ? api
+              .listPublicMotos({ page: motosPage, per_page: MOTO_PAGE_SIZE })
+              .then((result) => {
+                const data = (result?.data ?? []) as FeedMoto[];
+                setMotos(prev => [...prev, ...data]);
+                setHasMoreMotos(result.current_page < result.last_page);
+                setMotosPage(prev => prev + 1);
               })
+              .catch((e) => console.error('Erreur loadMore motos:', e.message))
           : Promise.resolve(),
         hasMorePubs
-          ? supabase
-              .from('enterprise_publications')
-              .select('*, enterprises(name, logo_url, is_active)')
-              .lte('publish_at', new Date().toISOString())
-              .order('publish_at', { ascending: false })
-              .range(pubsOffset, pubsOffset + PUB_PAGE_SIZE - 1)
-              .then(({ data, error }) => {
-                if (error) console.error('Erreur loadMore pubs:', error.message);
-                if (!data) return;
-                const activePubs = (data as any[]).filter(p => p.enterprises?.is_active !== false);
-                setPublications(prev => [...prev, ...activePubs as FeedPub[]]);
-                setHasMorePubs(data.length === PUB_PAGE_SIZE);
-                setPubsOffset(prev => prev + PUB_PAGE_SIZE);
+          ? api
+              .listPublicPublications({ page: pubsPage, per_page: PUB_PAGE_SIZE })
+              .then((result) => {
+                const data = (result?.data ?? []) as FeedPub[];
+                setPublications(prev => [...prev, ...data]);
+                setHasMorePubs(result.current_page < result.last_page);
+                setPubsPage(prev => prev + 1);
               })
+              .catch((e) => console.error('Erreur loadMore pubs:', e.message))
           : Promise.resolve(),
       ]);
     } catch (e) {
@@ -1195,7 +1164,7 @@ export default function FeedScreen() {
     setMotos(prev => prev.map(m =>
       m.id === moto.id ? { ...m, like_count: Math.max(0, (m.like_count ?? 0) + delta) } : m
     ));
-    supabase.rpc('toggle_moto_like', { p_moto_id: moto.id, p_increment: isNowLiked });
+    api.likeMoto(moto.id, isNowLiked).catch(() => {});
   };
 
   const handlePubLike = async (pub: FeedPub) => {
@@ -1208,11 +1177,11 @@ export default function FeedScreen() {
     setPublications(prev => prev.map(p =>
       p.id === pub.id ? { ...p, like_count: Math.max(0, (p.like_count ?? 0) + delta) } : p
     ));
-    supabase.rpc('toggle_pub_like', { p_pub_id: pub.id, p_increment: isNowLiked });
+    api.likePublication(pub.id, isNowLiked).catch(() => {});
   };
 
   const handleSwitchUser = async () => {
-    await supabase.auth.signOut();
+    await api.logout();
     await SecureStore.deleteItemAsync('LAST_USER_ID');
     setShowPin(false);
     router.replace('/onboarding');
@@ -1356,12 +1325,12 @@ export default function FeedScreen() {
 // ─── MODAL DÉTAIL MOTO ───────────────────────────────────────────────────────
 function MotoDetailModal({ moto, onClose, onContact }: { moto: FeedMoto; onClose: () => void; onContact: () => void }) {
   const { C } = useColors();
-  const imgs = [...(moto.moto_images || [])].sort((a, b) => {
+  const imgs = [...(moto.images || [])].sort((a, b) => {
     if (a.is_principal && !b.is_principal) return -1;
     if (!a.is_principal && b.is_principal) return 1;
     return (a.position ?? 0) - (b.position ?? 0);
   });
-  const enterpriseName = moto.enterprises?.name ?? 'Entreprise';
+  const enterpriseName = moto.enterprise?.name ?? 'Entreprise';
 
   const rows: { label: string; value: string }[] = [
     moto.marque ? { label: 'Marque', value: moto.marque } : null,
@@ -1424,7 +1393,7 @@ function MotoDetailModal({ moto, onClose, onContact }: { moto: FeedMoto; onClose
           </View>
 
           <View style={[styles.detailEnterpriseRow, { borderBottomColor: C.cardBorder }]}>
-            <EnterpriseAvatar name={enterpriseName} logoUrl={moto.enterprises?.logo_url} size={36} />
+            <EnterpriseAvatar name={enterpriseName} logoUrl={moto.enterprise?.logo_url} size={36} />
             <Text style={[styles.detailEnterpriseLabel, { color: C.text }]}>{enterpriseName}</Text>
             <Text style={[styles.detailTimeLabel, { color: C.subText }]}>{timeAgo(moto.created_at)}</Text>
           </View>
@@ -1462,7 +1431,7 @@ function MotoDetailModal({ moto, onClose, onContact }: { moto: FeedMoto; onClose
 function ContactModal({ moto, onClose }: { moto: FeedMoto; onClose: () => void }) {
   const { C } = useColors();
   const { height: screenHeight } = Dimensions.get('window');
-  const enterpriseName = moto.enterprises?.name ?? "l'entreprise";
+  const enterpriseName = moto.enterprise?.name ?? "l'entreprise";
 
   // Contacts configurés par l'admin de l'entreprise
   const [contactInfo, setContactInfo] = useState<EnterpriseContact | null>(null);
@@ -1471,20 +1440,18 @@ function ContactModal({ moto, onClose }: { moto: FeedMoto; onClose: () => void }
   // Charger les contacts de l'entreprise depuis enterprise_contacts
   useEffect(() => {
     if (!moto.enterprise_id) { setContactLoading(false); return; }
-    supabase
-      .from('enterprise_contacts')
-      .select('whatsapp, phone1, phone2, localisation, email, description')
-      .eq('enterprise_id', moto.enterprise_id)
-      .maybeSingle()
-      .then(({ data }) => {
+    api
+      .getEnterpriseContact(moto.enterprise_id)
+      .catch(() => null)
+      .then((data) => {
         setContactInfo(data ?? null);
         setContactLoading(false);
       });
   }, [moto.enterprise_id]);
 
   // Numéros effectifs (priorité enterprise_contacts, fallback enterprises.phone)
-  const waNumber = contactInfo?.whatsapp ?? moto.enterprises?.phone ?? null;
-  const callNumber = contactInfo?.phone1 ?? moto.enterprises?.phone ?? null;
+  const waNumber = contactInfo?.whatsapp ?? moto.enterprise?.phone ?? null;
+  const callNumber = contactInfo?.phone1 ?? moto.enterprise?.phone ?? null;
   const phone2 = contactInfo?.phone2 ?? null;
   const gpsLoc = contactInfo?.localisation ?? null;
 
@@ -1498,7 +1465,7 @@ function ContactModal({ moto, onClose }: { moto: FeedMoto; onClose: () => void }
       moto.couleur ? `Couleur : ${moto.couleur}` : null,
       moto.cylindree ? `Cylindrée : ${moto.cylindree}` : null,
     ].filter(Boolean).join('\n');
-    const principalImg = moto.moto_images?.find(i => i.is_principal) ?? moto.moto_images?.[0];
+    const principalImg = moto.images?.find(i => i.is_principal) ?? moto.images?.[0];
     const imgUri = principalImg?.image_uri;
     const imgLine = imgUri && imgUri.startsWith('http') ? `\n📸 Photo : ${imgUri}` : '';
     const text = `Bonjour, je suis intéressé(e) par votre moto :\n\n*${motoName}*\nPrix : ${price}${details ? '\n' + details : ''}${imgLine}\n\nPouvez-vous me donner plus d'informations ?`;
@@ -1603,13 +1570,13 @@ function ContactModal({ moto, onClose }: { moto: FeedMoto; onClose: () => void }
                   onPress={() => {
                     if (!moto.enterprise_id) return;
                     const principalImg =
-                      moto.moto_images?.find((i) => i.is_principal) ?? moto.moto_images?.[0];
+                      moto.images?.find((i) => i.is_principal) ?? moto.images?.[0];
                     onClose();
                     router.push({
                       pathname: '/chat',
                       params: {
                         enterprise_id: moto.enterprise_id,
-                        enterprise_name: moto.enterprises?.name ?? 'Entreprise',
+                        enterprise_name: moto.enterprise?.name ?? 'Entreprise',
                         moto_name: `${moto.marque} ${moto.modele}`.trim(),
                         moto_price: moto.prix_vente ? String(moto.prix_vente) : '',
                         moto_etat: moto.etat ?? '',

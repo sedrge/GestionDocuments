@@ -76,8 +76,6 @@ module.exports = {
       reactCompiler: true,
     },
     extra: {
-      supabaseUrl: "https://cxjqzbyhilrimjbnqjjf.supabase.co",
-      supabaseAnonKey: "sb_publishable_IrC8XntZO7hRlCsx8ldzQQ_36r5YMc-",
       // Backend Laravel en cours de migration (test local uniquement).
       // Tunnel HTTPS temporaire (localtunnel) car Expo Go/Android bloque le HTTP
       // en clair vers une IP LAN. Relancer `npx localtunnel --port 8123 --subdomain ...`

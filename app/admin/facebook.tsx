@@ -13,10 +13,9 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { supabase } from "@/lib/supabase";
+import { api } from "@/lib/api";
 import { useTenant } from "@/context/TenantContext";
 import { useTheme } from "@/context/ThemeContext";
-import { getFunctionErrorMessage } from "@/lib/functionsError";
 import { FeatureGate } from "../../components/FeatureGate";
 
 type ConnectedPage = {
@@ -43,12 +42,12 @@ function AdminFacebookContent() {
       setLoading(false);
       return;
     }
-    const { data } = await supabase
-      .from("enterprise_facebook_pages_public")
-      .select("fb_page_id, fb_page_name, connected_at")
-      .eq("enterprise_id", tenant.enterprise_id)
-      .maybeSingle();
-    setConnectedPage((data as ConnectedPage) ?? null);
+    try {
+      const connections = await api.listSocialConnections(tenant.enterprise_id);
+      setConnectedPage((connections?.facebook as ConnectedPage) ?? null);
+    } catch (e: any) {
+      Alert.alert("Erreur", e.message);
+    }
     setLoading(false);
   }, [tenant?.enterprise_id]);
 
@@ -59,28 +58,25 @@ function AdminFacebookContent() {
   useFocusEffect(useCallback(() => { fetchConnection(); }, [fetchConnection]));
 
   const handleConnect = async () => {
+    if (!tenant?.enterprise_id) return;
     setConnecting(true);
     try {
-      const { data, error } = await supabase.functions.invoke("fb-oauth-start");
-      if (error || !data?.authUrl) {
-        throw new Error(
-          await getFunctionErrorMessage(error, "Impossible de démarrer la connexion Facebook.")
-        );
-      }
+      const { url } = await api.startFacebookConnect(tenant.enterprise_id);
+      if (!url) throw new Error("Impossible de démarrer la connexion Facebook.");
 
       const result = await WebBrowser.openAuthSessionAsync(
-        data.authUrl,
+        url,
         "docvault://fb-connect-result"
       );
 
       if (result.type === "success" && result.url) {
         const { queryParams } = Linking.parse(result.url);
-        if (queryParams?.status === "success") {
+        if (queryParams?.success === "1") {
           Alert.alert("✅ Connecté", `Page Facebook connectée : ${queryParams.page_name ?? ""}`);
         } else {
           Alert.alert(
             "Erreur",
-            `Connexion Facebook impossible (${queryParams?.message ?? "erreur inconnue"}).`
+            `Connexion Facebook impossible (${queryParams?.error ?? "erreur inconnue"}).`
           );
         }
       }
@@ -104,12 +100,12 @@ function AdminFacebookContent() {
           style: "destructive",
           onPress: async () => {
             setDisconnecting(true);
-            const { error } = await supabase
-              .from("enterprise_facebook_pages")
-              .delete()
-              .eq("enterprise_id", tenant.enterprise_id);
+            try {
+              await api.deleteFacebookConnection(tenant.enterprise_id);
+            } catch (e: any) {
+              Alert.alert("Erreur", e.message);
+            }
             setDisconnecting(false);
-            if (error) Alert.alert("Erreur", error.message);
             fetchConnection();
           },
         },

@@ -18,8 +18,9 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { supabase } from "../lib/supabase";
-import { applyTenantFilter, getTenantFilter, isSuperAdmin, TenantFilter } from "../lib/tenant";
+import { api } from "../lib/api";
+import { localUriToFormFile } from "../lib/formUpload";
+import { AuthImage } from "../components/AuthImage";
 
 // Génère un préfixe à partir du nom de l'entreprise.
 // Ex: "Fortune Service" -> "FS"  /  "Fortune Service Pro" -> "FSP"
@@ -45,7 +46,6 @@ export default function ParametresEntrepriseScreen() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
 
-  const [paramId, setParamId] = useState<string | null>(null);
   const [nomEntreprise, setNomEntreprise] = useState("");
   const [prefixFacture, setPrefixFacture] = useState("");
   const [prefixAuto, setPrefixAuto] = useState(true);
@@ -54,52 +54,34 @@ export default function ParametresEntrepriseScreen() {
   const [telephone, setTelephone] = useState("");
   const [adresse, setAdresse] = useState("");
   const [localisation, setLocalisation] = useState("");
-  const [logoUri, setLogoUri] = useState<string | null>(null);
+  // Logo existant (côté serveur, disque privé) vs nouvelle photo tout juste
+  // choisie (URI locale) : deux états distincts car l'affichage de l'un
+  // nécessite le header Authorization (AuthImage) et pas l'autre.
+  const [hasExistingLogo, setHasExistingLogo] = useState(false);
+  const [newLogoUri, setNewLogoUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tenantFilter, setTenantFilter] = useState<TenantFilter | null>(null);
-  const [isSuper, setIsSuper] = useState(false);
 
   useEffect(() => {
-    init();
+    fetchParametres();
   }, []);
 
-  const init = async () => {
+  const fetchParametres = async () => {
     setLoading(true);
-    const superAdmin = await isSuperAdmin();
-    setIsSuper(superAdmin);
-    const filter = await getTenantFilter();
-    setTenantFilter(filter);
-    if (!superAdmin || filter.entreprise_id) {
-      await fetchParametres(filter);
-    }
-    setLoading(false);
-  };
-
-  const fetchParametres = async (filter?: TenantFilter) => {
-    setLoading(true);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-    const usedFilter = filter || tenantFilter || (await getTenantFilter());
-    let query: any = supabase.from('entreprise_parametres').select('*');
-    query = applyTenantFilter(query, usedFilter);
-    const { data } = await query.maybeSingle();
-
-    if (data) {
-      setParamId(data.id);
-      setNomEntreprise(data.nom_entreprise || "");
-      setPrefixFacture(data.prefix_facture || "");
-      setPrefixAuto(false); // l'utilisateur a déjà choisi
-      setSousTitre(data.sous_titre || "");
-      setArticlesVente(data.articles_vente || "");
-      setTelephone(data.telephone || "");
-      setAdresse(data.adresse || "");
-      setLocalisation(data.localisation || "");
-      setLogoUri(data.logo_uri || null);
+    try {
+      const data = await api.getEnterpriseSettings();
+      if (data) {
+        setNomEntreprise(data.nom_entreprise || "");
+        setPrefixFacture(data.prefix_facture || "");
+        setPrefixAuto(false); // l'utilisateur a déjà choisi
+        setSousTitre(data.sous_titre || "");
+        setArticlesVente(data.articles_vente || "");
+        setTelephone(data.telephone || "");
+        setAdresse(data.adresse || "");
+        setLocalisation(data.localisation || "");
+        setHasExistingLogo(!!data.logo_uri);
+      }
+    } catch (e: any) {
+      Alert.alert("Erreur", e.message || "Impossible de charger les paramètres.");
     }
     setLoading(false);
   };
@@ -128,10 +110,9 @@ export default function ParametresEntrepriseScreen() {
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
             quality: 0.5,
-            base64: true,
           });
-          if (!result.canceled && result.assets?.[0]?.base64) {
-            setLogoUri(`data:image/jpeg;base64,${result.assets[0].base64}`);
+          if (!result.canceled && result.assets?.[0]?.uri) {
+            setNewLogoUri(result.assets[0].uri);
           }
         },
       },
@@ -142,17 +123,11 @@ export default function ParametresEntrepriseScreen() {
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
             quality: 0.5,
-            base64: true,
           });
-          if (!result.canceled && result.assets?.[0]?.base64) {
-            setLogoUri(`data:image/jpeg;base64,${result.assets[0].base64}`);
+          if (!result.canceled && result.assets?.[0]?.uri) {
+            setNewLogoUri(result.assets[0].uri);
           }
         },
-      },
-      {
-        text: "Supprimer",
-        style: "destructive",
-        onPress: () => setLogoUri(null),
       },
       { text: "Annuler", style: "cancel" },
     ]);
@@ -165,54 +140,26 @@ export default function ParametresEntrepriseScreen() {
       return Alert.alert("Erreur", "Le préfixe de facture est requis.");
 
     setSaving(true);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      setSaving(false);
-      return Alert.alert("Erreur", "Session expirée.");
+    const form = new FormData();
+    form.append("nom_entreprise", nomEntreprise.trim());
+    form.append("prefix_facture", prefixFacture.trim().toUpperCase());
+    form.append("sous_titre", sousTitre.trim());
+    form.append("articles_vente", articlesVente.trim());
+    form.append("telephone", telephone.trim());
+    form.append("adresse", adresse.trim());
+    form.append("localisation", localisation.trim());
+    if (newLogoUri) {
+      form.append("logo", localUriToFormFile(newLogoUri, "logo") as any);
     }
 
-    const filter = tenantFilter || (await getTenantFilter());
-    const payload = {
-      user_id: user.id,
-      entreprise_id: filter.entreprise_id || null,
-      nom_entreprise: nomEntreprise.trim(),
-      prefix_facture: prefixFacture.trim().toUpperCase(),
-      sous_titre: sousTitre.trim(),
-      articles_vente: articlesVente.trim(),
-      telephone: telephone.trim(),
-      adresse: adresse.trim(),
-      localisation: localisation.trim(),
-      logo_uri: logoUri || '',
-      updated_at: new Date().toISOString(),
-    };
-
-    if (isSuper && !(tenantFilter?.entreprise_id)) {
-      setSaving(false);
-      return Alert.alert(
-        'Sélection entreprise requise',
-        "Sélectionnez d'abord une entreprise en tant que super-admin avant de modifier ses paramètres.",
-      );
-    }
-
-    let result;
-    if (paramId) {
-      result = await supabase
-        .from('entreprise_parametres')
-        .update(payload)
-        .eq('id', paramId);
-    } else {
-      result = await supabase.from('entreprise_parametres').insert([payload]);
-    }
-
-    setSaving(false);
-
-    if (result.error) {
-      Alert.alert("Erreur", result.error.message);
-    } else {
+    try {
+      await api.updateEnterpriseSettings(form);
       Alert.alert("Succès", "Paramètres enregistrés.");
       router.back();
+    } catch (e: any) {
+      Alert.alert("Erreur", e.message || "Échec de l'enregistrement.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -242,9 +189,15 @@ export default function ParametresEntrepriseScreen() {
         <View style={styles.previewCard}>
           <Text style={styles.previewTitle}>Aperçu de l'entête</Text>
           <View style={styles.previewHeader}>
-            {logoUri ? (
+            {newLogoUri ? (
               <Image
-                source={{ uri: logoUri }}
+                source={{ uri: newLogoUri }}
+                style={styles.previewLogo}
+                resizeMode="contain"
+              />
+            ) : hasExistingLogo ? (
+              <AuthImage
+                uri={api.enterpriseLogoUrl()}
                 style={styles.previewLogo}
                 resizeMode="contain"
               />
@@ -284,9 +237,15 @@ export default function ParametresEntrepriseScreen() {
           onPress={pickLogo}
           activeOpacity={0.7}
         >
-          {logoUri ? (
+          {newLogoUri ? (
             <Image
-              source={{ uri: logoUri }}
+              source={{ uri: newLogoUri }}
+              style={styles.logoPreview}
+              resizeMode="contain"
+            />
+          ) : hasExistingLogo ? (
+            <AuthImage
+              uri={api.enterpriseLogoUrl()}
               style={styles.logoPreview}
               resizeMode="contain"
             />
