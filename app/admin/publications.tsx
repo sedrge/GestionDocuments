@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import { decode } from "base64-arraybuffer";
 import * as ImagePicker from "expo-image-picker";
 import * as Linking from "expo-linking";
 import { router, useFocusEffect } from "expo-router";
@@ -20,19 +19,19 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { supabase } from "../../lib/supabase";
+import { api } from "../../lib/api";
+import { localUriToFormFile } from "../../lib/formUpload";
 import { useTenant } from "../../context/TenantContext";
 import { useTheme } from "../../context/ThemeContext";
 import { FeatureGate } from "../../components/FeatureGate";
 import { useFeatureFlags } from "../../context/FeatureFlagsContext";
-import { getFunctionErrorMessage } from "../../lib/functionsError";
-import { QUOTA_EXCEEDED_MESSAGE } from "../../lib/enterpriseFeatures";
 
 type Publication = {
   id: string;
   enterprise_id: string;
   texte: string | null;
   images: string[];
+  image_urls: string[];
   created_at: string;
   scheduled_at: string | null;
   fb_post_id: string | null;
@@ -40,6 +39,12 @@ type Publication = {
   fb_publish_error: string | null;
   fb_publish_status: "not_published" | "published" | "error";
   selected_platforms: string[];
+  platform_statuses: {
+    platform: string;
+    external_post_id: string | null;
+    status: "not_published" | "published" | "error";
+    error_message: string | null;
+  }[];
 };
 
 type SocialPlatform = "facebook" | "tiktok";
@@ -59,7 +64,8 @@ type MotoLite = {
   etat: string | null;
   prix_vente: number | null;
   created_at: string;
-  moto_images?: { image_uri: string; is_principal: boolean }[];
+  statut: string | null;
+  images?: { image_uri: string; is_principal: boolean }[];
 };
 
 type AutoMode = "aleatoire" | "nouvelle" | "ancienne";
@@ -197,7 +203,6 @@ function AdminPublicationsContent() {
   const [formText, setFormText] = useState("");
   const [formImages, setFormImages] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [selectedPlatforms, setSelectedPlatforms] = useState<SocialPlatform[]>([]);
   const [autoSelectedPlatforms, setAutoSelectedPlatforms] = useState<SocialPlatform[]>([]);
@@ -223,51 +228,38 @@ function AdminPublicationsContent() {
       setLoading(false);
       return;
     }
-    const { data } = await supabase
-      .from("enterprise_publications")
-      .select("*")
-      .eq("enterprise_id", tenant.enterprise_id)
-      .order("created_at", { ascending: false });
-    const pubs = (data as Publication[]) ?? [];
-    setPublications(pubs);
+    try {
+      const result = await api.listPublications(tenant.enterprise_id);
+      const pubs = ((result?.data ?? result ?? []) as Publication[]);
+      setPublications(pubs);
 
-    if (pubs.length > 0) {
-      const { data: statusRows } = await supabase
-        .from("publication_platform_status")
-        .select("publication_id, external_post_id, status, error_message")
-        .eq("platform", "tiktok")
-        .in("publication_id", pubs.map((p) => p.id));
       const statusMap: Record<string, TikTokStatus> = {};
-      (statusRows ?? []).forEach((row: any) => {
-        statusMap[row.publication_id] = {
-          external_post_id: row.external_post_id,
-          status: row.status,
-          error_message: row.error_message,
-        };
+      pubs.forEach((p) => {
+        const tk = p.platform_statuses?.find((s) => s.platform === "tiktok");
+        if (tk) {
+          statusMap[p.id] = {
+            external_post_id: tk.external_post_id,
+            status: tk.status,
+            error_message: tk.error_message,
+          };
+        }
       });
       setTiktokStatus(statusMap);
+    } catch (e: any) {
+      Alert.alert("Erreur", e.message || "Impossible de charger les publications.");
     }
-
     setLoading(false);
   }, [tenant?.enterprise_id]);
 
   const fetchConnections = useCallback(async () => {
     if (!tenant?.enterprise_id) return;
-    const [fbRes, tiktokRes] = await Promise.all([
-      supabase
-        .from("enterprise_facebook_pages_public")
-        .select("id")
-        .eq("enterprise_id", tenant.enterprise_id)
-        .maybeSingle(),
-      supabase
-        .from("enterprise_social_connections_public")
-        .select("id")
-        .eq("enterprise_id", tenant.enterprise_id)
-        .eq("platform", "tiktok")
-        .maybeSingle(),
-    ]);
-    setFbConnected(!!fbRes.data);
-    setTiktokConnected(!!tiktokRes.data);
+    try {
+      const connections = await api.listSocialConnections(tenant.enterprise_id);
+      setFbConnected(!!connections?.facebook);
+      setTiktokConnected(!!connections?.tiktok);
+    } catch {
+      // Non bloquant : l'écran reste utilisable sans les boutons de connexion.
+    }
   }, [tenant?.enterprise_id]);
 
   useFocusEffect(
@@ -286,26 +278,22 @@ function AdminPublicationsContent() {
     );
   };
 
-  const crossPostNow = async (publicationId: string, platforms: SocialPlatform[]) => {
-    const results: string[] = [];
-    for (const platform of platforms) {
-      const fnName = platform === "facebook" ? "fb-publish-post" : "tiktok-publish-post";
+  // Construit un message récapitulatif "Facebook : publié ✓ / erreur" à partir
+  // d'une publication fraîchement créée (le serveur a déjà tenté la diffusion
+  // immédiate de façon synchrone, pas besoin d'un second appel réseau).
+  const summarizeDispatchResults = (pub: Publication, platforms: SocialPlatform[]): string[] => {
+    return platforms.map((platform) => {
       const label = platform === "facebook" ? "Facebook" : "TikTok";
-      const { data, error } = await supabase.functions.invoke(fnName, {
-        body: { publication_id: publicationId },
-      });
-      if (error || !data?.success) {
-        const message =
-          data?.error ?? (await getFunctionErrorMessage(error, `Échec de la publication ${label}.`));
-        results.push(`${label} : ${message}`);
-      } else {
-        results.push(`${label} : publié ✓`);
+      if (platform === "facebook") {
+        return pub.fb_publish_status === "published"
+          ? `${label} : publié ✓`
+          : `${label} : ${pub.fb_publish_error || "échec de la publication."}`;
       }
-    }
-    if (results.length > 0) {
-      Alert.alert("Diffusion sur les réseaux", results.join("\n"));
-    }
-    fetchPublications();
+      const status = pub.platform_statuses?.find((s) => s.platform === "tiktok");
+      return status?.status === "published"
+        ? `${label} : publié ✓`
+        : `${label} : ${status?.error_message || "échec de la publication."}`;
+    });
   };
 
   const handlePickImages = async () => {
@@ -317,30 +305,9 @@ function AdminPublicationsContent() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,
       quality: 0.6,
-      base64: true,
     });
     if (result.canceled || !result.assets) return;
-    setUploading(true);
-    const urls: string[] = [];
-    for (let i = 0; i < result.assets.length; i++) {
-      const asset = result.assets[i];
-      if (!asset.base64) continue;
-      const fileName = `pub_${tenant!.enterprise_id}_${Date.now()}_${i}.jpg`;
-      const { error: upErr } = await supabase.storage
-        .from("publication_images")
-        .upload(fileName, decode(asset.base64), {
-          contentType: "image/jpeg",
-          upsert: true,
-        });
-      if (!upErr) {
-        const { data: urlData } = supabase.storage
-          .from("publication_images")
-          .getPublicUrl(fileName);
-        urls.push(urlData.publicUrl);
-      }
-    }
-    setFormImages((prev) => [...prev, ...urls]);
-    setUploading(false);
+    setFormImages((prev) => [...prev, ...result.assets.map((a) => a.uri)]);
   };
 
   const handleSave = async () => {
@@ -364,32 +331,28 @@ function AdminPublicationsContent() {
       scheduledAt = parsed.toISOString();
     }
 
+    const form = new FormData();
+    form.append("enterprise_id", tenant.enterprise_id);
+    if (formText.trim()) form.append("texte", formText.trim());
+    formImages.forEach((uri, i) => {
+      form.append("images[]", localUriToFormFile(uri, `pub_${i}`) as any);
+    });
+    selectedPlatforms.forEach((p) => form.append("selected_platforms[]", p));
+    if (scheduledAt) form.append("scheduled_at", scheduledAt);
+
     setSaving(true);
-    const { data: inserted, error } = await supabase
-      .from("enterprise_publications")
-      .insert({
-        enterprise_id: tenant.enterprise_id,
-        texte: formText.trim() || null,
-        images: formImages,
-        scheduled_at: scheduledAt,
-        selected_platforms: selectedPlatforms,
-      })
-      .select("id")
-      .single();
-    setSaving(false);
-    if (error) {
-      if (error.message.includes("quota_exceeded")) {
-        Alert.alert("Quota atteint", QUOTA_EXCEEDED_MESSAGE);
-      } else {
-        Alert.alert("Erreur", error.message);
-      }
-    } else {
+    try {
+      const created: Publication = await api.createPublication(form);
       const platformsToPush = selectedPlatforms;
       resetForm();
       fetchPublications();
-      if (publishMode === "now" && platformsToPush.length > 0 && inserted) {
-        crossPostNow(inserted.id, platformsToPush);
+      if (publishMode === "now" && platformsToPush.length > 0) {
+        Alert.alert("Diffusion sur les réseaux", summarizeDispatchResults(created, platformsToPush).join("\n"));
       }
+    } catch (e: any) {
+      Alert.alert("Erreur", e.message || "Échec de l'enregistrement.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -402,11 +365,11 @@ function AdminPublicationsContent() {
         {
           text: "Publier",
           onPress: async () => {
-            const { error } = await supabase
-              .from("enterprise_publications")
-              .update({ scheduled_at: null })
-              .eq("id", pub.id);
-            if (error) Alert.alert("Erreur", error.message);
+            try {
+              await api.updatePublication(pub.id, { scheduled_at: null });
+            } catch (e: any) {
+              Alert.alert("Erreur", e.message);
+            }
             fetchPublications();
           },
         },
@@ -424,16 +387,15 @@ function AdminPublicationsContent() {
           text: "Publier",
           onPress: async () => {
             setPublishingFbId(pub.id);
-            const { data, error } = await supabase.functions.invoke("fb-publish-post", {
-              body: { publication_id: pub.id },
-            });
-            setPublishingFbId(null);
-            if (error || !data?.success) {
-              const message =
-                data?.error ??
-                (await getFunctionErrorMessage(error, "Échec de la publication Facebook."));
-              Alert.alert("Erreur", message);
+            try {
+              const updated: Publication = await api.publishPublicationToPlatform(pub.id, "facebook");
+              if (updated.fb_publish_status === "error") {
+                Alert.alert("Erreur", updated.fb_publish_error || "Échec de la publication Facebook.");
+              }
+            } catch (e: any) {
+              Alert.alert("Erreur", e.message);
             }
+            setPublishingFbId(null);
             fetchPublications();
           },
         },
@@ -451,16 +413,16 @@ function AdminPublicationsContent() {
           text: "Publier",
           onPress: async () => {
             setPublishingTiktokId(pub.id);
-            const { data, error } = await supabase.functions.invoke("tiktok-publish-post", {
-              body: { publication_id: pub.id },
-            });
-            setPublishingTiktokId(null);
-            if (error || !data?.success) {
-              const message =
-                data?.error ??
-                (await getFunctionErrorMessage(error, "Échec de la publication TikTok."));
-              Alert.alert("Erreur", message);
+            try {
+              const updated: Publication = await api.publishPublicationToPlatform(pub.id, "tiktok");
+              const status = updated.platform_statuses?.find((s) => s.platform === "tiktok");
+              if (status?.status === "error") {
+                Alert.alert("Erreur", status.error_message || "Échec de la publication TikTok.");
+              }
+            } catch (e: any) {
+              Alert.alert("Erreur", e.message);
             }
+            setPublishingTiktokId(null);
             fetchPublications();
           },
         },
@@ -475,13 +437,11 @@ function AdminPublicationsContent() {
         text: "Supprimer",
         style: "destructive",
         onPress: async () => {
-          // Supprimer les images du storage
-          for (const url of pub.images) {
-            const parts = url.split("/");
-            const fileName = parts[parts.length - 1];
-            await supabase.storage.from("publication_images").remove([fileName]);
+          try {
+            await api.deletePublication(pub.id);
+          } catch (e: any) {
+            Alert.alert("Erreur", e.message);
           }
-          await supabase.from("enterprise_publications").delete().eq("id", pub.id);
           fetchPublications();
         },
       },
@@ -531,31 +491,30 @@ function AdminPublicationsContent() {
 
     setAutoGenerating(true);
 
-    let query = supabase
-      .from("motos")
-      .select("id,marque,modele,etat,prix_vente,created_at,moto_images(image_uri,is_principal)")
-      .eq("enterprise_id", tenant.enterprise_id)
-      .or("statut.is.null,statut.neq.vendu");
-
-    if (autoMode === "nouvelle") {
-      query = query.order("created_at", { ascending: false }).limit(count);
-    } else if (autoMode === "ancienne") {
-      query = query.order("created_at", { ascending: true }).limit(count);
-    } else {
-      query = query.limit(300);
+    let motos: MotoLite[];
+    try {
+      const result = await api.listMyMotos({
+        enterprise_id: tenant.enterprise_id,
+        per_page: 1000,
+      });
+      const all = ((result?.data ?? result ?? []) as MotoLite[]).filter(
+        (m) => m.statut !== "vendu"
+      );
+      // Le serveur trie toujours par date de création décroissante (plus
+      // récentes d'abord) : on inverse pour "ancienne", on tire au sort pour
+      // "aleatoire", on tranche directement pour "nouvelle".
+      if (autoMode === "nouvelle") {
+        motos = all.slice(0, count);
+      } else if (autoMode === "ancienne") {
+        motos = all.slice().reverse().slice(0, count);
+      } else {
+        motos = shuffle(all).slice(0, count);
+      }
+    } catch (e: any) {
+      setAutoGenerating(false);
+      return Alert.alert("Erreur", e.message);
     }
-
-    const { data, error } = await query;
     setAutoGenerating(false);
-
-    if (error) {
-      return Alert.alert("Erreur", error.message);
-    }
-
-    let motos = (data as MotoLite[]) ?? [];
-    if (autoMode === "aleatoire") {
-      motos = shuffle(motos).slice(0, count);
-    }
 
     if (motos.length === 0) {
       return Alert.alert(
@@ -567,39 +526,32 @@ function AdminPublicationsContent() {
     const texte = buildPromoText(motos, autoMode);
     const images = motos
       .map((m) => {
-        const imgs = m.moto_images || [];
+        const imgs = m.images || [];
         return (imgs.find((im) => im.is_principal) || imgs[0])?.image_uri;
       })
       .filter((uri): uri is string => !!uri);
 
-    setSaving(true);
-    const { data: inserted, error: insertError } = await supabase
-      .from("enterprise_publications")
-      .insert({
-        enterprise_id: tenant.enterprise_id,
-        texte,
-        images,
-        scheduled_at: scheduledAt,
-        is_auto_generated: true,
-        selected_platforms: autoSelectedPlatforms,
-      })
-      .select("id")
-      .single();
-    setSaving(false);
+    const form = new FormData();
+    form.append("enterprise_id", tenant.enterprise_id);
+    form.append("texte", texte);
+    images.forEach((url) => form.append("source_images[]", url));
+    autoSelectedPlatforms.forEach((p) => form.append("selected_platforms[]", p));
+    form.append("is_auto_generated", "1");
+    if (scheduledAt) form.append("scheduled_at", scheduledAt);
 
-    if (insertError) {
-      if (insertError.message.includes("quota_exceeded")) {
-        Alert.alert("Quota atteint", QUOTA_EXCEEDED_MESSAGE);
-      } else {
-        Alert.alert("Erreur", insertError.message);
-      }
-    } else {
+    setSaving(true);
+    try {
+      const created: Publication = await api.createPublication(form);
       const platformsToPush = autoSelectedPlatforms;
       resetAutoForm();
       fetchPublications();
-      if (autoPublishMode === "now" && platformsToPush.length > 0 && inserted) {
-        crossPostNow(inserted.id, platformsToPush);
+      if (autoPublishMode === "now" && platformsToPush.length > 0) {
+        Alert.alert("Diffusion sur les réseaux", summarizeDispatchResults(created, platformsToPush).join("\n"));
       }
+    } catch (e: any) {
+      Alert.alert("Erreur", e.message || "Échec de la génération.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -846,21 +798,21 @@ function AdminPublicationsContent() {
               ) : null}
 
               {/* Image thumbnails */}
-              {item.images && item.images.length > 0 ? (
+              {item.image_urls && item.image_urls.length > 0 ? (
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
                   style={styles.thumbRow}
                 >
-                  {item.images.map((img, i) => (
+                  {item.image_urls.map((img, i) => (
                     <Image key={i} source={{ uri: img }} style={styles.thumb} />
                   ))}
                 </ScrollView>
               ) : null}
 
               <Text style={[styles.imgCount, { color: theme.subText }]}>
-                {item.images?.length ?? 0} image
-                {(item.images?.length ?? 0) !== 1 ? "s" : ""}
+                {item.image_urls?.length ?? 0} image
+                {(item.image_urls?.length ?? 0) !== 1 ? "s" : ""}
               </Text>
             </View>
             );
@@ -900,13 +852,10 @@ function AdminPublicationsContent() {
               <TouchableOpacity
                 style={[
                   styles.publishBtn,
-                  {
-                    backgroundColor:
-                      saving || uploading ? theme.border : theme.primary,
-                  },
+                  { backgroundColor: saving ? theme.border : theme.primary },
                 ]}
                 onPress={handleSave}
-                disabled={saving || uploading}
+                disabled={saving}
               >
                 {saving ? (
                   <ActivityIndicator size="small" color="#fff" />
@@ -968,33 +917,14 @@ function AdminPublicationsContent() {
 
               {/* Bouton ajout photos */}
               <TouchableOpacity
-                style={[
-                  styles.addImgBtn,
-                  { borderColor: uploading ? theme.border : theme.primary },
-                ]}
+                style={[styles.addImgBtn, { borderColor: theme.primary }]}
                 onPress={handlePickImages}
-                disabled={uploading}
                 activeOpacity={0.75}
               >
-                {uploading ? (
-                  <>
-                    <ActivityIndicator size="small" color={theme.primary} />
-                    <Text style={[styles.addImgText, { color: theme.subText }]}>
-                      Téléversement…
-                    </Text>
-                  </>
-                ) : (
-                  <>
-                    <Ionicons
-                      name="images-outline"
-                      size={20}
-                      color={theme.primary}
-                    />
-                    <Text style={[styles.addImgText, { color: theme.primary }]}>
-                      Ajouter des photos
-                    </Text>
-                  </>
-                )}
+                <Ionicons name="images-outline" size={20} color={theme.primary} />
+                <Text style={[styles.addImgText, { color: theme.primary }]}>
+                  Ajouter des photos
+                </Text>
               </TouchableOpacity>
 
               {/* Publier aussi sur les réseaux connectés */}
