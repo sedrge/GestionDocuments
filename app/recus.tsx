@@ -31,7 +31,7 @@ export default function RecusList() {
         annee_mois_id: dossierId,
         search: searchQuery.trim(),
       });
-      setRecus(data);
+      setRecus(data.data ?? data);
     } catch (error: any) {
       Alert.alert("Erreur", error.message);
     } finally {

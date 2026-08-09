@@ -58,7 +58,7 @@ const DRAWER_ITEMS = [
 
 export default function SuperAdminHomeScreen() {
   const { theme, isDark, toggleTheme } = useTheme();
-  const { tenant } = useTenant();
+  const { tenant, logout } = useTenant();
   const [stats, setStats] = useState<Stats>({ total: 0, active: 0, pending: 0, users: 0 });
   const [recents, setRecents] = useState<RecentEnterprise[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,7 +109,7 @@ export default function SuperAdminHomeScreen() {
           text: "Déconnecter",
           style: "destructive",
           onPress: async () => {
-            await api.logout().catch(() => {});
+            await logout();
           },
         },
       ]);

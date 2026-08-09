@@ -49,13 +49,13 @@ function RouteGuard() {
       return;
     }
 
-    // Admin actif → dashboard ; user actif → home
+    // /home est le hub de navigation (menu latéral donnant accès au
+    // dashboard admin, stock, ventes, etc.) — /admin/dashboard n'a pas ce
+    // menu et serait une impasse en arrivée directe, donc tout le monde
+    // atterrit sur /home après connexion (cohérent avec la logique de
+    // (tabs)/index.tsx qui fait de même après un redémarrage de l'app).
     if (tenant && inAuthFlow) {
-      if (tenant.user_role === 'enterprise_admin') {
-        router.replace('/admin/dashboard');
-      } else {
-        router.replace('/home');
-      }
+      router.replace('/home');
     }
   }, [loading, isAuthenticated, tenant, pendingState, isSuperAdmin, isImpersonating, segments]);
 

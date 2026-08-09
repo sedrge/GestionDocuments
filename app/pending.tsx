@@ -43,11 +43,11 @@ function getPendingInfo(pendingState: string | null, enterpriseName?: string) {
 }
 
 export default function PendingScreen() {
-  const { tenant, pendingState, refreshTenant } = useTenant();
+  const { tenant, pendingState, refreshTenant, logout } = useTenant();
   const info = getPendingInfo(pendingState, tenant?.enterprise_name);
 
   const handleSignOut = async () => {
-    await api.logout().catch(() => {});
+    await logout();
     router.replace('/onboarding');
   };
 

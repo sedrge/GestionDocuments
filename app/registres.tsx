@@ -31,7 +31,7 @@ export default function RegistresList() {
         annee_mois_id: dossierId,
         search: searchQuery.trim(),
       });
-      setRegistres(data);
+      setRegistres(data.data ?? data);
     } catch (error: any) {
       Alert.alert("Erreur", error.message);
     } finally {

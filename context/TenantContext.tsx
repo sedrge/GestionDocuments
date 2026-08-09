@@ -31,6 +31,7 @@ interface TenantContextType {
   isAuthenticated: boolean;
   pendingState: PendingState;
   refreshTenant: () => Promise<void>;
+  logout: () => Promise<void>;
   isSuperAdmin: boolean;
   isEnterpriseAdmin: boolean;
   isRegularUser: boolean;
@@ -147,6 +148,18 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
     loadTenant();
   }, []);
 
+  // Réinitialise immédiatement l'état d'authentification en mémoire — sans
+  // ça, isAuthenticated reste `true` après un logout (loadTenant() n'est
+  // sinon rejoué qu'au montage de l'app), et RouteGuard laisse l'utilisateur
+  // revenir sur les écrans authentifiés jusqu'à un redémarrage complet.
+  const logout = async () => {
+    await api.logout();
+    setIsAuthenticated(false);
+    setRealTenant(null);
+    setPendingState(null);
+    setImpersonation(null);
+  };
+
   // Impersonation — super admin emprunte l'identité d'une entreprise
   const isSuperAdmin = realTenant?.user_role === "super_admin";
   const isImpersonating = !!impersonation && isSuperAdmin;
@@ -183,6 +196,7 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
         isAuthenticated,
         pendingState,
         refreshTenant: loadTenant,
+        logout,
         isSuperAdmin,
         isEnterpriseAdmin,
         isRegularUser,

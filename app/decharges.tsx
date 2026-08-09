@@ -31,7 +31,7 @@ export default function DechargesList() {
         annee_mois_id: dossierId,
         search: searchQuery.trim(),
       });
-      setDecharges(data);
+      setDecharges(data.data ?? data);
     } catch (error: any) {
       Alert.alert("Erreur", error.message);
     } finally {

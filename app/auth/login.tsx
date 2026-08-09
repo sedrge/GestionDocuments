@@ -17,10 +17,12 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { useTheme } from "../../context/ThemeContext";
+import { useTenant } from "../../context/TenantContext";
 import { api } from "../../lib/api";
 
 export default function LoginScreen() {
   const { theme, isDark, toggleTheme } = useTheme();
+  const { refreshTenant } = useTenant();
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -35,6 +37,10 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await api.login({ email, password });
+      // Sans ça, isAuthenticated/tenant restent figés à leur valeur d'avant
+      // connexion (chargés une seule fois au montage) — même bug que celui
+      // corrigé côté déconnexion, en miroir.
+      await refreshTenant();
       router.replace("/(tabs)");
     } catch (error: any) {
       Alert.alert(

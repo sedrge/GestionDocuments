@@ -1,10 +1,9 @@
-import { api, getToken } from "@/lib/api";
+import { api } from "@/lib/api";
 import { useTheme } from "@/context/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator,
     Alert,
     Modal,
     ScrollView,
@@ -27,7 +26,6 @@ interface SecretConfig {
 const DEFAULT_CONFIG: SecretConfig = { secret_type: 'taps', tap_count: 11, secret_phrase: null };
 
 export default function OnboardingScreen() {
-  const [loading, setLoading] = useState(false);
   const { theme, isDark, toggleTheme } = useTheme();
 
   const [secretConfig, setSecretConfig] = useState<SecretConfig>(DEFAULT_CONFIG);
@@ -35,20 +33,6 @@ export default function OnboardingScreen() {
   const [showPhraseModal, setShowPhraseModal] = useState(false);
   const [phraseInput, setPhraseInput] = useState('');
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const checkAuth = async () => {
-    setLoading(true);
-    try {
-      const token = await getToken();
-      if (token) {
-        router.replace("/(tabs)");
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const loadSecretConfig = async () => {
     try {
@@ -66,7 +50,6 @@ export default function OnboardingScreen() {
   };
 
   useEffect(() => {
-    checkAuth();
     loadSecretConfig();
   }, []);
 
@@ -101,14 +84,6 @@ export default function OnboardingScreen() {
       setPhraseInput('');
     }
   };
-
-  if (loading) {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.bg }]}>
-        <ActivityIndicator size="large" color={theme.primary} />
-      </View>
-    );
-  }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
