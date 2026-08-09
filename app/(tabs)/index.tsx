@@ -3,6 +3,7 @@ import * as Linking from 'expo-linking';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -104,6 +105,7 @@ type FeedPub = {
   enterprise_id: string;
   texte: string | null;
   image_urls: string[];
+  video_url: string | null;
   created_at: string;
   like_count?: number;
   enterprise?: { name: string; logo_url: string | null; is_active: boolean } | null;
@@ -648,6 +650,36 @@ function ImageGalleryModal({
   );
 }
 
+// ─── VIDÉO DE PUBLICATION (façon reel : autoplay muet, boucle, tap = son) ────
+function FeedVideo({ uri }: { uri: string }) {
+  const [muted, setMuted] = useState(true);
+  const player = useVideoPlayer(uri, (p) => {
+    p.loop = true;
+    p.muted = true;
+    p.play();
+  });
+
+  useEffect(() => {
+    player.muted = muted;
+  }, [muted, player]);
+
+  return (
+    <TouchableOpacity activeOpacity={1} onPress={() => setMuted((m) => !m)}>
+      <View style={{ width: '100%', height: 420, backgroundColor: '#000' }}>
+        <VideoView
+          player={player}
+          style={{ width: '100%', height: '100%' }}
+          contentFit="contain"
+          nativeControls={false}
+        />
+        <View style={styles.videoMuteBadge}>
+          <Ionicons name={muted ? 'volume-mute' : 'volume-high'} size={16} color="#fff" />
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 // ─── CARTE PUBLICATION (style Facebook) ──────────────────────────────────────
 function PublicationCard({
   item,
@@ -718,8 +750,12 @@ function PublicationCard({
         </TouchableOpacity>
       ) : null}
 
-      {/* Grille d'images */}
-      {item.image_urls && item.image_urls.length > 0 ? (
+      {/* Vidéo (façon reel) ou grille d'images */}
+      {item.video_url ? (
+        <View style={{ overflow: 'hidden' }}>
+          <FeedVideo uri={item.video_url} />
+        </View>
+      ) : item.image_urls && item.image_urls.length > 0 ? (
         <View style={{ overflow: 'hidden' }}>
           <ImageGrid images={item.image_urls} onPressImage={openGallery} />
         </View>
@@ -952,7 +988,7 @@ function PubContactModal({
 // ─── COMPOSANT PRINCIPAL ─────────────────────────────────────────────────────
 export default function FeedScreen() {
   const { C } = useColors();
-  const { tenant, loading: authLoading, isAuthenticated, pendingState, isSuperAdmin } = useTenant();
+  const { tenant, loading: authLoading, isAuthenticated, pendingState, isSuperAdmin, logout } = useTenant();
 
   const [motos, setMotos] = useState<FeedMoto[]>([]);
   const [publications, setPublications] = useState<FeedPub[]>([]);
@@ -1181,7 +1217,7 @@ export default function FeedScreen() {
   };
 
   const handleSwitchUser = async () => {
-    await api.logout();
+    await logout();
     await SecureStore.deleteItemAsync('LAST_USER_ID');
     setShowPin(false);
     router.replace('/onboarding');
@@ -1626,6 +1662,18 @@ function ContactModal({ moto, onClose }: { moto: FeedMoto; onClose: () => void }
 // ─── STYLES ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
+
+  videoMuteBadge: {
+    position: 'absolute',
+    right: 10,
+    bottom: 10,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 16,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   feedHeader: {
     flexDirection: 'row',

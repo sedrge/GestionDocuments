@@ -7,7 +7,6 @@ import * as LocalAuthentication from "expo-local-authentication";
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import * as Sharing from "expo-sharing";
-import * as WebBrowser from "expo-web-browser";
 import { HamburgerMenu } from "../components/HamburgerMenu";
 import { useTheme } from "../context/ThemeContext";
 
@@ -31,7 +30,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFeatureFlags } from "../context/FeatureFlagsContext";
 import { useTenant } from "../context/TenantContext";
-import { api } from "../lib/api";
+import { api, getToken } from "../lib/api";
 import { ensureNotificationPermissions } from "../lib/notifications";
 
 const { width } = Dimensions.get("window");
@@ -61,7 +60,7 @@ interface Category {
 // --- 2. COMPOSANT PRINCIPAL ---
 function HomeScreenContent() {
   const { theme, toggleTheme, isDark } = useTheme();
-  const { tenant, isEnterpriseAdmin, isSuperAdmin } = useTenant();
+  const { tenant, isEnterpriseAdmin, isSuperAdmin, logout } = useTenant();
   const { enabledFeatures } = useFeatureFlags();
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -211,6 +210,9 @@ function HomeScreenContent() {
       const formData = new FormData();
       formData.append("titre", newDocTitle.trim());
       formData.append("categorie_id", selectedCategory.id);
+      if (tenant?.enterprise_id) {
+        formData.append("enterprise_id", tenant.enterprise_id);
+      }
       formData.append("file", {
         uri: tempFile.uri,
         name: tempFile.name,
@@ -262,22 +264,21 @@ function HomeScreenContent() {
 
   const handleOpenDoc = async (doc: Doc) => {
     try {
-      const ext = doc.file_url.split(".").pop()?.toLowerCase();
-
-      if (["jpg", "jpeg", "png", "gif"].includes(ext || "")) {
-        await WebBrowser.openBrowserAsync(doc.file_url);
-        return;
-      }
-
+      // file_url est un chemin relatif sur un disque privé, jamais une URL
+      // utilisable directement : il faut passer par la route authentifiée
+      // (Bearer token), que WebBrowser ne peut pas fournir — on télécharge
+      // donc toujours d'abord en local avant d'ouvrir/partager.
       const safeName = doc.titre.replace(/[^a-zA-Z0-9.]/g, "_");
       const localFile = new File(Paths.document, safeName);
       const exists = await localFile.exists;
 
       if (!exists) {
+        const token = await getToken();
         Alert.alert("Téléchargement", "Veuillez patienter...");
         await File.downloadFileAsync(
-          doc.file_url,
+          api.documentDownloadUrl(doc.id),
           new File(Paths.document, safeName),
+          { headers: token ? { Authorization: `Bearer ${token}` } : {} },
         );
       }
 
@@ -286,6 +287,23 @@ function HomeScreenContent() {
       Alert.alert("Erreur", "Impossible d'ouvrir.");
     }
   };
+
+  const PREVIEWABLE_EXTS = ["pdf", "jpg", "jpeg", "png", "webp", "heic", "gif", "mp4", "mov", "m4v"];
+
+  // Ouvre la visionneuse intégrée pour les types qu'on sait afficher
+  // (image/pdf/vidéo) ; retombe sur le partage OS pour le reste (doc, xlsx…).
+  const handlePressDoc = (doc: Doc) => {
+    const ext = doc.file_url.split(".").pop()?.toLowerCase() ?? "";
+    if (PREVIEWABLE_EXTS.includes(ext)) {
+      router.push({
+        pathname: "/document/[id]",
+        params: { id: doc.id, titre: doc.titre, file_url: doc.file_url },
+      });
+      return;
+    }
+    handleOpenDoc(doc);
+  };
+
   const getFilteredDocs = () => {
     if (!selectedCategory?.documents) return [];
     return selectedCategory.documents.filter((doc: Doc) => {
@@ -324,7 +342,7 @@ function HomeScreenContent() {
     const isGrid = viewMode === "grid";
     return (
       <TouchableOpacity
-        onPress={() => handleOpenDoc(item)}
+        onPress={() => handlePressDoc(item)}
         onLongPress={() => {
           Alert.alert("Actions", item.titre, [
             { text: "Renommer", onPress: () => setEditingDoc(item) },
@@ -380,7 +398,7 @@ function HomeScreenContent() {
         headerTitle={tenant?.enterprise_name || "Gestion de Documents"}
         onToggleTheme={toggleTheme}
         onLogout={async () => {
-          await api.logout();
+          await logout();
           router.replace("/");
         }}
         onOpenNewFolderModal={() => setIsModalVisible(true)}

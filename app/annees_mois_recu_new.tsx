@@ -12,10 +12,12 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useTenant } from "../context/TenantContext";
 import { api } from "../lib/api";
 
 export default function NewAnneesMoisRecuScreen() {
   const router = useRouter();
+  const { tenant } = useTenant();
   const [nom, setNom] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -27,7 +29,10 @@ export default function NewAnneesMoisRecuScreen() {
     setLoading(true);
 
     try {
-      await api.createAnneeMoisRecu({ nom: nom.trim() });
+      await api.createAnneeMoisRecu({
+        nom: nom.trim(),
+        enterprise_id: tenant?.enterprise_id ?? undefined,
+      });
       Alert.alert("Succès", "Dossier créé !");
       router.back();
     } catch (e: any) {

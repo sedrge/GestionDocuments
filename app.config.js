@@ -56,11 +56,14 @@ module.exports = {
       "expo-image",
       "expo-sharing",
       "expo-status-bar",
+      "expo-video",
       [
         "expo-camera",
         {
           cameraPermission:
             "Accès à la caméra pour scanner les QR codes des motos.",
+          microphonePermission:
+            "Accès au micro pour filmer des vidéos avec le son.",
         },
       ],
       [
@@ -76,11 +79,8 @@ module.exports = {
       reactCompiler: true,
     },
     extra: {
-      // Backend Laravel en cours de migration (test local uniquement).
-      // Tunnel HTTPS temporaire (localtunnel) car Expo Go/Android bloque le HTTP
-      // en clair vers une IP LAN. Relancer `npx localtunnel --port 8123 --subdomain ...`
-      // si le tunnel tombe, et remettre l'IP LAN une fois un vrai HTTPS en place.
-      laravelApiUrl: "https://senmoto-api-test-2607.loca.lt/api",
+      // Backend Laravel hébergé sur o2switch.
+      laravelApiUrl: "https://senmoto-api.seninovagroup.com/api",
       router: {},
       eas: {
         projectId: "9cf8bec5-40f6-42c8-ad79-6d2e50cba58d",

@@ -18,6 +18,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import SignatureCanvas from "react-native-signature-canvas";
 import { AuthImage } from "../components/AuthImage";
+import { useTenant } from "../context/TenantContext";
 import { nombreEnLettres } from "../lib/nombreEnLettres";
 import { api } from "../lib/api";
 import { appendMaybeImage, buildFormData } from "../lib/formUpload";
@@ -199,6 +200,7 @@ const CERT_ASPECT: [number, number] = [21, 29.7]; // A4 portrait
 export default function RegistreForm() {
   const { dossierId, id } = useLocalSearchParams();
   const router = useRouter();
+  const { tenant } = useTenant();
 
   const remoteFileUrl = (field: string) =>
     id ? api.fileUrl("registres", String(id), field) : undefined;
@@ -459,6 +461,7 @@ export default function RegistreForm() {
       types_documents: documentsRecuperes ? typesDocuments : null,
       client_id_type: clientIdType,
       annee_mois_id: id ? null : dossierId,
+      enterprise_id: id ? null : tenant?.enterprise_id ?? null,
     });
 
     // Les champs fichiers ne sont ajoutés que s'ils contiennent une NOUVELLE
@@ -559,7 +562,10 @@ export default function RegistreForm() {
     if (existing?.id) return existing.id;
 
     try {
-      const created = await api.createAnneeMoisRecu({ nom: nomDossier });
+      const created = await api.createAnneeMoisRecu({
+        nom: nomDossier,
+        enterprise_id: tenant?.enterprise_id ?? undefined,
+      });
       return created?.id ?? null;
     } catch {
       return null;

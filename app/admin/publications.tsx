@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as Linking from "expo-linking";
+import { useVideoPlayer, VideoView } from "expo-video";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
@@ -32,6 +33,8 @@ type Publication = {
   texte: string | null;
   images: string[];
   image_urls: string[];
+  video: string | null;
+  video_url: string | null;
   created_at: string;
   scheduled_at: string | null;
   fb_post_id: string | null;
@@ -69,6 +72,28 @@ type MotoLite = {
 };
 
 type AutoMode = "aleatoire" | "nouvelle" | "ancienne";
+
+// Lecture vidéo façon "reel" : muet, en boucle, sans contrôles. Isolé en
+// composant dédié car useVideoPlayer doit être appelé de façon stable (même
+// nombre de hooks à chaque rendu), ce qu'un renderItem de FlatList ne garantit
+// pas si le hook était appelé directement dans la closure.
+function VideoThumb({ uri, style }: { uri: string; style: any }) {
+  const player = useVideoPlayer(uri, (p) => {
+    p.loop = true;
+    p.muted = true;
+    p.play();
+  });
+
+  return (
+    <VideoView
+      player={player}
+      style={style}
+      contentFit="cover"
+      nativeControls={false}
+      pointerEvents="none"
+    />
+  );
+}
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -202,6 +227,7 @@ function AdminPublicationsContent() {
   // Form state
   const [formText, setFormText] = useState("");
   const [formImages, setFormImages] = useState<string[]>([]);
+  const [formVideo, setFormVideo] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [selectedPlatforms, setSelectedPlatforms] = useState<SocialPlatform[]>([]);
@@ -307,12 +333,41 @@ function AdminPublicationsContent() {
       quality: 0.6,
     });
     if (result.canceled || !result.assets) return;
+    setFormVideo(null); // une publication est soit images, soit vidéo, jamais les deux
     setFormImages((prev) => [...prev, ...result.assets.map((a) => a.uri)]);
   };
 
+  const handlePickVideo = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      return Alert.alert("Permission refusée", "Accès galerie refusé.");
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      videoMaxDuration: 90,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    setFormImages([]); // une publication est soit images, soit vidéo, jamais les deux
+    setFormVideo(result.assets[0].uri);
+  };
+
+  const handleRecordVideo = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      return Alert.alert("Permission refusée", "Accès caméra refusé.");
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      videoMaxDuration: 90,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    setFormImages([]);
+    setFormVideo(result.assets[0].uri);
+  };
+
   const handleSave = async () => {
-    if (!formText.trim() && formImages.length === 0) {
-      return Alert.alert("Publication vide", "Ajoutez du texte ou des images.");
+    if (!formText.trim() && formImages.length === 0 && !formVideo) {
+      return Alert.alert("Publication vide", "Ajoutez du texte, des images ou une vidéo.");
     }
     if (!tenant?.enterprise_id) return;
 
@@ -334,9 +389,18 @@ function AdminPublicationsContent() {
     const form = new FormData();
     form.append("enterprise_id", tenant.enterprise_id);
     if (formText.trim()) form.append("texte", formText.trim());
-    formImages.forEach((uri, i) => {
-      form.append("images[]", localUriToFormFile(uri, `pub_${i}`) as any);
-    });
+    if (formVideo) {
+      const ext = formVideo.split(".").pop()?.toLowerCase().split("?")[0] || "mp4";
+      form.append("video", {
+        uri: formVideo,
+        name: `pub_video.${ext}`,
+        type: ext === "mov" ? "video/quicktime" : "video/mp4",
+      } as any);
+    } else {
+      formImages.forEach((uri, i) => {
+        form.append("images[]", localUriToFormFile(uri, `pub_${i}`) as any);
+      });
+    }
     selectedPlatforms.forEach((p) => form.append("selected_platforms[]", p));
     if (scheduledAt) form.append("scheduled_at", scheduledAt);
 
@@ -451,6 +515,7 @@ function AdminPublicationsContent() {
   const resetForm = () => {
     setFormText("");
     setFormImages([]);
+    setFormVideo(null);
     setPublishMode("now");
     setScheduleDate("");
     setScheduleTime("");
@@ -797,8 +862,10 @@ function AdminPublicationsContent() {
                 </TouchableOpacity>
               ) : null}
 
-              {/* Image thumbnails */}
-              {item.image_urls && item.image_urls.length > 0 ? (
+              {/* Vidéo ou vignettes images */}
+              {item.video_url ? (
+                <VideoThumb uri={item.video_url} style={styles.videoThumb} />
+              ) : item.image_urls && item.image_urls.length > 0 ? (
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
@@ -811,8 +878,9 @@ function AdminPublicationsContent() {
               ) : null}
 
               <Text style={[styles.imgCount, { color: theme.subText }]}>
-                {item.image_urls?.length ?? 0} image
-                {(item.image_urls?.length ?? 0) !== 1 ? "s" : ""}
+                {item.video_url
+                  ? "1 vidéo"
+                  : `${item.image_urls?.length ?? 0} image${(item.image_urls?.length ?? 0) !== 1 ? "s" : ""}`}
               </Text>
             </View>
             );
@@ -915,17 +983,58 @@ function AdminPublicationsContent() {
                 </View>
               ) : null}
 
-              {/* Bouton ajout photos */}
-              <TouchableOpacity
-                style={[styles.addImgBtn, { borderColor: theme.primary }]}
-                onPress={handlePickImages}
-                activeOpacity={0.75}
-              >
-                <Ionicons name="images-outline" size={20} color={theme.primary} />
-                <Text style={[styles.addImgText, { color: theme.primary }]}>
-                  Ajouter des photos
-                </Text>
-              </TouchableOpacity>
+              {/* Prévisualisation de la vidéo sélectionnée */}
+              {formVideo ? (
+                <View style={[styles.previewWrap, { marginBottom: 16 }]}>
+                  <VideoThumb uri={formVideo} style={styles.videoPreview} />
+                  <TouchableOpacity
+                    style={styles.removeImgBtn}
+                    onPress={() => setFormVideo(null)}
+                    hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                  >
+                    <Ionicons name="close-circle" size={22} color="#FF3B30" />
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+
+              {/* Boutons ajout média : images XOR vidéo */}
+              {formVideo ? null : (
+                <TouchableOpacity
+                  style={[styles.addImgBtn, { borderColor: theme.primary }]}
+                  onPress={handlePickImages}
+                  activeOpacity={0.75}
+                >
+                  <Ionicons name="images-outline" size={20} color={theme.primary} />
+                  <Text style={[styles.addImgText, { color: theme.primary }]}>
+                    Ajouter des photos
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {formImages.length === 0 && (
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <TouchableOpacity
+                    style={[styles.addImgBtn, { borderColor: theme.primary, flex: 1 }]}
+                    onPress={handlePickVideo}
+                    activeOpacity={0.75}
+                  >
+                    <Ionicons name="videocam-outline" size={20} color={theme.primary} />
+                    <Text style={[styles.addImgText, { color: theme.primary }]}>
+                      Ajouter une vidéo
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.addImgBtn, { borderColor: theme.primary, flex: 1 }]}
+                    onPress={handleRecordVideo}
+                    activeOpacity={0.75}
+                  >
+                    <Ionicons name="radio-button-on-outline" size={20} color={theme.primary} />
+                    <Text style={[styles.addImgText, { color: theme.primary }]}>
+                      Filmer un reel
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
               {/* Publier aussi sur les réseaux connectés */}
               {(fbConnected || tiktokConnected) && (
@@ -1511,6 +1620,13 @@ const styles = StyleSheet.create({
     marginRight: 8,
     backgroundColor: "#eee",
   },
+  videoThumb: {
+    width: "100%",
+    height: 220,
+    borderRadius: 10,
+    marginBottom: 8,
+    backgroundColor: "#000",
+  },
   imgCount: { fontSize: 11, marginTop: 2 },
 
   createContainer: { flex: 1 },
@@ -1553,6 +1669,12 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 10,
     backgroundColor: "#eee",
+  },
+  videoPreview: {
+    width: "100%",
+    height: 260,
+    borderRadius: 10,
+    backgroundColor: "#000",
   },
   removeImgBtn: { position: "absolute", top: -8, right: -8 },
   addImgBtn: {

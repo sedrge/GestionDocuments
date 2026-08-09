@@ -19,6 +19,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import SignatureCanvas from "react-native-signature-canvas";
 import { AuthImage } from "../components/AuthImage";
+import { useTenant } from "../context/TenantContext";
 import { api } from "../lib/api";
 import { appendMaybeImage, buildFormData } from "../lib/formUpload";
 import { nombreEnLettres } from "../lib/nombreEnLettres";
@@ -246,6 +247,7 @@ const sigStyles = StyleSheet.create({
 export default function DechargeForm() {
   const { dossierId, id } = useLocalSearchParams();
   const router = useRouter();
+  const { tenant } = useTenant();
 
   const getTodayDateFR = () => {
     const now = new Date();
@@ -421,6 +423,7 @@ export default function DechargeForm() {
       prix_lettres: prixLettres,
       vendeur_id_type: vendeurIdType,
       annee_mois_id: id ? null : dossierId,
+      enterprise_id: id ? null : tenant?.enterprise_id ?? null,
     });
 
     // Les champs fichiers ne sont ajoutés que s'ils contiennent une NOUVELLE

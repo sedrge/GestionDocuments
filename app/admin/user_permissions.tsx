@@ -74,6 +74,19 @@ const MENU_SECTIONS: MenuSection[] = [
 
 const ALL_KEYS = MENU_SECTIONS.flatMap((s) => s.items.map((i) => i.key));
 
+// ─── Visibilité des données créées par les autres membres de l'entreprise ────
+// Contrairement au menu (ouvert par défaut), ces permissions sont fermées par
+// défaut : l'utilisateur ne voit que ce qu'il a lui-même créé tant que l'admin
+// n'a pas explicitement activé le partage pour une ressource donnée.
+const DATA_VISIBILITY_ITEMS: { key: string; label: string; icon: string }[] = [
+  { key: 'documents', label: 'Documents',  icon: 'document-attach-outline' },
+  { key: 'registres', label: 'Registres',  icon: 'clipboard-outline' },
+  { key: 'decharges', label: 'Décharges',  icon: 'document-text-outline' },
+  { key: 'recus',     label: 'Reçus',      icon: 'receipt-outline' },
+  { key: 'motos',     label: 'Motos',      icon: 'bicycle-outline' },
+];
+const DATA_VISIBILITY_KEYS = DATA_VISIBILITY_ITEMS.map((i) => i.key);
+
 const theme = {
   bg:      '#F2F2F7',
   card:    '#FFFFFF',
@@ -96,6 +109,10 @@ export default function UserPermissionsScreen() {
   const [permissions, setPermissions] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(ALL_KEYS.map((k) => [k, true]))
   );
+  // Map resource_key → is_enabled (false = fermé par défaut)
+  const [dataVisibility, setDataVisibility] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(DATA_VISIBILITY_KEYS.map((k) => [k, false]))
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hasCustomPerms, setHasCustomPerms] = useState(false);
@@ -103,6 +120,7 @@ export default function UserPermissionsScreen() {
   useEffect(() => {
     if (!userId || !tenant?.enterprise_id || !isEnterpriseAdmin) return;
     loadPermissions();
+    loadDataVisibility();
   }, [userId, tenant?.enterprise_id]);
 
   const loadPermissions = async () => {
@@ -129,9 +147,27 @@ export default function UserPermissionsScreen() {
     setLoading(false);
   };
 
+  const loadDataVisibility = async () => {
+    const data = await api
+      .getDataVisibilityPermissions(tenant!.enterprise_id, userId)
+      .catch(() => []);
+
+    const map: Record<string, boolean> = Object.fromEntries(
+      DATA_VISIBILITY_KEYS.map((k) => [k, false])
+    );
+    (data ?? []).forEach((row: any) => {
+      if (row.resource_key in map) map[row.resource_key] = row.is_enabled;
+    });
+    setDataVisibility(map);
+  };
+
   const toggleKey = (key: string) => {
     setPermissions((prev) => ({ ...prev, [key]: !prev[key] }));
     if (!hasCustomPerms) setHasCustomPerms(true);
+  };
+
+  const toggleDataVisibilityKey = (key: string) => {
+    setDataVisibility((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   const toggleSection = (section: MenuSection) => {
@@ -148,6 +184,7 @@ export default function UserPermissionsScreen() {
 
     try {
       await api.updateUserMenuPermissions(tenant.enterprise_id, userId, permissions);
+      await api.updateDataVisibilityPermissions(tenant.enterprise_id, userId, dataVisibility);
       Alert.alert('Succès', 'Permissions mises à jour.', [
         { text: 'OK', onPress: () => router.back() },
       ]);
@@ -161,7 +198,7 @@ export default function UserPermissionsScreen() {
   const handleReset = () => {
     Alert.alert(
       'Réinitialiser',
-      'Supprimer toutes les restrictions pour cet utilisateur (il verra tout) ?',
+      'Supprimer toutes les restrictions pour cet utilisateur (il verra tout le menu, mais aucune donnée d\'équipe) ?',
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -170,8 +207,10 @@ export default function UserPermissionsScreen() {
           onPress: async () => {
             if (!userId || !tenant?.enterprise_id) return;
             await api.deleteUserMenuPermissions(tenant.enterprise_id, userId).catch(() => {});
+            await api.deleteDataVisibilityPermissions(tenant.enterprise_id, userId).catch(() => {});
             setHasCustomPerms(false);
             setPermissions(Object.fromEntries(ALL_KEYS.map((k) => [k, true])));
+            setDataVisibility(Object.fromEntries(DATA_VISIBILITY_KEYS.map((k) => [k, false])));
           },
         },
       ]
@@ -284,6 +323,54 @@ export default function UserPermissionsScreen() {
                 </View>
               );
             })}
+
+            {/* ── Visibilité des données créées par l'équipe ──────────────── */}
+            <View style={styles.sectionCard}>
+              <View style={[styles.sectionHeader, { backgroundColor: '#FFF9EC' }]}>
+                <Ionicons name="people-outline" size={18} color={theme.primary} />
+                <Text style={styles.sectionTitle}>Visibilité des données d'équipe</Text>
+                <View style={styles.sectionBadge}>
+                  <Text style={styles.sectionBadgeText}>
+                    {Object.values(dataVisibility).filter(Boolean).length}/{DATA_VISIBILITY_ITEMS.length}
+                  </Text>
+                </View>
+              </View>
+              <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 4 }}>
+                <Text style={{ fontSize: 12, color: theme.subText }}>
+                  Par défaut, cet utilisateur ne voit que ce qu'il a lui-même créé. Activez ci-dessous
+                  ce qu'il peut voir en plus, créé par les autres membres de l'entreprise.
+                </Text>
+              </View>
+              {DATA_VISIBILITY_ITEMS.map((item, idx) => (
+                <View
+                  key={item.key}
+                  style={[
+                    styles.itemRow,
+                    idx === DATA_VISIBILITY_ITEMS.length - 1 && { borderBottomWidth: 0 },
+                  ]}
+                >
+                  <Ionicons
+                    name={item.icon as any}
+                    size={16}
+                    color={dataVisibility[item.key] ? theme.text : '#ccc'}
+                  />
+                  <Text
+                    style={[
+                      styles.itemLabel,
+                      !dataVisibility[item.key] && { color: '#ccc' },
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+                  <Switch
+                    value={dataVisibility[item.key]}
+                    onValueChange={() => toggleDataVisibilityKey(item.key)}
+                    trackColor={{ false: '#E5E5EA', true: theme.primary + '66' }}
+                    thumbColor={dataVisibility[item.key] ? theme.primary : '#ccc'}
+                  />
+                </View>
+              ))}
+            </View>
           </ScrollView>
 
           {/* ── Bouton Enregistrer ──────────────────────────────────────── */}
