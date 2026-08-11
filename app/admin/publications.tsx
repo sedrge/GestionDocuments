@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { File, UploadType } from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import * as Linking from "expo-linking";
 import { useVideoPlayer, VideoView } from "expo-video";
@@ -20,7 +21,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { api } from "../../lib/api";
+import { api, getToken } from "../../lib/api";
 import { localUriToFormFile } from "../../lib/formUpload";
 import { useTenant } from "../../context/TenantContext";
 import { useTheme } from "../../context/ThemeContext";
@@ -207,6 +208,56 @@ function parseScheduledDateTime(dateStr: string, timeStr: string): Date | null {
   return date;
 }
 
+/**
+ * Upload d'une vidéo de publication via la tâche native expo-file-system
+ * (createUploadTask), pas fetch/FormData — voir le commentaire dans
+ * handleSave pour le pourquoi. Les champs texte du formulaire passent en
+ * `parameters` (multipart), avec la notation `champ[i]` pour les tableaux
+ * (convention PHP standard, reconstituée par Laravel comme un vrai tableau).
+ */
+async function uploadVideoPublication(
+  texte: string,
+  videoUri: string,
+  selectedPlatforms: string[],
+  scheduledAt: string | null,
+  enterpriseId: string
+): Promise<Publication> {
+  const ext = videoUri.split(".").pop()?.toLowerCase().split("?")[0] || "mp4";
+  const mimeType = ext === "mov" ? "video/quicktime" : "video/mp4";
+  const token = await getToken();
+
+  const parameters: Record<string, string> = { enterprise_id: enterpriseId };
+  if (texte.trim()) parameters.texte = texte.trim();
+  selectedPlatforms.forEach((p, i) => {
+    parameters[`selected_platforms[${i}]`] = p;
+  });
+  if (scheduledAt) parameters.scheduled_at = scheduledAt;
+
+  const file = new File(videoUri);
+  const task = file.createUploadTask(api.publicationsUploadUrl(), {
+    httpMethod: "POST",
+    uploadType: UploadType.MULTIPART,
+    fieldName: "video",
+    mimeType,
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    parameters,
+  });
+
+  const result = await task.uploadAsync();
+  if (!result) throw new Error("Échec de l'envoi de la vidéo.");
+  if (result.status < 200 || result.status >= 300) {
+    let message = `Erreur HTTP ${result.status}`;
+    try {
+      const data = JSON.parse(result.body);
+      if (data?.message) message = data.message;
+    } catch {
+      // corps non-JSON : on garde le message générique
+    }
+    throw new Error(message);
+  }
+  return JSON.parse(result.body);
+}
+
 function AdminPublicationsContent() {
   const { theme } = useTheme();
   const { tenant } = useTenant();
@@ -386,27 +437,33 @@ function AdminPublicationsContent() {
       scheduledAt = parsed.toISOString();
     }
 
-    const form = new FormData();
-    form.append("enterprise_id", tenant.enterprise_id);
-    if (formText.trim()) form.append("texte", formText.trim());
-    if (formVideo) {
-      const ext = formVideo.split(".").pop()?.toLowerCase().split("?")[0] || "mp4";
-      form.append("video", {
-        uri: formVideo,
-        name: `pub_video.${ext}`,
-        type: ext === "mov" ? "video/quicktime" : "video/mp4",
-      } as any);
-    } else {
-      formImages.forEach((uri, i) => {
-        form.append("images[]", localUriToFormFile(uri, `pub_${i}`) as any);
-      });
-    }
-    selectedPlatforms.forEach((p) => form.append("selected_platforms[]", p));
-    if (scheduledAt) form.append("scheduled_at", scheduledAt);
-
     setSaving(true);
     try {
-      const created: Publication = await api.createPublication(form);
+      let created: Publication;
+      if (formVideo) {
+        // Upload natif (expo-file-system), pas fetch/FormData : expo/fetch
+        // (WinterCG, installé par défaut par Expo) ne supporte pas la
+        // convention RN {uri, name, type} pour les fichiers et lève
+        // "Unsupported FormDataPart implementation" — l'upload natif
+        // contourne complètement cette histoire d'implémentation fetch.
+        created = await uploadVideoPublication(
+          formText,
+          formVideo,
+          selectedPlatforms,
+          scheduledAt,
+          tenant.enterprise_id
+        );
+      } else {
+        const form = new FormData();
+        form.append("enterprise_id", tenant.enterprise_id);
+        if (formText.trim()) form.append("texte", formText.trim());
+        formImages.forEach((uri, i) => {
+          form.append("images[]", localUriToFormFile(uri, `pub_${i}`) as any);
+        });
+        selectedPlatforms.forEach((p) => form.append("selected_platforms[]", p));
+        if (scheduledAt) form.append("scheduled_at", scheduledAt);
+        created = await api.createPublication(form);
+      }
       const platformsToPush = selectedPlatforms;
       resetForm();
       fetchPublications();
