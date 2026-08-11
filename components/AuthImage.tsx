@@ -17,6 +17,11 @@ interface AuthImageProps extends Omit<ImageProps, "source" | "style"> {
  * personnalisés sur `source` sont réputés non fiables/ignorés sur Android
  * avec le composant natif (bug connu de longue date), expo-image (Glide/
  * SDWebImage) les gère correctement sur les deux plateformes.
+ *
+ * cachePolicy="none" : l'URL d'un champ fichier (ex. /registres/{id}/files/
+ * signature_uri) reste identique même quand le fichier est remplacé (upload
+ * d'une nouvelle signature/photo) — avec le cache par défaut d'expo-image,
+ * l'ancienne image en cache continuerait de s'afficher après modification.
  */
 export function AuthImage({ uri, style, ...rest }: AuthImageProps) {
   const [token, setToken] = useState<string | null>(null);
@@ -38,6 +43,7 @@ export function AuthImage({ uri, style, ...rest }: AuthImageProps) {
       source={{ uri, headers: { Authorization: `Bearer ${token}` } }}
       style={style}
       {...rest}
+      cachePolicy="none"
     />
   );
 }
