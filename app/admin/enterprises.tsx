@@ -221,6 +221,7 @@ export default function SuperAdminEnterprisesScreen() {
               onDeactivate={() => handleDeactivate(enterprise.id, enterprise.name)}
               onViewUsers={() => setSelectedEnterprise(enterprise)}
               onFeatures={() => router.push({ pathname: "/admin/enterprise_features", params: { enterpriseId: enterprise.id, enterpriseName: enterprise.name } })}
+              onSubscription={() => router.push({ pathname: "/admin/enterprise_subscription", params: { enterpriseId: enterprise.id, enterpriseName: enterprise.name } })}
               onImpersonate={() => handleImpersonate(enterprise)}
             />
           ))}
@@ -230,7 +231,7 @@ export default function SuperAdminEnterprisesScreen() {
   );
 }
 
-function EnterpriseCard({ enterprise, tab, theme, isDark, onActivate, onDeactivate, onViewUsers, onFeatures, onImpersonate }: any) {
+function EnterpriseCard({ enterprise, tab, theme, isDark, onActivate, onDeactivate, onViewUsers, onFeatures, onSubscription, onImpersonate }: any) {
   const adminInfo = enterprise.enterprise_admins?.[0];
   const createdAt = new Date(enterprise.created_at).toLocaleDateString("fr-FR");
 
@@ -290,6 +291,20 @@ function EnterpriseCard({ enterprise, tab, theme, isDark, onActivate, onDeactiva
           </>
         )}
       </View>
+
+      {/* Abonnement — pleine largeur, comme le bouton de dépannage (le mettre
+          dans la rangée flex:1 ci-dessus serait illisible à 4 boutons) */}
+      {tab === "active" && (
+        <TouchableOpacity
+          style={[styles.depannageBtn, { backgroundColor: isDark ? "#0A2E35" : "#E6F7FA", borderColor: "#30B0C7", marginBottom: 8 }]}
+          onPress={onSubscription}
+          activeOpacity={0.75}
+        >
+          <Ionicons name="pricetag-outline" size={16} color="#30B0C7" />
+          <Text style={[styles.depannageBtnText, { color: "#30B0C7" }]}>Abonnement & paiement</Text>
+          <Ionicons name="chevron-forward" size={14} color="#30B0C7" style={{ marginLeft: "auto" }} />
+        </TouchableOpacity>
+      )}
 
       {/* Impersonation button — only on active */}
       {tab === "active" && (

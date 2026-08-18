@@ -25,7 +25,9 @@ type Notif = {
     | "rdv_modification"
     | "rdv_rappel_j3"
     | "rdv_rappel_j2"
-    | "rdv_rappel_j0";
+    | "rdv_rappel_j0"
+    | "abonnement_expire"
+    | "abonnement_coupure";
   titre: string;
   message: string;
   rendezvous_id: string | null;
@@ -60,6 +62,25 @@ const typeMeta: Record<
     color: "#FF3B30",
     label: "Aujourd'hui",
   },
+  abonnement_expire: {
+    icon: "card-outline",
+    color: "#FF9F0A",
+    label: "Abonnement expiré",
+  },
+  abonnement_coupure: {
+    icon: "lock-closed-outline",
+    color: "#FF3B30",
+    label: "Fonctionnalités coupées",
+  },
+};
+
+// Filet de sécurité : le serveur peut envoyer un type plus récent que celui
+// connu de cette version de l'app — sans ce fallback, `typeMeta[item.type]`
+// renvoie undefined et fait planter tout l'écran au rendu.
+const DEFAULT_META = {
+  icon: "notifications-outline" as any,
+  color: "#8E8E93",
+  label: "Notification",
 };
 
 const formatWhen = (iso: string) => {
@@ -161,7 +182,10 @@ export default function NotificationsScreen() {
   };
 
   const renderItem = ({ item }: { item: Notif }) => {
-    const meta = typeMeta[item.type];
+    const meta = typeMeta[item.type] ?? {
+      ...DEFAULT_META,
+      label: item.type ?? DEFAULT_META.label,
+    };
     return (
       <TouchableOpacity
         style={[styles.card, !item.lu && styles.cardUnread]}

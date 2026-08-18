@@ -44,6 +44,7 @@ const QUICK_ACTIONS = [
   { icon: "chatbubbles-outline", label: "Messages\nClients", color: "#34C759", bg: "#E8F8EE", bgDark: "#0A2E15", route: "/admin/chat" },
   { icon: "newspaper-outline", label: "Publications", color: "#AF52DE", bg: "#F5EEFF", bgDark: "#2B0A3D", route: "/admin/publications" },
   { icon: "call-outline", label: "Contact\nSupport", color: "#FF3B30", bg: "#FFEBE9", bgDark: "#3D0A09", route: "/admin/contact" },
+  { icon: "pricetag-outline", label: "Tarifs &\nAbonnements", color: "#30B0C7", bg: "#E6F7FA", bgDark: "#0A2E35", route: "/admin/subscription_config" },
 ];
 
 const DRAWER_ITEMS = [
@@ -54,6 +55,7 @@ const DRAWER_ITEMS = [
   { icon: "chatbubbles", label: "Messages clients", route: "/admin/chat" },
   { icon: "newspaper", label: "Publications", route: "/admin/publications" },
   { icon: "call", label: "Contact / Support", route: "/admin/contact" },
+  { icon: "pricetag", label: "Tarifs & Abonnements", route: "/admin/subscription_config" },
 ];
 
 export default function SuperAdminHomeScreen() {

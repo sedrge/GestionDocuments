@@ -140,6 +140,9 @@ function AppStack() {
         <Stack.Screen name="admin/audit" />
         <Stack.Screen name="admin/user_permissions" />
         <Stack.Screen name="admin/enterprise_features" />
+        <Stack.Screen name="admin/enterprise_subscription" />
+        <Stack.Screen name="admin/subscription_config" />
+        <Stack.Screen name="abonnement" />
         <Stack.Screen name="admin/publications" />
         <Stack.Screen name="admin/facebook" />
         <Stack.Screen name="admin/tiktok" />

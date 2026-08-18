@@ -18,6 +18,7 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useTenant } from "../context/TenantContext";
 import { api } from "../lib/api";
 import { localUriToFormFile } from "../lib/formUpload";
 import { AuthImage } from "../components/AuthImage";
@@ -44,6 +45,7 @@ export function genererPrefix(nom: string): string {
 
 export default function ParametresEntrepriseScreen() {
   const router = useRouter();
+  const { isEnterpriseAdmin } = useTenant();
   const [saving, setSaving] = useState(false);
 
   const [nomEntreprise, setNomEntreprise] = useState("");
@@ -346,6 +348,21 @@ export default function ParametresEntrepriseScreen() {
             <Ionicons name="chevron-forward" size={20} color="#999" />
           </View>
         </TouchableOpacity>
+
+        {/* Abonnement — réservé à l'administrateur de l'entreprise, seul
+            habilité à consulter et régler l'abonnement. */}
+        {isEnterpriseAdmin && (
+          <TouchableOpacity
+            onPress={() => router.push("/abonnement")}
+            style={[styles.ressourcesBtn, { borderColor: "#30B0C7" }]}
+          >
+            <View style={styles.ressourcesBtnContent}>
+              <Ionicons name="pricetag-outline" size={20} color="#30B0C7" />
+              <Text style={styles.ressourcesBtnText}>Abonnement</Text>
+              <Ionicons name="chevron-forward" size={20} color="#999" />
+            </View>
+          </TouchableOpacity>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
     </SafeAreaView>
