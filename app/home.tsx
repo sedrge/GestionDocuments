@@ -411,6 +411,7 @@ function HomeScreenContent() {
         onChangeLogo={handleUpdateLogo}
         unreadNotif={unreadNotif}
         isEnterpriseAdmin={isEnterpriseAdmin}
+        canManageStores={isEnterpriseAdmin && !tenant?.parent_enterprise_id}
         isSuper={isSuperAdmin}
         permittedKeys={permittedKeys}
         enabledFeatures={enabledFeatures}

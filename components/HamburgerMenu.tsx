@@ -20,6 +20,14 @@ interface HamburgerMenuProps {
   unreadNotif?: number;
   isSuper?: boolean;
   isEnterpriseAdmin?: boolean;
+  /**
+   * Admin d'une entreprise de premier niveau (pas d'un magasin) : seul cas où
+   * l'entrée "Mes magasins" a un sens (un magasin ne peut pas avoir de
+   * magasins). Le composant est purement présentationnel, la condition
+   * `isEnterpriseAdmin && !tenant.parent_enterprise_id` est évaluée par
+   * l'écran appelant.
+   */
+  canManageStores?: boolean;
   isDark?: boolean;
   onToggleTheme?: () => void;
   onLogout?: () => void;
@@ -60,6 +68,7 @@ export const HamburgerMenu = ({
   unreadNotif = 0,
   isSuper = false,
   isEnterpriseAdmin = false,
+  canManageStores = false,
   isDark = true,
   onToggleTheme,
   onLogout,
@@ -428,6 +437,18 @@ export const HamburgerMenu = ({
                 <Ionicons name="people-outline" size={20} color={t.text} />
                 <Text style={[styles.mainMenuLabel, { color: t.text }]}>Équipe / Utilisateurs</Text>
               </TouchableOpacity>
+              {/* Mes magasins — uniquement pour l'admin de l'entreprise
+                  principale (un magasin n'a pas lui-même de magasins) */}
+              {canManageStores && (
+                <TouchableOpacity
+                  style={[styles.mainMenuItem, { borderBottomColor: t.border }]}
+                  onPress={() => handleNavigation("/admin/my-stores")}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="storefront-outline" size={20} color={t.text} />
+                  <Text style={[styles.mainMenuLabel, { color: t.text }]}>Mes magasins</Text>
+                </TouchableOpacity>
+              )}
               {/* Audit */}
               {(enabledFeatures === undefined || enabledFeatures.has("audit.actif")) && (
                 <TouchableOpacity

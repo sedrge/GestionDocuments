@@ -222,6 +222,7 @@ export default function SuperAdminEnterprisesScreen() {
               onViewUsers={() => setSelectedEnterprise(enterprise)}
               onFeatures={() => router.push({ pathname: "/admin/enterprise_features", params: { enterpriseId: enterprise.id, enterpriseName: enterprise.name } })}
               onSubscription={() => router.push({ pathname: "/admin/enterprise_subscription", params: { enterpriseId: enterprise.id, enterpriseName: enterprise.name } })}
+              onStores={() => router.push({ pathname: "/admin/enterprise-stores", params: { enterpriseId: enterprise.id, enterpriseName: enterprise.name } })}
               onImpersonate={() => handleImpersonate(enterprise)}
             />
           ))}
@@ -231,7 +232,7 @@ export default function SuperAdminEnterprisesScreen() {
   );
 }
 
-function EnterpriseCard({ enterprise, tab, theme, isDark, onActivate, onDeactivate, onViewUsers, onFeatures, onSubscription, onImpersonate }: any) {
+function EnterpriseCard({ enterprise, tab, theme, isDark, onActivate, onDeactivate, onViewUsers, onFeatures, onSubscription, onStores, onImpersonate }: any) {
   const adminInfo = enterprise.enterprise_admins?.[0];
   const createdAt = new Date(enterprise.created_at).toLocaleDateString("fr-FR");
 
@@ -303,6 +304,19 @@ function EnterpriseCard({ enterprise, tab, theme, isDark, onActivate, onDeactiva
           <Ionicons name="pricetag-outline" size={16} color="#30B0C7" />
           <Text style={[styles.depannageBtnText, { color: "#30B0C7" }]}>Abonnement & paiement</Text>
           <Ionicons name="chevron-forward" size={14} color="#30B0C7" style={{ marginLeft: "auto" }} />
+        </TouchableOpacity>
+      )}
+
+      {/* Magasins — entreprises enfants de celle-ci (une seule profondeur) */}
+      {tab === "active" && (
+        <TouchableOpacity
+          style={[styles.depannageBtn, { backgroundColor: isDark ? "#2B2410" : "#FFF6E5", borderColor: "#FF9F0A", marginBottom: 8 }]}
+          onPress={onStores}
+          activeOpacity={0.75}
+        >
+          <Ionicons name="storefront-outline" size={16} color="#FF9F0A" />
+          <Text style={[styles.depannageBtnText, { color: "#FF9F0A" }]}>Magasins</Text>
+          <Ionicons name="chevron-forward" size={14} color="#FF9F0A" style={{ marginLeft: "auto" }} />
         </TouchableOpacity>
       )}
 

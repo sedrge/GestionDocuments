@@ -31,9 +31,12 @@ import { useTenant } from '../context/TenantContext';
 import { useTheme } from '../context/ThemeContext';
 import {
   EnterpriseSubscription,
+  PaymentMode,
   SebPayOperator,
+  SubscriptionPayment,
   SubscriptionPlan,
   getEnterpriseSubscription,
+  getEnterpriseSubscriptionPayments,
   getSebPayOperators,
   getSubscriptionPaymentStatus,
   getSubscriptionPlanPrices,
@@ -51,6 +54,17 @@ const STATUS_LABELS: Record<string, string> = {
   active: 'Abonnement actif',
   expired: 'Abonnement expiré',
   cancelled: 'Abonnement annulé',
+};
+
+const PAYMENT_MODE_LABELS: Record<PaymentMode, string> = {
+  manual: 'Manuel (hors application)',
+  sebpay: 'Mobile Money (SebPay)',
+};
+
+const PAYMENT_STATUS_LABELS: Record<SubscriptionPayment['status'], string> = {
+  pending: 'En attente',
+  completed: 'Confirmé',
+  failed: 'Échoué',
 };
 
 /** Polling léger : 5 s pendant ~2 min, puis on laisse la notification faire foi. */
@@ -90,6 +104,12 @@ export default function AbonnementScreen() {
     annual: null,
   });
 
+  // Historique paginé des paiements de l'entreprise
+  const [payments, setPayments] = useState<SubscriptionPayment[]>([]);
+  const [paymentsPage, setPaymentsPage] = useState(1);
+  const [paymentsHasMore, setPaymentsHasMore] = useState(false);
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+
   // Formulaire de paiement
   const [showForm, setShowForm] = useState(false);
   const [plan, setPlan] = useState<SubscriptionPlan>('monthly');
@@ -127,7 +147,19 @@ export default function AbonnementScreen() {
     }
 
     if (priceResult.success) setPrices(priceResult.prices);
+    await loadPayments(1, true);
     setLoading(false);
+  };
+
+  const loadPayments = async (page: number, replace = false) => {
+    setPaymentsLoading(true);
+    const result = await getEnterpriseSubscriptionPayments(enterpriseId, page);
+    if (result.success) {
+      setPayments((prev) => (replace ? result.payments : [...prev, ...result.payments]));
+      setPaymentsPage(page);
+      setPaymentsHasMore(result.hasMore);
+    }
+    setPaymentsLoading(false);
   };
 
   const loadOperators = async (countryCode: string) => {
@@ -303,6 +335,44 @@ export default function AbonnementScreen() {
               </View>
             </View>
 
+            {/* ── Détails de l'abonnement (lecture seule) ── */}
+            {subscription && (
+              <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                <Text style={[styles.cardTitle, { color: theme.text }]}>Détails de l&apos;abonnement</Text>
+
+                <View style={[styles.detailRow, { borderBottomColor: theme.border }]}>
+                  <Text style={[styles.detailLabel, { color: theme.subText }]}>Formule</Text>
+                  <Text style={[styles.detailValue, { color: theme.text }]}>
+                    {PLAN_LABELS[subscription.plan] ?? subscription.plan}
+                  </Text>
+                </View>
+                <View style={[styles.detailRow, { borderBottomColor: theme.border }]}>
+                  <Text style={[styles.detailLabel, { color: theme.subText }]}>Montant</Text>
+                  <Text style={[styles.detailValue, { color: theme.text }]}>
+                    {formatAmount(Number(subscription.amount))} XOF
+                  </Text>
+                </View>
+                <View style={[styles.detailRow, { borderBottomColor: theme.border }]}>
+                  <Text style={[styles.detailLabel, { color: theme.subText }]}>Début de période</Text>
+                  <Text style={[styles.detailValue, { color: theme.text }]}>
+                    {formatDate(subscription.current_period_start)}
+                  </Text>
+                </View>
+                <View style={[styles.detailRow, { borderBottomColor: theme.border }]}>
+                  <Text style={[styles.detailLabel, { color: theme.subText }]}>Échéance</Text>
+                  <Text style={[styles.detailValue, { color: theme.text }]}>
+                    {formatDate(subscription.current_period_end)}
+                  </Text>
+                </View>
+                <View style={[styles.detailRow, { borderBottomWidth: 0 }]}>
+                  <Text style={[styles.detailLabel, { color: theme.subText }]}>Mode de paiement</Text>
+                  <Text style={[styles.detailValue, { color: theme.text }]}>
+                    {PAYMENT_MODE_LABELS[subscription.payment_mode] ?? subscription.payment_mode}
+                  </Text>
+                </View>
+              </View>
+            )}
+
             {/* ── Attente de confirmation ── */}
             {pendingStatus && (
               <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
@@ -378,14 +448,24 @@ export default function AbonnementScreen() {
 
             {/* ── Mode SebPay : flux de paiement ── */}
             {isSebPay && !pendingPaymentId && !showForm && (
-              <TouchableOpacity
-                style={[styles.primaryBtn, { backgroundColor: theme.primary }]}
-                onPress={() => setShowForm(true)}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="phone-portrait-outline" size={18} color="#fff" />
-                <Text style={styles.primaryBtnText}>Renouveler / Payer</Text>
-              </TouchableOpacity>
+              <>
+                <TouchableOpacity
+                  style={[styles.primaryBtn, { backgroundColor: theme.primary }]}
+                  onPress={() => setShowForm(true)}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="phone-portrait-outline" size={18} color="#fff" />
+                  <Text style={styles.primaryBtnText}>
+                    {status === 'active' ? 'Payer par anticipation' : 'Renouveler / Payer'}
+                  </Text>
+                </TouchableOpacity>
+                {status === 'active' && (
+                  <Text style={[styles.cardText, { color: theme.subText, textAlign: 'center', marginTop: 8 }]}>
+                    Votre abonnement est actif. Vous pouvez payer dès maintenant pour la prochaine
+                    période — l&apos;échéance sera prolongée à partir de la date actuelle.
+                  </Text>
+                )}
+              </>
             )}
 
             {isSebPay && showForm && (
@@ -579,6 +659,74 @@ export default function AbonnementScreen() {
                 </TouchableOpacity>
               </View>
             )}
+
+            {/* ── Historique des paiements ── */}
+            <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+              <View style={styles.pendingRow}>
+                <Ionicons name="time-outline" size={18} color={theme.primary} />
+                <Text style={[styles.cardTitle, { color: theme.text }]}>Historique des paiements</Text>
+              </View>
+
+              {payments.length === 0 ? (
+                <Text style={[styles.cardText, { color: theme.subText, marginTop: 10 }]}>
+                  Aucun paiement enregistré pour le moment.
+                </Text>
+              ) : (
+                payments.map((payment) => {
+                  const color =
+                    payment.status === 'completed'
+                      ? theme.success
+                      : payment.status === 'failed'
+                        ? theme.danger
+                        : theme.warning;
+                  return (
+                    <View
+                      key={payment.id}
+                      style={[styles.historyRow, { borderTopColor: theme.border }]}
+                    >
+                      <Ionicons
+                        name={payment.source === 'sebpay' ? 'phone-portrait-outline' : 'receipt-outline'}
+                        size={16}
+                        color={color}
+                      />
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.operatorLabel, { color: theme.text }]}>
+                          {formatAmount(Number(payment.amount))} XOF ·{' '}
+                          {PLAN_LABELS[payment.plan] ?? payment.plan}
+                        </Text>
+                        <Text style={[styles.cardText, { color: theme.subText, marginTop: 2 }]}>
+                          {formatDate(payment.paid_at || payment.created_at)} ·{' '}
+                          {payment.source === 'sebpay' ? 'Mobile Money' : 'Manuel'}
+                        </Text>
+                      </View>
+                      <View
+                        style={[styles.historyBadge, { backgroundColor: color + '22' }]}
+                      >
+                        <Text style={{ color, fontSize: 11, fontWeight: '700' }}>
+                          {PAYMENT_STATUS_LABELS[payment.status] ?? payment.status}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+
+              {paymentsHasMore && (
+                <TouchableOpacity
+                  style={{ paddingVertical: 12, alignItems: 'center' }}
+                  onPress={() => loadPayments(paymentsPage + 1)}
+                  disabled={paymentsLoading}
+                >
+                  {paymentsLoading ? (
+                    <ActivityIndicator color={theme.primary} />
+                  ) : (
+                    <Text style={{ color: theme.primary, fontWeight: '600', fontSize: 13 }}>
+                      Charger plus
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
           </ScrollView>
         </KeyboardAvoidingView>
       )}
@@ -619,6 +767,25 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 15, fontWeight: '700' },
   cardText: { fontSize: 12, marginTop: 6, lineHeight: 17 },
   pendingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 9,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  detailLabel: { fontSize: 13 },
+  detailValue: { fontSize: 13, fontWeight: '600' },
+
+  historyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 11,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  historyBadge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
 
   fieldLabel: { fontSize: 12, fontWeight: '600', marginTop: 14, marginBottom: 6 },
   input: {

@@ -142,6 +142,9 @@ function AppStack() {
         <Stack.Screen name="admin/enterprise_features" />
         <Stack.Screen name="admin/enterprise_subscription" />
         <Stack.Screen name="admin/subscription_config" />
+        <Stack.Screen name="admin/my-stores" />
+        <Stack.Screen name="admin/create-store" />
+        <Stack.Screen name="admin/enterprise-stores" />
         <Stack.Screen name="abonnement" />
         <Stack.Screen name="admin/publications" />
         <Stack.Screen name="admin/facebook" />
