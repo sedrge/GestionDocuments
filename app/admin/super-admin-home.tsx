@@ -45,6 +45,8 @@ const QUICK_ACTIONS = [
   { icon: "newspaper-outline", label: "Publications", color: "#AF52DE", bg: "#F5EEFF", bgDark: "#2B0A3D", route: "/admin/publications" },
   { icon: "call-outline", label: "Contact\nSupport", color: "#FF3B30", bg: "#FFEBE9", bgDark: "#3D0A09", route: "/admin/contact" },
   { icon: "pricetag-outline", label: "Tarifs &\nAbonnements", color: "#30B0C7", bg: "#E6F7FA", bgDark: "#0A2E35", route: "/admin/subscription_config" },
+  { icon: "help-circle-outline", label: "Gérer\nl'Aide", color: "#5856D6", bg: "#EEEDFC", bgDark: "#1A1935", route: "/admin/help_config" },
+  { icon: "cash-outline", label: "Retraits\nSebPay", color: "#34C759", bg: "#E8F8EE", bgDark: "#0A2E15", route: "/admin/sebpay_payout" },
 ];
 
 const DRAWER_ITEMS = [
@@ -56,6 +58,8 @@ const DRAWER_ITEMS = [
   { icon: "newspaper", label: "Publications", route: "/admin/publications" },
   { icon: "call", label: "Contact / Support", route: "/admin/contact" },
   { icon: "pricetag", label: "Tarifs & Abonnements", route: "/admin/subscription_config" },
+  { icon: "help-circle", label: "Gérer l'Aide", route: "/admin/help_config" },
+  { icon: "cash", label: "Retraits SebPay", route: "/admin/sebpay_payout" },
 ];
 
 export default function SuperAdminHomeScreen() {

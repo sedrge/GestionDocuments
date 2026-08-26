@@ -1,8 +1,13 @@
 // app/recus.tsx
 
 import { Ionicons } from "@expo/vector-icons";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import {
+  Stack,
+  useFocusEffect,
+  useLocalSearchParams,
+  useRouter,
+} from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -15,6 +20,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "../lib/api";
+import { fetchAllPages } from "../lib/fetchAllPages";
 
 export default function RecusList() {
   const { dossierId, nom } = useLocalSearchParams();
@@ -27,11 +33,14 @@ export default function RecusList() {
   const fetchRecus = async () => {
     setLoading(true);
     try {
-      const data = await api.listRecus({
-        annee_mois_id: dossierId,
-        search: searchQuery.trim(),
-      });
-      setRecus(data.data ?? data);
+      const items = await fetchAllPages((page) =>
+        api.listRecus({
+          annee_mois_id: dossierId,
+          search: searchQuery.trim(),
+          page,
+        }),
+      );
+      setRecus(items);
     } catch (error: any) {
       Alert.alert("Erreur", error.message);
     } finally {
@@ -42,6 +51,13 @@ export default function RecusList() {
   useEffect(() => {
     fetchRecus();
   }, [searchQuery]);
+
+  // Recharger à chaque retour sur l'écran (ex: après ajout d'un réçu)
+  useFocusEffect(
+    useCallback(() => {
+      fetchRecus();
+    }, [searchQuery]),
+  );
 
   const handleDeleteRecu = async (id: string) => {
     Alert.alert("Confirmer suppression", "Voulez‑vous supprimer ce réçu ?", [

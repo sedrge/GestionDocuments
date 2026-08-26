@@ -1,8 +1,13 @@
 // app/decharges.tsx
 
 import { Ionicons } from "@expo/vector-icons";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import {
+  Stack,
+  useFocusEffect,
+  useLocalSearchParams,
+  useRouter,
+} from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -15,6 +20,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "../lib/api";
+import { fetchAllPages } from "../lib/fetchAllPages";
 
 export default function DechargesList() {
   const { dossierId, nom } = useLocalSearchParams();
@@ -27,11 +33,14 @@ export default function DechargesList() {
   const fetchDecharges = async () => {
     setLoading(true);
     try {
-      const data = await api.listDecharges({
-        annee_mois_id: dossierId,
-        search: searchQuery.trim(),
-      });
-      setDecharges(data.data ?? data);
+      const items = await fetchAllPages((page) =>
+        api.listDecharges({
+          annee_mois_id: dossierId,
+          search: searchQuery.trim(),
+          page,
+        }),
+      );
+      setDecharges(items);
     } catch (error: any) {
       Alert.alert("Erreur", error.message);
     } finally {
@@ -42,6 +51,13 @@ export default function DechargesList() {
   useEffect(() => {
     fetchDecharges();
   }, [searchQuery]);
+
+  // Recharger à chaque retour sur l'écran (ex: après ajout d'une décharge)
+  useFocusEffect(
+    useCallback(() => {
+      fetchDecharges();
+    }, [searchQuery]),
+  );
 
   const handleDeleteDecharge = async (id: string) => {
     Alert.alert(

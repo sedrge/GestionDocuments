@@ -497,6 +497,16 @@ export const HamburgerMenu = ({
             </TouchableOpacity>
           )}
 
+          {/* Aide — visible par tout utilisateur connecté, quel que soit son rôle */}
+          <TouchableOpacity
+            style={[styles.mainMenuItem, { borderBottomColor: t.border }]}
+            onPress={() => handleNavigation("/aide")}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="help-circle-outline" size={20} color={t.text} />
+            <Text style={[styles.mainMenuLabel, { color: t.text }]}>Aide</Text>
+          </TouchableOpacity>
+
           {/* Thème */}
           <TouchableOpacity
             style={[styles.mainMenuItem, { borderBottomColor: t.border }]}

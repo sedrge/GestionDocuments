@@ -26,10 +26,13 @@ import { useTenant } from '../../context/TenantContext';
 import { useTheme } from '../../context/ThemeContext';
 import { ALL_FEATURE_KEYS, FEATURE_SECTIONS, FeatureSection } from '../../lib/enterpriseFeatures';
 import {
+  getSebPaySurchargeConfig,
   getSubscriptionGatedFeatures,
   getSubscriptionPlanPrices,
+  setSebPaySurchargeConfig,
   setSubscriptionGatedFeatures,
   setSubscriptionPlanPrices,
+  SurchargeMode,
 } from '../../lib/enterpriseSubscription';
 
 export default function SubscriptionConfigScreen() {
@@ -46,6 +49,8 @@ export default function SubscriptionConfigScreen() {
   const [saving, setSaving] = useState(false);
   const [monthly, setMonthly] = useState('');
   const [annual, setAnnual] = useState('');
+  const [surchargeMode, setSurchargeMode] = useState<SurchargeMode>('percentage');
+  const [surchargeValue, setSurchargeValue] = useState('');
   const [gated, setGated] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(ALL_FEATURE_KEYS.map((k) => [k, false])),
   );
@@ -70,6 +75,14 @@ export default function SubscriptionConfigScreen() {
       setGated(base);
     } else {
       Alert.alert('Erreur', gatedResult.error ?? 'Fonctionnalités premium indisponibles.');
+    }
+
+    const surchargeResult = await getSebPaySurchargeConfig();
+    if (surchargeResult.success) {
+      setSurchargeMode(surchargeResult.config.mode);
+      setSurchargeValue(String(surchargeResult.config.value ?? ''));
+    } else {
+      Alert.alert('Erreur', surchargeResult.error ?? 'Supplément SebPay indisponible.');
     }
 
     setLoading(false);
@@ -100,8 +113,13 @@ export default function SubscriptionConfigScreen() {
     const parsedMonthly = monthly.trim() === '' ? 0 : Number(monthly);
     const parsedAnnual = annual.trim() === '' ? 0 : Number(annual);
 
+    const parsedSurcharge = surchargeValue.trim() === '' ? 0 : Number(surchargeValue);
+
     if (!Number.isFinite(parsedMonthly) || parsedMonthly < 0 || !Number.isFinite(parsedAnnual) || parsedAnnual < 0) {
       return Alert.alert('Tarif invalide', 'Indiquez des montants positifs (en XOF).');
+    }
+    if (!Number.isFinite(parsedSurcharge) || parsedSurcharge < 0) {
+      return Alert.alert('Supplément invalide', 'Indiquez une valeur positive.');
     }
 
     setSaving(true);
@@ -117,9 +135,18 @@ export default function SubscriptionConfigScreen() {
 
     const featureKeys = ALL_FEATURE_KEYS.filter((k) => gated[k]);
     const gatedResult = await setSubscriptionGatedFeatures(featureKeys);
-    setSaving(false);
     if (!gatedResult.success) {
+      setSaving(false);
       return Alert.alert('Erreur', gatedResult.error ?? 'Échec de la sauvegarde des fonctionnalités.');
+    }
+
+    const surchargeResult = await setSebPaySurchargeConfig({
+      mode: surchargeMode,
+      value: parsedSurcharge,
+    });
+    setSaving(false);
+    if (!surchargeResult.success) {
+      return Alert.alert('Erreur', surchargeResult.error ?? 'Échec de la sauvegarde du supplément SebPay.');
     }
 
     Alert.alert('Succès', 'Configuration des abonnements mise à jour.', [
@@ -210,6 +237,57 @@ export default function SubscriptionConfigScreen() {
                   placeholder="0"
                   placeholderTextColor={theme.subText}
                 />
+              </View>
+            </View>
+
+            {/* ── Supplément frais SebPay ── */}
+            <View style={[styles.sectionCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+              <View style={[styles.sectionHeader, { backgroundColor: theme.nav, borderBottomColor: theme.border }]}>
+                <Ionicons name="cash-outline" size={18} color={theme.primary} />
+                <Text style={[styles.sectionTitle, { color: theme.text }]}>Supplément frais SebPay</Text>
+              </View>
+              <View style={{ padding: 12 }}>
+                <Text style={[styles.itemDesc, { color: theme.subText, marginTop: 0, marginBottom: 10 }]}>
+                  Ajouté au prix de l&apos;abonnement lors d&apos;un paiement SebPay, pour compenser
+                  la commission prélevée par SebPay (sinon absorbée sur ce que vous recevez).
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+                  {(['percentage', 'fixed'] as SurchargeMode[]).map((m) => (
+                    <TouchableOpacity
+                      key={m}
+                      style={[
+                        styles.modeBtn,
+                        {
+                          borderColor: surchargeMode === m ? theme.primary : theme.border,
+                          backgroundColor: surchargeMode === m ? theme.primary + '1A' : 'transparent',
+                        },
+                      ]}
+                      onPress={() => setSurchargeMode(m)}
+                    >
+                      <Text style={{ color: surchargeMode === m ? theme.primary : theme.subText, fontSize: 13, fontWeight: '600' }}>
+                        {m === 'percentage' ? 'Pourcentage' : 'Fixe'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <View style={styles.fieldRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.itemLabel, { color: theme.text }]}>
+                      {surchargeMode === 'percentage' ? 'Pourcentage' : 'Montant fixe'}
+                    </Text>
+                    <Text style={[styles.itemDesc, { color: theme.subText }]}>
+                      {surchargeMode === 'percentage' ? 'Ex: 1.5 pour 1.5%' : 'Ex: 200 pour 200 XOF'}
+                    </Text>
+                  </View>
+                  <TextInput
+                    style={[styles.input, { color: theme.text, borderColor: theme.border, backgroundColor: theme.bg }]}
+                    value={surchargeValue}
+                    onChangeText={(t) => setSurchargeValue(t.replace(/[^0-9.]/g, ''))}
+                    keyboardType="decimal-pad"
+                    placeholder="0"
+                    placeholderTextColor={theme.subText}
+                  />
+                </View>
               </View>
             </View>
 
@@ -318,6 +396,13 @@ export default function SubscriptionConfigScreen() {
 }
 
 const styles = StyleSheet.create({
+  modeBtn: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

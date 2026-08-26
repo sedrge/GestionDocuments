@@ -1,8 +1,13 @@
 // app/registres.tsx
 
 import { Ionicons } from "@expo/vector-icons";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import {
+  Stack,
+  useFocusEffect,
+  useLocalSearchParams,
+  useRouter,
+} from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -15,6 +20,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "../lib/api";
+import { fetchAllPages } from "../lib/fetchAllPages";
 
 export default function RegistresList() {
   const { dossierId, nom } = useLocalSearchParams();
@@ -27,11 +33,14 @@ export default function RegistresList() {
   const fetchRegistres = async () => {
     setLoading(true);
     try {
-      const data = await api.listRegistres({
-        annee_mois_id: dossierId,
-        search: searchQuery.trim(),
-      });
-      setRegistres(data.data ?? data);
+      const items = await fetchAllPages((page) =>
+        api.listRegistres({
+          annee_mois_id: dossierId,
+          search: searchQuery.trim(),
+          page,
+        }),
+      );
+      setRegistres(items);
     } catch (error: any) {
       Alert.alert("Erreur", error.message);
     } finally {
@@ -42,6 +51,13 @@ export default function RegistresList() {
   useEffect(() => {
     fetchRegistres();
   }, [searchQuery]);
+
+  // Recharger à chaque retour sur l'écran (ex: après ajout d'un registre)
+  useFocusEffect(
+    useCallback(() => {
+      fetchRegistres();
+    }, [searchQuery]),
+  );
 
   const handleDeleteRegistre = async (id: string) => {
     Alert.alert(

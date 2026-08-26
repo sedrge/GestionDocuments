@@ -153,7 +153,10 @@ function MotosContent() {
   const fetchMotos = async () => {
     setLoading(true);
     try {
-      const data = await api.listMyMotos();
+      // Le groupement en dossiers (marque/type) se fait ici côté client sur
+      // tout le stock : per_page élevé pour éviter la troncature silencieuse
+      // à 20 (le serveur borne de toute façon à 1000, voir MotoController::mine()).
+      const data = await api.listMyMotos({ per_page: 1000 });
       setAllMotos(data.data ?? data);
     } catch (error: any) {
       Alert.alert("Erreur", error.message);

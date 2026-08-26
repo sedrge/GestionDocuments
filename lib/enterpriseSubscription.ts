@@ -293,3 +293,99 @@ export async function getSubscriptionPaymentStatus(
     return { success: false, payment: null, error: err.message };
   }
 }
+
+// ── Supplément frais SebPay (config globale, super-admin) ─────────────────────
+
+export type SurchargeMode = 'fixed' | 'percentage';
+
+export type SebPaySurchargeConfig = {
+  mode: SurchargeMode;
+  value: string | number;
+};
+
+export async function getSebPaySurchargeConfig(): Promise<{
+  success: boolean;
+  config: SebPaySurchargeConfig;
+  error?: string;
+}> {
+  const empty: SebPaySurchargeConfig = { mode: 'percentage', value: 0 };
+  try {
+    const data = await api.getSebPaySurchargeConfig();
+    return { success: true, config: { mode: data?.mode ?? 'percentage', value: data?.value ?? 0 } };
+  } catch (err: any) {
+    return { success: false, config: empty, error: err.message };
+  }
+}
+
+export async function setSebPaySurchargeConfig(
+  config: SebPaySurchargeConfig,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await api.updateSebPaySurchargeConfig(config);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+// ── Décaissements SebPay (retraits du wallet du concepteur, super-admin) ──────
+
+export type SebPayPayoutStatus = 'pending' | 'approved' | 'rejected';
+
+export type SebPayPayout = {
+  id: string;
+  recipient_name: string;
+  phone: string;
+  operator: string;
+  country: string;
+  amount: string | number;
+  currency: string;
+  external_reference: string;
+  status: SebPayPayoutStatus;
+  fee_amount: string | number | null;
+  total_deducted: string | number | null;
+  sebpay_transaction_id: string | null;
+  description: string | null;
+  created_at: string;
+};
+
+export async function getSebPayPayoutOperators(
+  country: string,
+): Promise<{ success: boolean; operators: SebPayOperator[]; error?: string }> {
+  try {
+    const data = await api.getSebPayPayoutOperators(country);
+    return { success: true, operators: asArray(data?.operators ?? data) as SebPayOperator[] };
+  } catch (err: any) {
+    return { success: false, operators: [], error: err.message };
+  }
+}
+
+export async function listSebPayPayouts(): Promise<{
+  success: boolean;
+  payouts: SebPayPayout[];
+  error?: string;
+}> {
+  try {
+    const data = await api.listSebPayPayouts();
+    return { success: true, payouts: asArray(data) as SebPayPayout[] };
+  } catch (err: any) {
+    return { success: false, payouts: [], error: err.message };
+  }
+}
+
+export async function createSebPayPayout(payload: {
+  recipient_name: string;
+  phone: string;
+  operator: string;
+  country: string;
+  amount: number;
+  currency?: string;
+  description?: string;
+}): Promise<{ success: boolean; payout?: SebPayPayout; error?: string }> {
+  try {
+    const data = await api.createSebPayPayout(payload);
+    return { success: true, payout: data as SebPayPayout };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}

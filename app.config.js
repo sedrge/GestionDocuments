@@ -78,6 +78,17 @@ module.exports = {
       typedRoutes: true,
       reactCompiler: true,
     },
+    // EAS Update (mises à jour OTA du JS seul, sans repasser par le Play
+    // Store). "fingerprint" calcule la compatibilité depuis le code natif
+    // réel plutôt que depuis `version` (figé à 1.0.0 ici, cf. appVersionSource
+    // "remote" dans eas.json) : un build qui ajoute du code natif (comme
+    // expo-in-app-updates) n'est jamais confondu avec un ancien binaire.
+    runtimeVersion: {
+      policy: "fingerprint",
+    },
+    updates: {
+      url: "https://u.expo.dev/9cf8bec5-40f6-42c8-ad79-6d2e50cba58d",
+    },
     extra: {
       // Backend Laravel hébergé sur o2switch.
       laravelApiUrl: "https://senmoto-api.seninovagroup.com/api",
