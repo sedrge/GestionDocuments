@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { File, UploadType } from "expo-file-system";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -15,10 +16,12 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { api } from "../../lib/api";
+import { api, getToken } from "../../lib/api";
 import { useTenant } from "../../context/TenantContext";
 import { useTheme } from "../../context/ThemeContext";
 import { FeatureGate } from "../../components/FeatureGate";
+import { VoiceMessageBubble } from "../../components/chat/VoiceMessageBubble";
+import { VoiceRecorderButton } from "../../components/chat/VoiceRecorderButton";
 
 const GREEN = "#34C759";
 
@@ -37,7 +40,9 @@ interface Message {
   id: string;
   sender_type: "client" | "admin";
   sender_name: string;
-  message: string;
+  message: string | null;
+  voice_url?: string | null;
+  voice_duration?: number | null;
   created_at: string;
 }
 
@@ -51,6 +56,7 @@ function AdminChatContent() {
   const [inputMsg, setInputMsg] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [sendingVoice, setSendingVoice] = useState(false);
   const listRef = useRef<FlatList>(null);
 
   const fetchChats = async () => {
@@ -141,6 +147,52 @@ function AdminChatContent() {
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   };
 
+  // Envoi natif (createUploadTask), pas fetch/FormData — même contournement
+  // que uploadHelpItemMedia dans admin/help_config.tsx.
+  const sendVoiceReply = async ({
+    uri,
+    durationMillis,
+  }: {
+    uri: string;
+    durationMillis: number;
+  }) => {
+    if (!selectedChat || !tenant?.user_id) return;
+    setSendingVoice(true);
+
+    if (!selectedChat.assigned_to) {
+      try {
+        await api.updateChat(selectedChat.id, { assigned_to: tenant.user_id });
+        setSelectedChat((prev) => (prev ? { ...prev, assigned_to: tenant.user_id } : prev));
+      } catch {
+        // Non bloquant pour l'envoi du message
+      }
+    }
+
+    try {
+      const token = await getToken();
+      const file = new File(uri);
+      const task = file.createUploadTask(api.chatMessageUploadUrl(selectedChat.id), {
+        httpMethod: "POST",
+        uploadType: UploadType.MULTIPART,
+        fieldName: "voice",
+        mimeType: "audio/m4a",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        parameters: { voice_duration: String(Math.round(durationMillis / 1000)) },
+      });
+      const result = await task.uploadAsync();
+      if (!result || result.status < 200 || result.status >= 300) {
+        throw new Error("Échec de l'envoi.");
+      }
+      const saved = JSON.parse(result.body) as Message;
+      setMessages((prev) => [...prev, saved]);
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+    } catch (e: any) {
+      Alert.alert("Erreur", e.message || "Message vocal non envoyé.");
+    }
+
+    setSendingVoice(false);
+  };
+
   const closeChat = async (chatId: string) => {
     try {
       await api.updateChat(chatId, { status: "closed" });
@@ -205,7 +257,7 @@ function AdminChatContent() {
           renderItem={({ item }) => {
             const isAdmin = item.sender_type === "admin";
             // Séparer les lignes image (📸 URL) du texte normal
-            const lines = item.message.split("\n");
+            const lines = (item.message ?? "").split("\n");
             const imageUrls: string[] = [];
             const textLines: string[] = [];
             for (const line of lines) {
@@ -236,17 +288,23 @@ function AdminChatContent() {
                       {item.sender_name}
                     </Text>
                   )}
-                  {imageUrls.map((url, i) => (
-                    <Image
-                      key={i}
-                      source={{ uri: url }}
-                      style={styles.msgImage}
-                      resizeMode="cover"
-                    />
-                  ))}
-                  {displayText ? (
-                    <Text style={[styles.msgText, { color: isAdmin ? "#fff" : theme.text }]}>{displayText}</Text>
-                  ) : null}
+                  {item.voice_url ? (
+                    <VoiceMessageBubble uri={item.voice_url} isMine={isAdmin} />
+                  ) : (
+                    <>
+                      {imageUrls.map((url, i) => (
+                        <Image
+                          key={i}
+                          source={{ uri: url }}
+                          style={styles.msgImage}
+                          resizeMode="cover"
+                        />
+                      ))}
+                      {displayText ? (
+                        <Text style={[styles.msgText, { color: isAdmin ? "#fff" : theme.text }]}>{displayText}</Text>
+                      ) : null}
+                    </>
+                  )}
                   <Text style={[styles.msgTime, { color: isAdmin ? "rgba(255,255,255,0.6)" : theme.subText }]}>
                     {new Date(item.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
                   </Text>
@@ -268,17 +326,25 @@ function AdminChatContent() {
               multiline
               maxLength={1000}
             />
-            <TouchableOpacity
-              style={[styles.sendBtn, { backgroundColor: inputMsg.trim() ? theme.primary : theme.border }]}
-              onPress={sendReply}
-              disabled={!inputMsg.trim() || sending}
-            >
-              {sending ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Ionicons name="send" size={18} color="#fff" />
-              )}
-            </TouchableOpacity>
+            {inputMsg.trim() ? (
+              <TouchableOpacity
+                style={[styles.sendBtn, { backgroundColor: theme.primary }]}
+                onPress={sendReply}
+                disabled={sending}
+              >
+                {sending ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Ionicons name="send" size={18} color="#fff" />
+                )}
+              </TouchableOpacity>
+            ) : sendingVoice ? (
+              <View style={styles.sendBtn}>
+                <ActivityIndicator size="small" color={theme.primary} />
+              </View>
+            ) : (
+              <VoiceRecorderButton onRecorded={sendVoiceReply} />
+            )}
           </View>
         ) : (
           <View style={[styles.closedBanner, { backgroundColor: theme.card, borderTopColor: theme.border }]}>

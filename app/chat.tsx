@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { File, UploadType } from "expo-file-system";
 import { router, useLocalSearchParams } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { useEffect, useRef, useState } from "react";
@@ -16,6 +17,8 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { VoiceMessageBubble } from "@/components/chat/VoiceMessageBubble";
+import { VoiceRecorderButton } from "@/components/chat/VoiceRecorderButton";
 import { api } from "@/lib/api";
 import { useTheme } from "@/context/ThemeContext";
 
@@ -25,7 +28,9 @@ interface Message {
   id: string;
   sender_type: "client" | "admin";
   sender_name: string;
-  message: string;
+  message: string | null;
+  voice_url?: string | null;
+  voice_duration?: number | null;
   created_at: string;
 }
 
@@ -59,6 +64,7 @@ export default function ChatScreen() {
   const [inputMsg, setInputMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [sendingVoice, setSendingVoice] = useState(false);
   const listRef = useRef<FlatList>(null);
 
   // Tente de restaurer une session de chat existante
@@ -191,6 +197,42 @@ export default function ChatScreen() {
 
     setSending(false);
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+  };
+
+  // Envoi natif (createUploadTask), pas fetch/FormData — même contournement
+  // que uploadHelpItemMedia dans admin/help_config.tsx.
+  const sendVoiceMessage = async ({
+    uri,
+    durationMillis,
+  }: {
+    uri: string;
+    durationMillis: number;
+  }) => {
+    if (!chatId || !clientToken) return;
+    setSendingVoice(true);
+
+    try {
+      const file = new File(uri);
+      const task = file.createUploadTask(api.publicChatMessageUploadUrl(chatId), {
+        httpMethod: "POST",
+        uploadType: UploadType.MULTIPART,
+        fieldName: "voice",
+        mimeType: "audio/m4a",
+        headers: { "X-Client-Token": clientToken },
+        parameters: { voice_duration: String(Math.round(durationMillis / 1000)) },
+      });
+      const result = await task.uploadAsync();
+      if (!result || result.status < 200 || result.status >= 300) {
+        throw new Error("Échec de l'envoi.");
+      }
+      const saved = JSON.parse(result.body) as Message;
+      setMessages((prev) => [...prev, saved]);
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+    } catch {
+      Alert.alert("Erreur", "Message vocal non envoyé.");
+    }
+
+    setSendingVoice(false);
   };
 
   const fmtTime = (s: string) =>
@@ -379,9 +421,13 @@ export default function ChatScreen() {
                     {item.sender_name}
                   </Text>
                 )}
-                <Text style={[styles.msgText, { color: isMe ? "#fff" : theme.text }]}>
-                  {item.message}
-                </Text>
+                {item.voice_url ? (
+                  <VoiceMessageBubble uri={item.voice_url} isMine={isMe} />
+                ) : (
+                  <Text style={[styles.msgText, { color: isMe ? "#fff" : theme.text }]}>
+                    {item.message}
+                  </Text>
+                )}
                 <Text
                   style={[
                     styles.msgTime,
@@ -422,20 +468,25 @@ export default function ChatScreen() {
           returnKeyType="send"
           blurOnSubmit={false}
         />
-        <TouchableOpacity
-          style={[
-            styles.sendBtn,
-            { backgroundColor: inputMsg.trim() ? theme.primary : theme.border },
-          ]}
-          onPress={sendMessage}
-          disabled={!inputMsg.trim() || sending}
-        >
-          {sending ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Ionicons name="send" size={18} color="#fff" />
-          )}
-        </TouchableOpacity>
+        {inputMsg.trim() ? (
+          <TouchableOpacity
+            style={[styles.sendBtn, { backgroundColor: theme.primary }]}
+            onPress={sendMessage}
+            disabled={sending}
+          >
+            {sending ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Ionicons name="send" size={18} color="#fff" />
+            )}
+          </TouchableOpacity>
+        ) : sendingVoice ? (
+          <View style={styles.sendBtn}>
+            <ActivityIndicator size="small" color={theme.primary} />
+          </View>
+        ) : (
+          <VoiceRecorderButton onRecorded={sendVoiceMessage} />
+        )}
       </View>
     </KeyboardAvoidingView>
   );

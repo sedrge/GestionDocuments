@@ -67,6 +67,13 @@ module.exports = {
         },
       ],
       [
+        "expo-audio",
+        {
+          microphonePermission:
+            "Accès au micro pour envoyer des messages vocaux dans le chat.",
+        },
+      ],
+      [
         "expo-location",
         {
           locationWhenInUsePermission:
