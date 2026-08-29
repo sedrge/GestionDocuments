@@ -21,6 +21,12 @@ module.exports = {
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
       package: "com.senmoto.app",
+      // Compte EAS basculé sur @sedrges (quota @sedrge épuisé, voir mémoire) :
+      // "appVersionSource" repassé à "local" (le nouveau projet ne connaît
+      // pas l'historique de versionCode). Play Store exige un versionCode
+      // strictement supérieur au dernier publié (16) — à incrémenter à la
+      // main à chaque nouveau build tant qu'on est sur ce compte.
+      versionCode: 17,
       googleServicesFile:
         process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
       permissions: ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "CAMERA"],
@@ -87,21 +93,21 @@ module.exports = {
     },
     // EAS Update (mises à jour OTA du JS seul, sans repasser par le Play
     // Store). "fingerprint" calcule la compatibilité depuis le code natif
-    // réel plutôt que depuis `version` (figé à 1.0.0 ici, cf. appVersionSource
-    // "remote" dans eas.json) : un build qui ajoute du code natif (comme
-    // expo-in-app-updates) n'est jamais confondu avec un ancien binaire.
+    // réel plutôt que depuis `version` (figé à 1.0.0, jamais bumpé) : un
+    // build qui ajoute du code natif (comme expo-in-app-updates) n'est
+    // jamais confondu avec un ancien binaire.
     runtimeVersion: {
       policy: "fingerprint",
     },
     updates: {
-      url: "https://u.expo.dev/9cf8bec5-40f6-42c8-ad79-6d2e50cba58d",
+      url: "https://u.expo.dev/d989071f-86f4-40b9-a604-cfd2c516ea8d",
     },
     extra: {
       // Backend Laravel hébergé sur o2switch.
       laravelApiUrl: "https://senmoto-api.seninovagroup.com/api",
       router: {},
       eas: {
-        projectId: "9cf8bec5-40f6-42c8-ad79-6d2e50cba58d",
+        projectId: "d989071f-86f4-40b9-a604-cfd2c516ea8d",
       },
     },
   },

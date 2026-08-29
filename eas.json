@@ -1,7 +1,7 @@
 {
   "cli": {
     "version": ">= 16.28.0",
-    "appVersionSource": "remote"
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
@@ -23,8 +23,10 @@
       }
     },
     "production": {
-      "autoIncrement": true,
       "channel": "production",
+      "android": {
+        "credentialsSource": "local"
+      },
       "env": {
         "EXPO_PUBLIC_USE_RN_FETCH": "1"
       }
