@@ -40,7 +40,13 @@ export default function RecuDetail() {
     }
     setRecu(recuData);
 
-    const paramData = await api.getEnterpriseSettings().catch(() => null);
+    // L'entête affichée/imprimée doit toujours correspondre à l'entreprise
+    // propriétaire du reçu (recuData.enterprise_id), pas à celle actuellement
+    // active pour la personne qui consulte — un admin peut voir un reçu créé
+    // sous un autre magasin que celui en cours.
+    const paramData = recuData.enterprise_id
+      ? await api.getEnterpriseSettings(recuData.enterprise_id).catch(() => null)
+      : null;
     setParametres(paramData);
 
     const [sigVendeur, sigClient, logo] = await Promise.all([
@@ -50,7 +56,9 @@ export default function RecuDetail() {
       recuData.signature_client
         ? fetchAuthImageDataUri(api.fileUrl("recus", String(id), "signature_client"))
         : Promise.resolve(null),
-      paramData?.logo_uri ? fetchAuthImageDataUri(api.enterpriseLogoUrl()) : Promise.resolve(null),
+      paramData?.logo_uri
+        ? fetchAuthImageDataUri(api.enterpriseLogoUrl(recuData.enterprise_id))
+        : Promise.resolve(null),
     ]);
     setImageData({ signature_vendeur: sigVendeur, signature_client: sigClient, logo_uri: logo });
 

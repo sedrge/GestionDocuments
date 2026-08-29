@@ -18,6 +18,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useTenant } from "../context/TenantContext";
 import { api } from "../lib/api";
 import {
   RendezVousLite,
@@ -58,6 +59,7 @@ const toDateFR = (iso: string | null) => {
 
 export default function RendezVousForm() {
   const router = useRouter();
+  const { tenant } = useTenant();
   const params = useLocalSearchParams<{
     id?: string;
     // Paramètres prérempli depuis le registre :
@@ -104,8 +106,8 @@ export default function RendezVousForm() {
     // Lieu : si non fourni, on tente le nom de l'entreprise depuis les paramètres
     if (params.lieu) {
       setLieu(String(params.lieu));
-    } else {
-      const parametres = await api.getEnterpriseSettings().catch(() => null);
+    } else if (tenant?.enterprise_id) {
+      const parametres = await api.getEnterpriseSettings(tenant.enterprise_id).catch(() => null);
       if (parametres?.nom_entreprise) setLieu(parametres.nom_entreprise);
     }
   };

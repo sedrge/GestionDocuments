@@ -255,15 +255,16 @@ export default function RegistreForm() {
   const [nomEntreprise, setNomEntreprise] = useState("");
 
   useEffect(() => {
+    if (!tenant?.enterprise_id) return;
     (async () => {
       try {
-        const parametres = await api.getEnterpriseSettings();
+        const parametres = await api.getEnterpriseSettings(tenant.enterprise_id);
         if (parametres?.nom_entreprise) setNomEntreprise(parametres.nom_entreprise);
       } catch {
         // Pas bloquant : le champ lieu du RDV restera vide, l'utilisateur peut le compléter.
       }
     })();
-  }, []);
+  }, [tenant?.enterprise_id]);
 
   // Motif du RDV calculé en fonction de ce qui n'a pas été récupéré
   const computeMotifRDV = (): string => {
@@ -575,8 +576,12 @@ export default function RegistreForm() {
   const autoCreateRecu = async (
     dateBDD: string,
   ): Promise<{ ok: boolean; numero?: string; warning?: string }> => {
+    if (!tenant?.enterprise_id) {
+      return { ok: false, warning: "Réçu non créé : entreprise introuvable." };
+    }
+
     // Vérifie les paramètres entreprise (préfixe facture obligatoire)
-    const parametres = await api.getEnterpriseSettings().catch(() => null);
+    const parametres = await api.getEnterpriseSettings(tenant.enterprise_id).catch(() => null);
 
     if (!parametres || !parametres.nom_entreprise) {
       return {

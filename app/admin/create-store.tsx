@@ -23,6 +23,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import MapPickerModal, { LocationResult } from '../../components/MapPickerModal';
 import { useTenant } from '../../context/TenantContext';
 import { useTheme } from '../../context/ThemeContext';
 import { createStore } from '../../lib/enterpriseStores';
@@ -47,6 +48,8 @@ export default function CreateStoreScreen() {
     phone: '',
     email: '',
   });
+  const [location, setLocation] = useState<LocationResult | null>(null);
+  const [showMapPicker, setShowMapPicker] = useState(false);
 
   const setField = (key: keyof typeof form, value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -74,6 +77,8 @@ export default function CreateStoreScreen() {
       code: form.code.trim(),
       phone: form.phone.trim() || undefined,
       email: form.email.trim() || undefined,
+      latitude: location?.latitude,
+      longitude: location?.longitude,
     });
     setLoading(false);
 
@@ -184,6 +189,54 @@ export default function CreateStoreScreen() {
                 value={form.email}
                 onChangeText={(t) => setField('email', t)}
               />
+
+              <Text style={[styles.label, { color: theme.text }]}>Localisation (optionnel)</Text>
+              <TouchableOpacity
+                style={[
+                  styles.locationButton,
+                  { backgroundColor: theme.bg, borderColor: location ? theme.primary : theme.border },
+                ]}
+                onPress={() => setShowMapPicker(true)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={location ? 'location' : 'map-outline'}
+                  size={20}
+                  color={location ? theme.primary : theme.subText}
+                />
+                <View style={{ flex: 1 }}>
+                  {location ? (
+                    <>
+                      <Text style={[styles.locationLabel, { color: theme.primary }]}>
+                        Position sélectionnée
+                      </Text>
+                      <Text style={[styles.locationCoords, { color: theme.subText }]}>
+                        {location.label}
+                      </Text>
+                    </>
+                  ) : (
+                    <Text style={[styles.locationPlaceholder, { color: theme.subText }]}>
+                      Toucher pour choisir sur la carte
+                    </Text>
+                  )}
+                </View>
+                {location && (
+                  <TouchableOpacity
+                    onPress={() => setLocation(null)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons name="close-circle" size={18} color={theme.subText} />
+                  </TouchableOpacity>
+                )}
+              </TouchableOpacity>
+
+              <MapPickerModal
+                visible={showMapPicker}
+                onClose={() => setShowMapPicker(false)}
+                onLocationSelected={(loc) => setLocation(loc)}
+                initialLatitude={location?.latitude}
+                initialLongitude={location?.longitude}
+              />
             </View>
           </View>
 
@@ -255,6 +308,19 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   hint: { fontSize: 11, marginTop: -10, marginBottom: 14, lineHeight: 16 },
+  locationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginBottom: 14,
+    gap: 10,
+  },
+  locationLabel: { fontSize: 13, fontWeight: '600' },
+  locationCoords: { fontSize: 11, marginTop: 2 },
+  locationPlaceholder: { fontSize: 13 },
 
   infoBox: {
     flexDirection: 'row',

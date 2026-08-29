@@ -45,7 +45,7 @@ export function genererPrefix(nom: string): string {
 
 export default function ParametresEntrepriseScreen() {
   const router = useRouter();
-  const { isEnterpriseAdmin } = useTenant();
+  const { tenant, isEnterpriseAdmin } = useTenant();
   const [saving, setSaving] = useState(false);
 
   const [nomEntreprise, setNomEntreprise] = useState("");
@@ -64,13 +64,14 @@ export default function ParametresEntrepriseScreen() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchParametres();
-  }, []);
+    if (tenant?.enterprise_id) fetchParametres();
+  }, [tenant?.enterprise_id]);
 
   const fetchParametres = async () => {
+    if (!tenant?.enterprise_id) return;
     setLoading(true);
     try {
-      const data = await api.getEnterpriseSettings();
+      const data = await api.getEnterpriseSettings(tenant.enterprise_id);
       if (data) {
         setNomEntreprise(data.nom_entreprise || "");
         setPrefixFacture(data.prefix_facture || "");
@@ -136,6 +137,8 @@ export default function ParametresEntrepriseScreen() {
   };
 
   const handleSave = async () => {
+    if (!tenant?.enterprise_id)
+      return Alert.alert("Erreur", "Entreprise introuvable.");
     if (!nomEntreprise.trim())
       return Alert.alert("Erreur", "Le nom de l'entreprise est requis.");
     if (!prefixFacture.trim())
@@ -155,7 +158,7 @@ export default function ParametresEntrepriseScreen() {
     }
 
     try {
-      await api.updateEnterpriseSettings(form);
+      await api.updateEnterpriseSettings(form, tenant.enterprise_id);
       Alert.alert("Succès", "Paramètres enregistrés.");
       router.back();
     } catch (e: any) {
@@ -199,7 +202,7 @@ export default function ParametresEntrepriseScreen() {
               />
             ) : hasExistingLogo ? (
               <AuthImage
-                uri={api.enterpriseLogoUrl()}
+                uri={api.enterpriseLogoUrl(tenant?.enterprise_id ?? "")}
                 style={styles.previewLogo}
                 resizeMode="contain"
               />
@@ -247,7 +250,7 @@ export default function ParametresEntrepriseScreen() {
             />
           ) : hasExistingLogo ? (
             <AuthImage
-              uri={api.enterpriseLogoUrl()}
+              uri={api.enterpriseLogoUrl(tenant?.enterprise_id ?? "")}
               style={styles.logoPreview}
               resizeMode="contain"
             />

@@ -46,3 +46,4 @@ google-services.json
 GoogleService-Info.plist
 *.keystore
 .env
+*.log

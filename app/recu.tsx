@@ -19,6 +19,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import SignatureCanvas from "react-native-signature-canvas";
 import { AuthImage } from "../components/AuthImage";
+import { useTenant } from "../context/TenantContext";
 import { api } from "../lib/api";
 import { appendMaybeImage, buildFormData } from "../lib/formUpload";
 import { nombreEnLettres } from "../lib/nombreEnLettres";
@@ -152,6 +153,7 @@ export default function RecuForm() {
     prefill_prix,
   } = useLocalSearchParams();
   const router = useRouter();
+  const { tenant } = useTenant();
 
   const remoteFileUrl = (field: string) =>
     id ? api.fileUrl("recus", String(id), field) : undefined;
@@ -190,8 +192,8 @@ export default function RecuForm() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetchParametres();
-  }, []);
+    if (tenant?.enterprise_id) fetchParametres();
+  }, [tenant?.enterprise_id]);
 
   useEffect(() => {
     if (id) {
@@ -212,9 +214,10 @@ export default function RecuForm() {
   }, [parametres]);
 
   const fetchParametres = async () => {
+    if (!tenant?.enterprise_id) return;
     setLoadingParams(true);
     try {
-      const data = await api.getEnterpriseSettings();
+      const data = await api.getEnterpriseSettings(tenant.enterprise_id);
       setParametres(data);
     } catch {
       setParametres(null);

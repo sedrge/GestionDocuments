@@ -55,6 +55,8 @@ export async function createStore(
     phone?: string;
     email?: string;
     logoUrl?: string;
+    latitude?: number;
+    longitude?: number;
   },
 ): Promise<{ success: boolean; store?: Store; error?: string }> {
   try {
@@ -64,6 +66,8 @@ export async function createStore(
       ...(params.phone ? { phone: params.phone } : {}),
       ...(params.email ? { email: params.email } : {}),
       ...(params.logoUrl ? { logo_url: params.logoUrl } : {}),
+      ...(params.latitude != null ? { latitude: params.latitude } : {}),
+      ...(params.longitude != null ? { longitude: params.longitude } : {}),
     });
     return { success: true, store: (data?.store ?? data?.enterprise ?? data) as Store };
   } catch (err: any) {
