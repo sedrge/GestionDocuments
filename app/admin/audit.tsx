@@ -1,27 +1,28 @@
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  FlatList,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTenant } from '../../context/TenantContext';
+    ActivityIndicator,
+    FlatList,
+    RefreshControl,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { FeatureGate } from "../../components/FeatureGate";
+import { useTenant } from "../../context/TenantContext";
+import { useTheme } from "../../context/ThemeContext";
+import { api } from "../../lib/api";
 import {
-  ACTION_COLORS,
-  ACTION_LABELS,
-  AuditAction,
-  ENTITY_LABELS,
-  EntityType,
-} from '../../lib/auditLog';
-import { api } from '../../lib/api';
-import { FeatureGate } from '../../components/FeatureGate';
+    ACTION_COLORS,
+    ACTION_LABELS,
+    AuditAction,
+    ENTITY_LABELS,
+    EntityType,
+} from "../../lib/auditLog";
 
 type AuditLog = {
   id: string;
@@ -35,30 +36,21 @@ type AuditLog = {
   created_at: string;
 };
 
-type FilterAction = AuditAction | 'ALL';
+type FilterAction = AuditAction | "ALL";
 
 const FILTER_OPTIONS: { key: FilterAction; label: string }[] = [
-  { key: 'ALL',        label: 'Tout' },
-  { key: 'CREATE',     label: 'Création' },
-  { key: 'UPLOAD',     label: 'Import' },
-  { key: 'UPDATE',     label: 'Modification' },
-  { key: 'DELETE',     label: 'Suppression' },
-  { key: 'LOGIN',      label: 'Connexion' },
-  { key: 'APPROVE',    label: 'Approbation' },
-  { key: 'DEACTIVATE', label: 'Désactivation' },
+  { key: "ALL", label: "Tout" },
+  { key: "CREATE", label: "Création" },
+  { key: "UPLOAD", label: "Import" },
+  { key: "UPDATE", label: "Modification" },
+  { key: "DELETE", label: "Suppression" },
+  { key: "LOGIN", label: "Connexion" },
+  { key: "APPROVE", label: "Approbation" },
+  { key: "DEACTIVATE", label: "Désactivation" },
 ];
 
-const theme = {
-  bg:      '#F2F2F7',
-  card:    '#FFFFFF',
-  text:    '#1C1C1E',
-  subText: '#8E8E93',
-  primary: '#007AFF',
-  border:  '#E5E5EA',
-};
-
 function parseDMY(s: string): Date | null {
-  const p = s.split('/');
+  const p = s.split("/");
   if (p.length !== 3) return null;
   const d = new Date(Number(p[2]), Number(p[1]) - 1, Number(p[0]));
   return isNaN(d.getTime()) ? null : d;
@@ -66,45 +58,53 @@ function parseDMY(s: string): Date | null {
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleString('fr-FR', {
-    day:    '2-digit',
-    month:  'short',
-    year:   'numeric',
-    hour:   '2-digit',
-    minute: '2-digit',
+  return d.toLocaleString("fr-FR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
 function buildSentence(log: AuditLog): string {
   const action = ACTION_LABELS[log.action] ?? log.action;
   const entity = ENTITY_LABELS[log.entity_type] ?? log.entity_type;
-  if (log.action === 'LOGIN' || log.action === 'LOGOUT') return action;
-  const name = log.entity_name ? ` "${log.entity_name}"` : '';
+  if (log.action === "LOGIN" || log.action === "LOGOUT") return action;
+  const name = log.entity_name ? ` "${log.entity_name}"` : "";
   return `${action} ${entity}${name}`.trim();
 }
 
 function AuditContent() {
+  const { theme } = useTheme();
   const { tenant, isEnterpriseAdmin } = useTenant();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState<FilterAction>('ALL');
-  const [uniqueUsers, setUniqueUsers] = useState<{ id: string; name: string }[]>([]);
-  const [selectedUser, setSelectedUser] = useState<string | 'ALL'>('ALL');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [filter, setFilter] = useState<FilterAction>("ALL");
+  const [uniqueUsers, setUniqueUsers] = useState<
+    { id: string; name: string }[]
+  >([]);
+  const [selectedUser, setSelectedUser] = useState<string | "ALL">("ALL");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const fetchLogs = useCallback(async () => {
     if (!tenant?.enterprise_id || !isEnterpriseAdmin) return;
 
-    const params: Record<string, string> = { enterprise_id: tenant.enterprise_id };
-    if (filter !== 'ALL') params.action = filter;
-    if (selectedUser !== 'ALL') params.user_id = selectedUser;
+    const params: Record<string, string> = {
+      enterprise_id: tenant.enterprise_id,
+    };
+    if (filter !== "ALL") params.action = filter;
+    if (selectedUser !== "ALL") params.user_id = selectedUser;
 
     const fromDate = parseDMY(dateFrom);
     if (fromDate) params.date_from = fromDate.toISOString();
     const toDate = parseDMY(dateTo);
-    if (toDate) { toDate.setHours(23, 59, 59, 999); params.date_to = toDate.toISOString(); }
+    if (toDate) {
+      toDate.setHours(23, 59, 59, 999);
+      params.date_to = toDate.toISOString();
+    }
 
     try {
       const data = (await api.listAuditLogs(params)) as AuditLog[];
@@ -115,17 +115,31 @@ function AuditContent() {
       data.forEach((l) => {
         if (!seen.has(l.user_id)) seen.set(l.user_id, l.user_name ?? l.user_id);
       });
-      setUniqueUsers(Array.from(seen.entries()).map(([id, name]) => ({ id, name })));
+      setUniqueUsers(
+        Array.from(seen.entries()).map(([id, name]) => ({ id, name })),
+      );
     } catch {
       // Garde la liste precedente en cas d'erreur reseau
     }
     setLoading(false);
     setRefreshing(false);
-  }, [tenant?.enterprise_id, isEnterpriseAdmin, filter, selectedUser, dateFrom, dateTo]);
+  }, [
+    tenant?.enterprise_id,
+    isEnterpriseAdmin,
+    filter,
+    selectedUser,
+    dateFrom,
+    dateTo,
+  ]);
 
-  useEffect(() => { fetchLogs(); }, [fetchLogs]);
+  useEffect(() => {
+    fetchLogs();
+  }, [fetchLogs]);
 
-  const onRefresh = () => { setRefreshing(true); fetchLogs(); };
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchLogs();
+  };
 
   if (!isEnterpriseAdmin) {
     return (
@@ -139,7 +153,10 @@ function AuditContent() {
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 14 }}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{ marginRight: 14 }}
+        >
           <Ionicons name="arrow-back" size={24} color={theme.primary} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
@@ -164,7 +181,12 @@ function AuditContent() {
             onPress={() => setFilter(item.key)}
             activeOpacity={0.7}
           >
-            <Text style={[styles.chipText, filter === item.key && styles.chipTextActive]}>
+            <Text
+              style={[
+                styles.chipText,
+                filter === item.key && styles.chipTextActive,
+              ]}
+            >
               {item.label}
             </Text>
           </TouchableOpacity>
@@ -174,7 +196,7 @@ function AuditContent() {
       {/* ── Filtre utilisateur ─────────────────────────────────────────── */}
       {uniqueUsers.length > 0 && (
         <FlatList
-          data={[{ id: 'ALL', name: 'Tous les utilisateurs' }, ...uniqueUsers]}
+          data={[{ id: "ALL", name: "Tous les utilisateurs" }, ...uniqueUsers]}
           horizontal
           showsHorizontalScrollIndicator={false}
           keyExtractor={(i) => i.id}
@@ -192,7 +214,7 @@ function AuditContent() {
               <Ionicons
                 name="person-circle-outline"
                 size={13}
-                color={selectedUser === item.id ? '#fff' : theme.subText}
+                color={selectedUser === item.id ? "#fff" : theme.subText}
                 style={{ marginRight: 4 }}
               />
               <Text
@@ -216,12 +238,15 @@ function AuditContent() {
           <View style={styles.customDateField}>
             <Text style={styles.customDateLabel}>Du (JJ/MM/AAAA)</Text>
             <TextInput
-              style={[styles.customDateInput, dateFrom && !parseDMY(dateFrom) && styles.customDateInputError]}
+              style={[
+                styles.customDateInput,
+                dateFrom && !parseDMY(dateFrom) && styles.customDateInputError,
+              ]}
               value={dateFrom}
               onChangeText={(t) => {
-                let v = t.replace(/[^0-9]/g, '');
-                if (v.length > 2) v = v.slice(0, 2) + '/' + v.slice(2);
-                if (v.length > 5) v = v.slice(0, 5) + '/' + v.slice(5);
+                let v = t.replace(/[^0-9]/g, "");
+                if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2);
+                if (v.length > 5) v = v.slice(0, 5) + "/" + v.slice(5);
                 setDateFrom(v.slice(0, 10));
               }}
               placeholder="01/01/2025"
@@ -233,12 +258,15 @@ function AuditContent() {
           <View style={styles.customDateField}>
             <Text style={styles.customDateLabel}>Au (JJ/MM/AAAA)</Text>
             <TextInput
-              style={[styles.customDateInput, dateTo && !parseDMY(dateTo) && styles.customDateInputError]}
+              style={[
+                styles.customDateInput,
+                dateTo && !parseDMY(dateTo) && styles.customDateInputError,
+              ]}
               value={dateTo}
               onChangeText={(t) => {
-                let v = t.replace(/[^0-9]/g, '');
-                if (v.length > 2) v = v.slice(0, 2) + '/' + v.slice(2);
-                if (v.length > 5) v = v.slice(0, 5) + '/' + v.slice(5);
+                let v = t.replace(/[^0-9]/g, "");
+                if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2);
+                if (v.length > 5) v = v.slice(0, 5) + "/" + v.slice(5);
                 setDateTo(v.slice(0, 10));
               }}
               placeholder="31/12/2025"
@@ -250,7 +278,10 @@ function AuditContent() {
           {(dateFrom || dateTo) && (
             <TouchableOpacity
               style={styles.clearDateBtn}
-              onPress={() => { setDateFrom(''); setDateTo(''); }}
+              onPress={() => {
+                setDateFrom("");
+                setDateTo("");
+              }}
               activeOpacity={0.7}
             >
               <Text style={styles.clearDateText}>Effacer</Text>
@@ -270,12 +301,18 @@ function AuditContent() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ padding: 14, paddingBottom: 40 }}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={theme.primary}
+            />
           }
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="document-text-outline" size={40} color="#ccc" />
-              <Text style={{ color: theme.subText, marginTop: 10 }}>Aucune activité trouvée</Text>
+              <Text style={{ color: theme.subText, marginTop: 10 }}>
+                Aucune activité trouvée
+              </Text>
             </View>
           }
           renderItem={({ item }) => {
@@ -290,16 +327,23 @@ function AuditContent() {
                   <View style={styles.logTopRow}>
                     <View style={styles.avatarCircle}>
                       <Text style={styles.avatarText}>
-                        {(item.user_name ?? '?')[0].toUpperCase()}
+                        {(item.user_name ?? "?")[0].toUpperCase()}
                       </Text>
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.logUserName} numberOfLines={1}>
-                        {item.user_name ?? 'Utilisateur inconnu'}
+                        {item.user_name ?? "Utilisateur inconnu"}
                       </Text>
-                      <Text style={styles.logDate}>{formatDate(item.created_at)}</Text>
+                      <Text style={styles.logDate}>
+                        {formatDate(item.created_at)}
+                      </Text>
                     </View>
-                    <View style={[styles.actionBadge, { backgroundColor: color + '22' }]}>
+                    <View
+                      style={[
+                        styles.actionBadge,
+                        { backgroundColor: color + "22" },
+                      ]}
+                    >
                       <Text style={[styles.actionBadgeText, { color }]}>
                         {item.action}
                       </Text>
@@ -338,61 +382,61 @@ export default function AuditScreen() {
 
 function entityIcon(type: EntityType): any {
   const map: Record<EntityType, string> = {
-    document:   'document-outline',
-    categorie:  'folder-outline',
-    moto:       'bicycle-outline',
-    vente:      'bag-check-outline',
-    rendezvous: 'calendar-outline',
-    registre:   'clipboard-outline',
-    decharge:   'document-text-outline',
-    recu:       'receipt-outline',
-    user:       'person-outline',
-    session:    'log-in-outline',
+    document: "document-outline",
+    categorie: "folder-outline",
+    moto: "bicycle-outline",
+    vente: "bag-check-outline",
+    rendezvous: "calendar-outline",
+    registre: "clipboard-outline",
+    decharge: "document-text-outline",
+    recu: "receipt-outline",
+    user: "person-outline",
+    session: "log-in-outline",
   };
-  return map[type] ?? 'ellipse-outline';
+  return map[type] ?? "ellipse-outline";
 }
 
 const styles = StyleSheet.create({
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: "#E5E5EA",
   },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1C1C1E' },
-  headerSub:   { fontSize: 12, color: '#8E8E93', marginTop: 1 },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: "#1C1C1E" },
+  headerSub: { fontSize: 12, color: "#8E8E93", marginTop: 1 },
 
   filterRow: { paddingHorizontal: 14, paddingVertical: 10, gap: 8 },
   chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: '#E5E5EA',
+    borderColor: "#E5E5EA",
   },
-  chipActive:     { backgroundColor: '#007AFF', borderColor: '#007AFF' },
-  chipUser:       { backgroundColor: '#fff', borderColor: '#E5E5EA' },
-  chipUserActive: { backgroundColor: '#5856D6', borderColor: '#5856D6' },
-  chipText:       { fontSize: 13, fontWeight: '600', color: '#666' },
-  chipTextActive: { color: '#fff' },
+  chipActive: { backgroundColor: "#007AFF", borderColor: "#007AFF" },
+  chipUser: { backgroundColor: "#fff", borderColor: "#E5E5EA" },
+  chipUserActive: { backgroundColor: "#5856D6", borderColor: "#5856D6" },
+  chipText: { fontSize: 13, fontWeight: "600", color: "#666" },
+  chipTextActive: { color: "#fff" },
 
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  empty:    { alignItems: 'center', paddingTop: 60 },
+  centered: { flex: 1, justifyContent: "center", alignItems: "center" },
+  empty: { alignItems: "center", paddingTop: 60 },
 
   logCard: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
+    flexDirection: "row",
+    backgroundColor: "#fff",
     borderRadius: 12,
     marginBottom: 10,
-    overflow: 'hidden',
+    overflow: "hidden",
     elevation: 1,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
     shadowRadius: 3,
@@ -400,8 +444,8 @@ const styles = StyleSheet.create({
   colorBar: { width: 4 },
 
   logTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 12,
     paddingBottom: 6,
     gap: 10,
@@ -410,57 +454,62 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#E5E5EA',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#E5E5EA",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  avatarText:    { fontSize: 14, fontWeight: '700', color: '#555' },
-  logUserName:   { fontSize: 14, fontWeight: '600', color: '#1C1C1E' },
-  logDate:       { fontSize: 11, color: '#8E8E93', marginTop: 1 },
+  avatarText: { fontSize: 14, fontWeight: "700", color: "#555" },
+  logUserName: { fontSize: 14, fontWeight: "600", color: "#1C1C1E" },
+  logDate: { fontSize: 11, color: "#8E8E93", marginTop: 1 },
 
   actionBadge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
   },
-  actionBadgeText: { fontSize: 10, fontWeight: '700' },
+  actionBadgeText: { fontSize: 10, fontWeight: "700" },
 
   logSentence: {
     fontSize: 13,
-    color: '#3C3C3C',
+    color: "#3C3C3C",
     paddingHorizontal: 12,
     paddingBottom: 6,
   },
   logFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 12,
     paddingBottom: 10,
     gap: 4,
   },
-  logEntityType: { fontSize: 11, color: '#8E8E93' },
+  logEntityType: { fontSize: 11, color: "#8E8E93" },
 
   customDateContainer: { paddingHorizontal: 14, paddingBottom: 10 },
-  customDateRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  customDateRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
   customDateField: { flex: 1 },
-  customDateLabel: { fontSize: 11, color: '#8E8E93', fontWeight: '600', marginBottom: 4 },
+  customDateLabel: {
+    fontSize: 11,
+    color: "#8E8E93",
+    fontWeight: "600",
+    marginBottom: 4,
+  },
   customDateInput: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: '#E5E5EA',
+    borderColor: "#E5E5EA",
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 14,
-    color: '#1C1C1E',
+    color: "#1C1C1E",
   },
-  customDateInputError: { borderColor: '#FF3B30' },
+  customDateInputError: { borderColor: "#FF3B30" },
   clearDateBtn: {
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 10,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: "#f0f0f0",
     marginBottom: 0,
   },
-  clearDateText: { fontSize: 12, fontWeight: '600', color: '#666' },
+  clearDateText: { fontSize: 12, fontWeight: "600", color: "#666" },
 });

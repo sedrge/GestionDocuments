@@ -16,34 +16,49 @@ export async function createEnterprise(params: {
   longitude?: number;
 }) {
   try {
-    const formData = new FormData();
-    formData.append("name", params.name);
-    if (params.phone) formData.append("phone", params.phone);
-    if (params.email) formData.append("email", params.email);
-    if (params.adminFullName)
-      formData.append("admin_full_name", params.adminFullName);
-    formData.append("admin_email", params.adminEmail);
-    if (params.adminPhone) formData.append("admin_phone", params.adminPhone);
-    formData.append("admin_password", params.adminPassword);
-    if (params.latitude)
-      formData.append("latitude", params.latitude.toString());
-    if (params.longitude)
-      formData.append("longitude", params.longitude.toString());
+    let payload: FormData | Record<string, string>;
 
     if (params.logoUrl) {
+      const formData = new FormData();
+      formData.append("name", params.name);
+      if (params.phone) formData.append("phone", params.phone);
+      if (params.email) formData.append("email", params.email);
+      if (params.adminFullName)
+        formData.append("admin_full_name", params.adminFullName);
+      formData.append("admin_email", params.adminEmail);
+      if (params.adminPhone) formData.append("admin_phone", params.adminPhone);
+      formData.append("admin_password", params.adminPassword);
+      if (params.latitude !== undefined)
+        formData.append("latitude", params.latitude.toString());
+      if (params.longitude !== undefined)
+        formData.append("longitude", params.longitude.toString());
       formData.append("logo", {
         uri: params.logoUrl,
         name: "logo.jpg",
         type: "image/jpeg",
       } as any);
+      payload = formData;
+    } else {
+      payload = {
+        name: params.name,
+        phone: params.phone,
+        email: params.email,
+        admin_full_name: params.adminFullName,
+        admin_email: params.adminEmail,
+        admin_phone: params.adminPhone,
+        admin_password: params.adminPassword,
+        latitude: params.latitude?.toString(),
+        longitude: params.longitude?.toString(),
+      };
     }
 
-    const result = await api.createEnterprise(formData);
+    const result = await api.createEnterprise(payload);
 
     return {
       success: true,
       enterprise: result.enterprise,
       code: result.enterprise.code,
+      adminEmail: params.adminEmail,
       message: "Entreprise créée avec succès. En attente d'activation.",
     };
   } catch (error: any) {
@@ -223,7 +238,10 @@ export async function createUserInEnterprise(params: {
       phone: params.phone,
       password: params.password,
     });
-    return { success: true, message: "Utilisateur créé et ajouté à l'entreprise." };
+    return {
+      success: true,
+      message: "Utilisateur créé et ajouté à l'entreprise.",
+    };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
@@ -233,7 +251,10 @@ export async function createUserInEnterprise(params: {
  * Supprime un utilisateur de l'entreprise (enterprise admin only)
  * Ne supprime pas le compte, uniquement le lien avec l'entreprise
  */
-export async function removeUserFromEnterprise(userId: string, enterpriseId: string) {
+export async function removeUserFromEnterprise(
+  userId: string,
+  enterpriseId: string,
+) {
   try {
     await api.removeMember(enterpriseId, userId);
     return { success: true, message: "Utilisateur retiré de l'entreprise." };

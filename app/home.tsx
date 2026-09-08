@@ -13,19 +13,19 @@ import { useTheme } from "../context/ThemeContext";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Button,
-  Dimensions,
-  FlatList,
-  Modal,
-  Platform,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Button,
+    Dimensions,
+    FlatList,
+    Modal,
+    Platform,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFeatureFlags } from "../context/FeatureFlagsContext";
@@ -288,7 +288,18 @@ function HomeScreenContent() {
     }
   };
 
-  const PREVIEWABLE_EXTS = ["pdf", "jpg", "jpeg", "png", "webp", "heic", "gif", "mp4", "mov", "m4v"];
+  const PREVIEWABLE_EXTS = [
+    "pdf",
+    "jpg",
+    "jpeg",
+    "png",
+    "webp",
+    "heic",
+    "gif",
+    "mp4",
+    "mov",
+    "m4v",
+  ];
 
   // Ouvre la visionneuse intégrée pour les types qu'on sait afficher
   // (image/pdf/vidéo) ; retombe sur le partage OS pour le reste (doc, xlsx…).
@@ -569,7 +580,6 @@ function HomeScreenContent() {
                 onChangeText={setNewPin}
                 maxLength={4}
                 keyboardType="numeric"
-                secureTextEntry
               />
               <View
                 style={{ flexDirection: "row", justifyContent: "flex-end" }}

@@ -1,8 +1,10 @@
-import { createEnterprise } from "@/lib/multitenant";
 import MapPickerModal, { LocationResult } from "@/components/MapPickerModal";
+import PasswordInput from "@/components/PasswordInput";
+import { useTheme } from "@/context/ThemeContext";
+import { createEnterprise } from "@/lib/multitenant";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import { useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -15,28 +17,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const themes = {
-  light: {
-    bg: "#F5F5F7",
-    card: "#FFFFFF",
-    text: "#1C1C1E",
-    subText: "#8E8E93",
-    primary: "#007AFF",
-    border: "#D1D1D6",
-  },
-  dark: {
-    bg: "#121212",
-    card: "#1E1E1E",
-    text: "#FFFFFF",
-    subText: "#A1A1A1",
-    primary: "#0A84FF",
-    border: "#38383A",
-  },
-};
-
 export default function CreateEnterpriseScreen() {
-  const isDark = true;
-  const theme = isDark ? themes.dark : themes.light;
+  const { theme } = useTheme();
   const [loading, setLoading] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [location, setLocation] = useState<LocationResult | null>(null);
@@ -76,12 +58,16 @@ export default function CreateEnterpriseScreen() {
       Alert.alert("Erreur", "Le nom de l'entreprise est requis");
       return;
     }
+    if (!formData.adminFullName.trim()) {
+      Alert.alert("Erreur", "Le nom de l'administrateur est requis");
+      return;
+    }
     if (!formData.adminEmail.includes("@")) {
       Alert.alert("Erreur", "Un email valide pour l'administrateur est requis");
       return;
     }
-    if (formData.adminPassword.length < 6) {
-      Alert.alert("Erreur", "Le mot de passe doit avoir au moins 6 caractères");
+    if (formData.adminPassword.length < 8) {
+      Alert.alert("Erreur", "Le mot de passe doit avoir au moins 8 caractères");
       return;
     }
     if (formData.adminPassword !== formData.adminPasswordConfirm) {
@@ -117,8 +103,12 @@ export default function CreateEnterpriseScreen() {
               },
             },
             {
-              text: "Se connecter",
-              onPress: () => router.replace("/onboarding"),
+              text: "Confirmer mon email",
+              onPress: () =>
+                router.replace({
+                  pathname: "/auth/verify-email",
+                  params: { email: result.adminEmail },
+                }),
             },
           ],
         );
@@ -135,280 +125,289 @@ export default function CreateEnterpriseScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
-    <ScrollView
-      style={{ flex: 1 }}
-      contentContainerStyle={styles.content}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={[styles.backBtn, { color: theme.primary }]}>
-            ← Retour
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Text style={[styles.backBtn, { color: theme.primary }]}>
+              ← Retour
+            </Text>
+          </TouchableOpacity>
+          <Text style={[styles.title, { color: theme.text }]}>
+            Créer une Entreprise
           </Text>
-        </TouchableOpacity>
-        <Text style={[styles.title, { color: theme.text }]}>
-          Créer une Entreprise
-        </Text>
-      </View>
+        </View>
 
-      {/* Formulaire */}
-      <View
-        style={[
-          styles.form,
-          { backgroundColor: theme.card, borderColor: theme.border },
-        ]}
-      >
-        {/* Entreprise Section */}
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>
-          📋 Informations de l'Entreprise
-        </Text>
-
-        <Text style={[styles.label, { color: theme.text }]}>
-          Nom de l'entreprise
-        </Text>
-        <TextInput
+        {/* Formulaire */}
+        <View
           style={[
-            styles.input,
-            {
-              backgroundColor: theme.bg,
-              color: theme.text,
-              borderColor: theme.border,
-            },
+            styles.form,
+            { backgroundColor: theme.card, borderColor: theme.border },
           ]}
-          placeholder="Ex: TechCorp France"
-          placeholderTextColor={theme.subText}
-          value={formData.enterpriseName}
-          onChangeText={(text) =>
-            setFormData({ ...formData, enterpriseName: text })
-          }
-        />
-
-        <Text style={[styles.label, { color: theme.text }]}>Téléphone</Text>
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: theme.bg,
-              color: theme.text,
-              borderColor: theme.border,
-            },
-          ]}
-          placeholder="+33 1 23 45 67 89"
-          placeholderTextColor={theme.subText}
-          value={formData.enterprisePhone}
-          onChangeText={(text) =>
-            setFormData({ ...formData, enterprisePhone: text })
-          }
-        />
-
-        <Text style={[styles.label, { color: theme.text }]}>Email de l'entreprise (optionnel)</Text>
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: theme.bg,
-              color: theme.text,
-              borderColor: theme.border,
-            },
-          ]}
-          placeholder="contact@monentreprise.com"
-          placeholderTextColor={theme.subText}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          value={formData.enterpriseEmail}
-          onChangeText={(text) =>
-            setFormData({ ...formData, enterpriseEmail: text })
-          }
-        />
-
-        <Text style={[styles.label, { color: theme.text }]}>Logo (optionnel)</Text>
-        <TouchableOpacity
-          style={[styles.logoButton, { backgroundColor: theme.primary }]}
-          onPress={handlePickLogo}
         >
-          <Text style={styles.buttonText}>
-            {logoUrl ? "✓ Logo sélectionné" : "Choisir un logo"}
+          {/* Entreprise Section */}
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>
+            📋 Informations de l'Entreprise
           </Text>
-        </TouchableOpacity>
 
-        <Text style={[styles.label, { color: theme.text }]}>
-          Localisation de la boutique (optionnel)
-        </Text>
-        <TouchableOpacity
-          style={[
-            styles.locationButton,
-            {
-              backgroundColor: theme.bg,
-              borderColor: location ? theme.primary : theme.border,
-            },
-          ]}
-          onPress={() => setShowMapPicker(true)}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.locationIcon}>📍</Text>
-          <View style={styles.locationTextContainer}>
-            {location ? (
-              <>
-                <Text style={[styles.locationLabel, { color: theme.primary }]}>
-                  Position sélectionnée
+          <Text style={[styles.label, { color: theme.text }]}>
+            Nom de l'entreprise
+          </Text>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.bg,
+                color: theme.text,
+                borderColor: theme.border,
+              },
+            ]}
+            placeholder="Ex: SenMoto Ouagadougou"
+            placeholderTextColor={theme.subText}
+            value={formData.enterpriseName}
+            onChangeText={(text) =>
+              setFormData({ ...formData, enterpriseName: text })
+            }
+          />
+
+          <Text style={[styles.label, { color: theme.text }]}>Téléphone</Text>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.bg,
+                color: theme.text,
+                borderColor: theme.border,
+              },
+            ]}
+            placeholder="+226 25 30 12 34"
+            placeholderTextColor={theme.subText}
+            value={formData.enterprisePhone}
+            onChangeText={(text) =>
+              setFormData({ ...formData, enterprisePhone: text })
+            }
+          />
+
+          <Text style={[styles.label, { color: theme.text }]}>
+            Email de l'entreprise (optionnel)
+          </Text>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.bg,
+                color: theme.text,
+                borderColor: theme.border,
+              },
+            ]}
+            placeholder="contact@monentreprise.com"
+            placeholderTextColor={theme.subText}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            value={formData.enterpriseEmail}
+            onChangeText={(text) =>
+              setFormData({ ...formData, enterpriseEmail: text })
+            }
+          />
+
+          <Text style={[styles.label, { color: theme.text }]}>
+            Logo (optionnel)
+          </Text>
+          <TouchableOpacity
+            style={[styles.logoButton, { backgroundColor: theme.primary }]}
+            onPress={handlePickLogo}
+          >
+            <Text style={styles.buttonText}>
+              {logoUrl ? "✓ Logo sélectionné" : "Choisir un logo"}
+            </Text>
+          </TouchableOpacity>
+
+          <Text style={[styles.label, { color: theme.text }]}>
+            Localisation de la boutique (optionnel)
+          </Text>
+          <TouchableOpacity
+            style={[
+              styles.locationButton,
+              {
+                backgroundColor: theme.bg,
+                borderColor: location ? theme.primary : theme.border,
+              },
+            ]}
+            onPress={() => setShowMapPicker(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.locationIcon}>📍</Text>
+            <View style={styles.locationTextContainer}>
+              {location ? (
+                <>
+                  <Text
+                    style={[styles.locationLabel, { color: theme.primary }]}
+                  >
+                    Position sélectionnée
+                  </Text>
+                  <Text
+                    style={[styles.locationCoords, { color: theme.subText }]}
+                  >
+                    {location.label}
+                  </Text>
+                </>
+              ) : (
+                <Text
+                  style={[styles.locationPlaceholder, { color: theme.subText }]}
+                >
+                  Appuyez pour choisir sur la carte
                 </Text>
-                <Text style={[styles.locationCoords, { color: theme.subText }]}>
-                  {location.label}
+              )}
+            </View>
+            {location && (
+              <TouchableOpacity
+                onPress={() => setLocation(null)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Text style={[styles.locationClear, { color: theme.subText }]}>
+                  ✕
                 </Text>
-              </>
-            ) : (
-              <Text style={[styles.locationPlaceholder, { color: theme.subText }]}>
-                Appuyez pour choisir sur la carte
-              </Text>
+              </TouchableOpacity>
             )}
-          </View>
-          {location && (
-            <TouchableOpacity
-              onPress={() => setLocation(null)}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Text style={[styles.locationClear, { color: theme.subText }]}>✕</Text>
-            </TouchableOpacity>
+          </TouchableOpacity>
+
+          <MapPickerModal
+            visible={showMapPicker}
+            onClose={() => setShowMapPicker(false)}
+            onLocationSelected={(loc) => setLocation(loc)}
+            initialLatitude={location?.latitude}
+            initialLongitude={location?.longitude}
+          />
+
+          {/* Admin Section */}
+          <Text
+            style={[styles.sectionTitle, { color: theme.text, marginTop: 24 }]}
+          >
+            👤 Informations de l'Administrateur
+          </Text>
+
+          <Text style={[styles.label, { color: theme.text }]}>Nom complet</Text>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.bg,
+                color: theme.text,
+                borderColor: theme.border,
+              },
+            ]}
+            placeholder="Moussa Ouédraogo"
+            placeholderTextColor={theme.subText}
+            value={formData.adminFullName}
+            onChangeText={(text) =>
+              setFormData({ ...formData, adminFullName: text })
+            }
+          />
+
+          <Text style={[styles.label, { color: theme.text }]}>Email</Text>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.bg,
+                color: theme.text,
+                borderColor: theme.border,
+              },
+            ]}
+            placeholder="moussa@senmoto.bf"
+            placeholderTextColor={theme.subText}
+            keyboardType="email-address"
+            value={formData.adminEmail}
+            onChangeText={(text) =>
+              setFormData({ ...formData, adminEmail: text })
+            }
+          />
+
+          <Text style={[styles.label, { color: theme.text }]}>Téléphone</Text>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.bg,
+                color: theme.text,
+                borderColor: theme.border,
+              },
+            ]}
+            placeholder="+226 70 00 00 00"
+            placeholderTextColor={theme.subText}
+            value={formData.adminPhone}
+            onChangeText={(text) =>
+              setFormData({ ...formData, adminPhone: text })
+            }
+          />
+
+          <Text style={[styles.label, { color: theme.text }]}>
+            Mot de passe
+          </Text>
+          <PasswordInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.bg,
+                color: theme.text,
+                borderColor: theme.border,
+              },
+            ]}
+            placeholder="••••••••"
+            placeholderTextColor={theme.subText}
+            value={formData.adminPassword}
+            onChangeText={(text) =>
+              setFormData({ ...formData, adminPassword: text })
+            }
+          />
+
+          <Text style={[styles.label, { color: theme.text }]}>
+            Confirmer le mot de passe
+          </Text>
+          <PasswordInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.bg,
+                color: theme.text,
+                borderColor: theme.border,
+              },
+            ]}
+            placeholder="••••••••"
+            placeholderTextColor={theme.subText}
+            value={formData.adminPasswordConfirm}
+            onChangeText={(text) =>
+              setFormData({ ...formData, adminPasswordConfirm: text })
+            }
+          />
+        </View>
+
+        {/* Submit Button */}
+        <TouchableOpacity
+          style={[
+            styles.submitButton,
+            { backgroundColor: theme.primary, opacity: loading ? 0.6 : 1 },
+          ]}
+          onPress={handleSubmit}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Créer l'entreprise</Text>
           )}
         </TouchableOpacity>
 
-        <MapPickerModal
-          visible={showMapPicker}
-          onClose={() => setShowMapPicker(false)}
-          onLocationSelected={(loc) => setLocation(loc)}
-          initialLatitude={location?.latitude}
-          initialLongitude={location?.longitude}
-        />
-
-        {/* Admin Section */}
-        <Text
-          style={[styles.sectionTitle, { color: theme.text, marginTop: 24 }]}
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={() => router.back()}
+          disabled={loading}
         >
-          👤 Informations de l'Administrateur
-        </Text>
-
-        <Text style={[styles.label, { color: theme.text }]}>Nom complet</Text>
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: theme.bg,
-              color: theme.text,
-              borderColor: theme.border,
-            },
-          ]}
-          placeholder="Jean Dupont"
-          placeholderTextColor={theme.subText}
-          value={formData.adminFullName}
-          onChangeText={(text) =>
-            setFormData({ ...formData, adminFullName: text })
-          }
-        />
-
-        <Text style={[styles.label, { color: theme.text }]}>Email</Text>
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: theme.bg,
-              color: theme.text,
-              borderColor: theme.border,
-            },
-          ]}
-          placeholder="jean@techcorp.com"
-          placeholderTextColor={theme.subText}
-          keyboardType="email-address"
-          value={formData.adminEmail}
-          onChangeText={(text) =>
-            setFormData({ ...formData, adminEmail: text })
-          }
-        />
-
-        <Text style={[styles.label, { color: theme.text }]}>Téléphone</Text>
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: theme.bg,
-              color: theme.text,
-              borderColor: theme.border,
-            },
-          ]}
-          placeholder="+33 6 12 34 56 78"
-          placeholderTextColor={theme.subText}
-          value={formData.adminPhone}
-          onChangeText={(text) =>
-            setFormData({ ...formData, adminPhone: text })
-          }
-        />
-
-        <Text style={[styles.label, { color: theme.text }]}>Mot de passe</Text>
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: theme.bg,
-              color: theme.text,
-              borderColor: theme.border,
-            },
-          ]}
-          placeholder="••••••••"
-          placeholderTextColor={theme.subText}
-          secureTextEntry
-          value={formData.adminPassword}
-          onChangeText={(text) =>
-            setFormData({ ...formData, adminPassword: text })
-          }
-        />
-
-        <Text style={[styles.label, { color: theme.text }]}>
-          Confirmer le mot de passe
-        </Text>
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: theme.bg,
-              color: theme.text,
-              borderColor: theme.border,
-            },
-          ]}
-          placeholder="••••••••"
-          placeholderTextColor={theme.subText}
-          secureTextEntry
-          value={formData.adminPasswordConfirm}
-          onChangeText={(text) =>
-            setFormData({ ...formData, adminPasswordConfirm: text })
-          }
-        />
-      </View>
-
-      {/* Submit Button */}
-      <TouchableOpacity
-        style={[
-          styles.submitButton,
-          { backgroundColor: theme.primary, opacity: loading ? 0.6 : 1 },
-        ]}
-        onPress={handleSubmit}
-        disabled={loading}
-      >
-        {loading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>Créer l'entreprise</Text>
-        )}
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.cancelButton}
-        onPress={() => router.back()}
-        disabled={loading}
-      >
-        <Text style={[styles.cancelText, { color: theme.primary }]}>
-          Annuler
-        </Text>
-      </TouchableOpacity>
-    </ScrollView>
+          <Text style={[styles.cancelText, { color: theme.primary }]}>
+            Annuler
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
     </SafeAreaView>
   );
 }

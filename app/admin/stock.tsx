@@ -2,25 +2,25 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Image,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Image,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { api } from "../../lib/api";
-import { useTenant } from "../../context/TenantContext";
 import { FeatureGate } from "../../components/FeatureGate";
+import { useTenant } from "../../context/TenantContext";
+import { api } from "../../lib/api";
 
 type Moto = {
   id: string;
@@ -86,7 +86,13 @@ interface VenteModalProps {
   saving: boolean;
 }
 
-function VenteModal({ visible, moto, onClose, onConfirm, saving }: VenteModalProps) {
+function VenteModal({
+  visible,
+  moto,
+  onClose,
+  onConfirm,
+  saving,
+}: VenteModalProps) {
   const [nom, setNom] = useState("");
   const [tel, setTel] = useState("");
   const [date, setDate] = useState(todayFR());
@@ -112,7 +118,12 @@ function VenteModal({ visible, moto, onClose, onConfirm, saving }: VenteModalPro
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
       <KeyboardAvoidingView
         style={styles.modalOverlay}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -123,15 +134,24 @@ function VenteModal({ visible, moto, onClose, onConfirm, saving }: VenteModalPro
             <View>
               <Text style={styles.modalTitle}>Enregistrer la vente</Text>
               <Text style={styles.modalSub} numberOfLines={1}>
-                {[moto?.marque, moto?.modele, moto?.type].filter(Boolean).join(" ") || "Moto"}
+                {[moto?.marque, moto?.modele, moto?.type]
+                  .filter(Boolean)
+                  .join(" ") || "Moto"}
               </Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn} activeOpacity={0.7}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={styles.modalCloseBtn}
+              activeOpacity={0.7}
+            >
               <Ionicons name="close" size={22} color="#666" />
             </TouchableOpacity>
           </View>
 
-          <ScrollView contentContainerStyle={styles.modalBody} keyboardShouldPersistTaps="handled">
+          <ScrollView
+            contentContainerStyle={styles.modalBody}
+            keyboardShouldPersistTaps="handled"
+          >
             {/* Nom acheteur */}
             <Text style={styles.fieldLabel}>Nom de l'acheteur *</Text>
             <TextInput
@@ -148,7 +168,7 @@ function VenteModal({ visible, moto, onClose, onConfirm, saving }: VenteModalPro
               style={styles.fieldInput}
               value={tel}
               onChangeText={setTel}
-              placeholder="+221 77 000 00 00"
+              placeholder="+226 70 00 00 00"
               keyboardType="phone-pad"
             />
 
@@ -184,10 +204,13 @@ function VenteModal({ visible, moto, onClose, onConfirm, saving }: VenteModalPro
                   style={{
                     fontWeight: "700",
                     color:
-                      Number(prix) - moto.prix_achat >= 0 ? "#34C759" : "#FF3B30",
+                      Number(prix) - moto.prix_achat >= 0
+                        ? "#34C759"
+                        : "#FF3B30",
                   }}
                 >
-                  {(Number(prix) - moto.prix_achat).toLocaleString("fr-FR")} FCFA
+                  {(Number(prix) - moto.prix_achat).toLocaleString("fr-FR")}{" "}
+                  FCFA
                 </Text>
               </Text>
             )}
@@ -195,7 +218,10 @@ function VenteModal({ visible, moto, onClose, onConfirm, saving }: VenteModalPro
             {/* Notes */}
             <Text style={styles.fieldLabel}>Notes / Observations</Text>
             <TextInput
-              style={[styles.fieldInput, { height: 80, textAlignVertical: "top" }]}
+              style={[
+                styles.fieldInput,
+                { height: 80, textAlignVertical: "top" },
+              ]}
               value={notes}
               onChangeText={setNotes}
               placeholder="Informations supplémentaires…"
@@ -241,9 +267,10 @@ function MotoStockCard({
   onDispo: () => void;
   onDelete: () => void;
 }) {
-  const thumb = moto.images?.find((i) => i.is_principal)?.image_uri
-    || moto.images?.[0]?.image_uri
-    || null;
+  const thumb =
+    moto.images?.find((i) => i.is_principal)?.image_uri ||
+    moto.images?.[0]?.image_uri ||
+    null;
 
   const statut = moto.statut || "disponible";
   const statutColor = STATUS_COLORS[statut] ?? "#8E8E93";
@@ -256,14 +283,14 @@ function MotoStockCard({
         : { text: "Marquer réservé", onPress: onReserver },
       statut !== "vendu"
         ? { text: "Enregistrer vente", onPress: onSell }
-        : null as any,
+        : (null as any),
       { text: "Supprimer", style: "destructive", onPress: onDelete },
       { text: "Annuler", style: "cancel", onPress: () => {} },
     ].filter(Boolean);
     Alert.alert(
       [moto.marque, moto.modele].filter(Boolean).join(" ") || "Moto",
       "Choisissez une action",
-      options
+      options,
     );
   };
 
@@ -276,7 +303,11 @@ function MotoStockCard({
     >
       {/* Image */}
       {thumb ? (
-        <Image source={{ uri: thumb }} style={styles.cardThumb} resizeMode="cover" />
+        <Image
+          source={{ uri: thumb }}
+          style={styles.cardThumb}
+          resizeMode="cover"
+        />
       ) : (
         <View style={[styles.cardThumb, styles.cardThumbEmpty]}>
           <Ionicons name="bicycle-outline" size={32} color="#ccc" />
@@ -284,7 +315,12 @@ function MotoStockCard({
       )}
 
       {/* Badge statut */}
-      <View style={[styles.statutBadge, { backgroundColor: statutColor + "22", borderColor: statutColor }]}>
+      <View
+        style={[
+          styles.statutBadge,
+          { backgroundColor: statutColor + "22", borderColor: statutColor },
+        ]}
+      >
         <View style={[styles.statutDot, { backgroundColor: statutColor }]} />
         <Text style={[styles.statutText, { color: statutColor }]}>
           {STATUS_LABELS[statut] ?? statut}
@@ -297,7 +333,8 @@ function MotoStockCard({
           {[moto.marque, moto.modele].filter(Boolean).join(" ") || "Moto"}
         </Text>
         <Text style={styles.cardSub} numberOfLines={1}>
-          {[moto.type, moto.couleur, moto.etat].filter(Boolean).join(" · ") || "—"}
+          {[moto.type, moto.couleur, moto.etat].filter(Boolean).join(" · ") ||
+            "—"}
         </Text>
         {moto.prix_vente != null && (
           <Text style={styles.cardPrice}>
@@ -338,7 +375,10 @@ function StockContent() {
   const [saving, setSaving] = useState(false);
 
   const fetchMotos = async () => {
-    if (!tenant?.enterprise_id) { setLoading(false); return; }
+    if (!tenant?.enterprise_id) {
+      setLoading(false);
+      return;
+    }
     try {
       const result = await api.listMyMotos({
         enterprise_id: tenant.enterprise_id,
@@ -353,8 +393,15 @@ function StockContent() {
     setRefreshing(false);
   };
 
-  useFocusEffect(useCallback(() => { fetchMotos(); }, [tenant?.enterprise_id]));
-  const onRefresh = () => { setRefreshing(true); fetchMotos(); };
+  useFocusEffect(
+    useCallback(() => {
+      fetchMotos();
+    }, [tenant?.enterprise_id]),
+  );
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchMotos();
+  };
 
   const handleUpdateStatut = async (id: string, statut: string) => {
     try {
@@ -366,7 +413,11 @@ function StockContent() {
   };
 
   const handleVente = async (data: {
-    nom: string; tel: string; date: string; prix: string; notes: string;
+    nom: string;
+    tel: string;
+    date: string;
+    prix: string;
+    notes: string;
   }) => {
     if (!sellMoto) return;
     setSaving(true);
@@ -413,12 +464,22 @@ function StockContent() {
     if (filter !== "tous" && statut !== filter) return false;
     if (!search.trim()) return true;
     const q = search.toLowerCase();
-    return [m.marque, m.modele, m.type, m.couleur, m.immatriculation, m.numero_chassis, m.etat]
+    return [
+      m.marque,
+      m.modele,
+      m.type,
+      m.couleur,
+      m.immatriculation,
+      m.numero_chassis,
+      m.etat,
+    ]
       .filter(Boolean)
       .some((v) => v!.toLowerCase().includes(q));
   });
 
-  const dispoCount = motos.filter((m) => !m.statut || m.statut === "disponible").length;
+  const dispoCount = motos.filter(
+    (m) => !m.statut || m.statut === "disponible",
+  ).length;
   const resCount = motos.filter((m) => m.statut === "réservé").length;
 
   return (
@@ -426,12 +487,16 @@ function StockContent() {
       {/* ── Stats ──────────────────────────────────────────────────────────── */}
       <View style={styles.statsBar}>
         <View style={styles.statItem}>
-          <Text style={[styles.statNum, { color: "#007AFF" }]}>{motos.length}</Text>
+          <Text style={[styles.statNum, { color: "#007AFF" }]}>
+            {motos.length}
+          </Text>
           <Text style={styles.statLabel}>En stock</Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={[styles.statNum, { color: "#34C759" }]}>{dispoCount}</Text>
+          <Text style={[styles.statNum, { color: "#34C759" }]}>
+            {dispoCount}
+          </Text>
           <Text style={styles.statLabel}>Disponible</Text>
         </View>
         <View style={styles.statDivider} />
@@ -453,7 +518,10 @@ function StockContent() {
           returnKeyType="search"
         />
         {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch("")} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <TouchableOpacity
+            onPress={() => setSearch("")}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
             <Ionicons name="close-circle" size={16} color="#ccc" />
           </TouchableOpacity>
         )}
@@ -469,10 +537,18 @@ function StockContent() {
           <TouchableOpacity
             key={f.key}
             onPress={() => setFilter(f.key)}
-            style={[styles.filterChip, filter === f.key && styles.filterChipActive]}
+            style={[
+              styles.filterChip,
+              filter === f.key && styles.filterChipActive,
+            ]}
             activeOpacity={0.7}
           >
-            <Text style={[styles.filterText, filter === f.key && styles.filterTextActive]}>
+            <Text
+              style={[
+                styles.filterText,
+                filter === f.key && styles.filterTextActive,
+              ]}
+            >
               {f.label}
             </Text>
           </TouchableOpacity>
@@ -492,12 +568,21 @@ function StockContent() {
           columnWrapperStyle={styles.row}
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF9500" />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#FF9500"
+            />
           }
           renderItem={({ item }) => (
             <MotoStockCard
               moto={item}
-              onPress={() => router.push({ pathname: "/moto/[id]", params: { id: item.id } } as any)}
+              onPress={() =>
+                router.push({
+                  pathname: "/moto/[id]",
+                  params: { id: item.id },
+                } as any)
+              }
               onSell={() => setSellMoto(item)}
               onReserver={() => handleUpdateStatut(item.id, "réservé")}
               onDispo={() => handleUpdateStatut(item.id, "disponible")}
@@ -509,7 +594,9 @@ function StockContent() {
               <Ionicons name="bicycle-outline" size={48} color="#ddd" />
               <Text style={styles.emptyTitle}>Aucune moto trouvée</Text>
               <Text style={styles.emptyText}>
-                {search ? "Essayez un autre terme de recherche" : "Ajoutez des motos pour les voir ici"}
+                {search
+                  ? "Essayez un autre terme de recherche"
+                  : "Ajoutez des motos pour les voir ici"}
               </Text>
             </View>
           }
@@ -517,7 +604,11 @@ function StockContent() {
       )}
 
       {/* ── FAB ────────────────────────────────────────────────────────────── */}
-      <TouchableOpacity style={styles.fab} onPress={() => router.push("/moto" as any)} activeOpacity={0.8}>
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => router.push("/moto" as any)}
+        activeOpacity={0.8}
+      >
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
 
@@ -624,7 +715,12 @@ const styles = StyleSheet.create({
   cardBody: { padding: 10 },
   cardTitle: { fontSize: 13, fontWeight: "700", color: "#1C1C1E" },
   cardSub: { fontSize: 11, color: "#8E8E93", marginTop: 2 },
-  cardPrice: { fontSize: 13, fontWeight: "700", color: "#FF9500", marginTop: 4 },
+  cardPrice: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#FF9500",
+    marginTop: 4,
+  },
   cardImmat: { fontSize: 10, color: "#aaa", marginTop: 2 },
   sellFastBtn: {
     position: "absolute",

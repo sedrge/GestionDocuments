@@ -2,26 +2,26 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  Alert,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import SignatureCanvas from "react-native-signature-canvas";
 import { AuthImage } from "../components/AuthImage";
 import { useTenant } from "../context/TenantContext";
-import { nombreEnLettres } from "../lib/nombreEnLettres";
 import { api } from "../lib/api";
 import { appendMaybeImage, buildFormData } from "../lib/formUpload";
+import { nombreEnLettres } from "../lib/nombreEnLettres";
 
 // Une valeur "locale" (data:/file:/content:) vient d'être capturée sur cet
 // écran ; une valeur "distante" est un chemin de stockage renvoyé par le
@@ -97,7 +97,9 @@ function SignatureBlock({
       </View>
       {signatureString ? (
         <View style={sigStyles.previewContainer}>
-          <Text style={{ fontSize: 12, color: "gray" }}>Signature mémorisée ✓</Text>
+          <Text style={{ fontSize: 12, color: "gray" }}>
+            Signature mémorisée ✓
+          </Text>
           {isLocalUri(signatureString) ? (
             <Image
               source={{ uri: signatureString }}
@@ -105,7 +107,11 @@ function SignatureBlock({
               resizeMode="contain"
             />
           ) : remoteUrl ? (
-            <AuthImage uri={remoteUrl} style={sigStyles.sigPreview} resizeMode="contain" />
+            <AuthImage
+              uri={remoteUrl}
+              style={sigStyles.sigPreview}
+              resizeMode="contain"
+            />
           ) : null}
         </View>
       ) : null}
@@ -123,7 +129,14 @@ interface PhotoPickerProps {
   onClear: () => void;
 }
 
-function PhotoPicker({ label, uri, remoteUrl, aspect, onPick, onClear }: PhotoPickerProps) {
+function PhotoPicker({
+  label,
+  uri,
+  remoteUrl,
+  aspect,
+  onPick,
+  onClear,
+}: PhotoPickerProps) {
   const ratio = aspect[0] / aspect[1];
   return (
     <View style={photoStyles.container}>
@@ -134,9 +147,17 @@ function PhotoPicker({ label, uri, remoteUrl, aspect, onPick, onClear }: PhotoPi
         activeOpacity={0.7}
       >
         {uri && isLocalUri(uri) ? (
-          <Image source={{ uri }} style={photoStyles.preview} resizeMode="cover" />
+          <Image
+            source={{ uri }}
+            style={photoStyles.preview}
+            resizeMode="cover"
+          />
         ) : remoteUrl ? (
-          <AuthImage uri={remoteUrl} style={photoStyles.preview} resizeMode="cover" />
+          <AuthImage
+            uri={remoteUrl}
+            style={photoStyles.preview}
+            resizeMode="cover"
+          />
         ) : (
           <View style={photoStyles.empty}>
             <View style={photoStyles.frameGuide} />
@@ -231,7 +252,9 @@ export default function RegistreForm() {
 
   // Signatures
   const [signatureMoto, setSignatureMoto] = useState<string | null>(null);
-  const [signatureDocuments, setSignatureDocuments] = useState<string | null>(null);
+  const [signatureDocuments, setSignatureDocuments] = useState<string | null>(
+    null,
+  );
 
   // Photos pièces
   const [clientIdType, setClientIdType] = useState<"cnib" | "passport">("cnib");
@@ -258,8 +281,11 @@ export default function RegistreForm() {
     if (!tenant?.enterprise_id) return;
     (async () => {
       try {
-        const parametres = await api.getEnterpriseSettings(tenant.enterprise_id);
-        if (parametres?.nom_entreprise) setNomEntreprise(parametres.nom_entreprise);
+        const parametres = await api.getEnterpriseSettings(
+          tenant.enterprise_id,
+        );
+        if (parametres?.nom_entreprise)
+          setNomEntreprise(parametres.nom_entreprise);
       } catch {
         // Pas bloquant : le champ lieu du RDV restera vide, l'utilisateur peut le compléter.
       }
@@ -462,30 +488,54 @@ export default function RegistreForm() {
       types_documents: documentsRecuperes ? typesDocuments : null,
       client_id_type: clientIdType,
       annee_mois_id: id ? null : dossierId,
-      enterprise_id: id ? null : tenant?.enterprise_id ?? null,
+      enterprise_id: id ? null : (tenant?.enterprise_id ?? null),
     });
 
     // Les champs fichiers ne sont ajoutés que s'ils contiennent une NOUVELLE
     // capture locale (data:/file:) — une valeur "à distance" (chemin renvoyé
     // par le serveur en mode édition) signifie "inchangé", on ne la ré-envoie pas.
-    await appendMaybeImage(form, "signature_uri", motoRecuperee ? localOnly(signatureMoto) : null);
-    await appendMaybeImage(form, "signature_documents_uri", documentsRecuperes ? localOnly(signatureDocuments) : null);
+    await appendMaybeImage(
+      form,
+      "signature_uri",
+      motoRecuperee ? localOnly(signatureMoto) : null,
+    );
+    await appendMaybeImage(
+      form,
+      "signature_documents_uri",
+      documentsRecuperes ? localOnly(signatureDocuments) : null,
+    );
     await appendMaybeImage(form, "client_id_recto", localOnly(clientIdRecto));
     if (clientIdType !== "passport") {
       await appendMaybeImage(form, "client_id_verso", localOnly(clientIdVerso));
     }
-    await appendMaybeImage(form, "carte_grise_recto", localOnly(carteGriseRecto));
-    await appendMaybeImage(form, "carte_grise_verso", localOnly(carteGriseVerso));
-    await appendMaybeImage(form, "certificat_vente", localOnly(certificatVente));
+    await appendMaybeImage(
+      form,
+      "carte_grise_recto",
+      localOnly(carteGriseRecto),
+    );
+    await appendMaybeImage(
+      form,
+      "carte_grise_verso",
+      localOnly(carteGriseVerso),
+    );
+    await appendMaybeImage(
+      form,
+      "certificat_vente",
+      localOnly(certificatVente),
+    );
 
     let saved: any;
     try {
-      saved = id ? await api.updateRegistre(String(id), form) : await api.createRegistre(form);
+      saved = id
+        ? await api.updateRegistre(String(id), form)
+        : await api.createRegistre(form);
     } catch (e: any) {
       Alert.alert("Erreur", e.message || "Échec de l'enregistrement.");
       return;
     }
-    const insertedRegistreId: string | null = id ? String(id) : saved?.id ?? null;
+    const insertedRegistreId: string | null = id
+      ? String(id)
+      : (saved?.id ?? null);
 
     // Auto-création du reçu correspondant (uniquement en création de registre)
     let recuMessage = "";
@@ -516,7 +566,12 @@ export default function RegistreForm() {
   // Crée un rendez-vous lié au registre pour la récupération restante
   const autoCreateRDV = async (
     registreLinkId: string | null,
-  ): Promise<{ ok: boolean; date?: string; heure?: string; warning?: string }> => {
+  ): Promise<{
+    ok: boolean;
+    date?: string;
+    heure?: string;
+    warning?: string;
+  }> => {
     if (!rdvDate.trim()) {
       return { ok: false, warning: "Rendez-vous non créé : date manquante." };
     }
@@ -554,12 +609,16 @@ export default function RegistreForm() {
   // Cherche (ou crée) le dossier annees_mois_recu portant le même nom que le dossier registre courant
   const findOrCreateRecuDossier = async (): Promise<string | null> => {
     const dossiers = await api.listAnneesMois();
-    const dossierRegistre = (dossiers ?? []).find((d: any) => d.id === dossierId);
+    const dossierRegistre = (dossiers ?? []).find(
+      (d: any) => d.id === dossierId,
+    );
     const nomDossier = dossierRegistre?.nom?.trim();
     if (!nomDossier) return null;
 
     const dossiersRecu = await api.listAnneesMoisRecu();
-    const existing = (dossiersRecu ?? []).find((d: any) => d.nom === nomDossier);
+    const existing = (dossiersRecu ?? []).find(
+      (d: any) => d.nom === nomDossier,
+    );
     if (existing?.id) return existing.id;
 
     try {
@@ -581,7 +640,9 @@ export default function RegistreForm() {
     }
 
     // Vérifie les paramètres entreprise (préfixe facture obligatoire)
-    const parametres = await api.getEnterpriseSettings(tenant.enterprise_id).catch(() => null);
+    const parametres = await api
+      .getEnterpriseSettings(tenant.enterprise_id)
+      .catch(() => null);
 
     if (!parametres || !parametres.nom_entreprise) {
       return {
@@ -643,378 +704,405 @@ export default function RegistreForm() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#f9f9f9" }}>
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: "#f9f9f9" }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={100}
-    >
-      <Stack.Screen
-        options={{ title: id ? "Modifier Registre" : "Ajouter Registre" }}
-      />
-
-      <ScrollView
-        scrollEnabled={scrollEnabled}
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView
+        style={{ flex: 1, backgroundColor: "#f9f9f9" }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={100}
       >
-        <View style={{ flexDirection: "row", gap: 10 }}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.label}>Date (JJ/MM/AAAA)</Text>
-            <TextInput
-              value={date}
-              onChangeText={(t) => {
-                let v = t.replace(/[^0-9]/g, "");
-                if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2);
-                if (v.length > 5) v = v.slice(0, 5) + "/" + v.slice(5);
-                setDate(v.slice(0, 10));
-              }}
-              style={styles.input}
-              placeholder="31/12/2026"
-              keyboardType="numeric"
-              maxLength={10}
-            />
+        <Stack.Screen
+          options={{ title: id ? "Modifier Registre" : "Ajouter Registre" }}
+        />
+
+        <ScrollView
+          scrollEnabled={scrollEnabled}
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Date (JJ/MM/AAAA)</Text>
+              <TextInput
+                value={date}
+                onChangeText={(t) => {
+                  let v = t.replace(/[^0-9]/g, "");
+                  if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2);
+                  if (v.length > 5) v = v.slice(0, 5) + "/" + v.slice(5);
+                  setDate(v.slice(0, 10));
+                }}
+                style={styles.input}
+                placeholder="31/12/2026"
+                keyboardType="numeric"
+                maxLength={10}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Téléphone du client</Text>
+              <TextInput
+                value={telephone}
+                onChangeText={setTelephone}
+                style={styles.input}
+                keyboardType="phone-pad"
+              />
+            </View>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.label}>Téléphone du client</Text>
-            <TextInput
-              value={telephone}
-              onChangeText={setTelephone}
-              style={styles.input}
-              keyboardType="phone-pad"
-            />
-          </View>
-        </View>
 
-        <Text style={styles.label}>Nom & Prénom du client</Text>
-        <TextInput
-          value={nomPrenom}
-          onChangeText={setNomPrenom}
-          style={styles.input}
-          placeholder="Ex: Jean Dupont"
-        />
-
-        {/* Démarcheur */}
-        <Text style={styles.sectionTitle}>DÉMARCHEUR</Text>
-        <View style={{ flexDirection: "row", gap: 10 }}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.label}>Nom du démarcheur</Text>
-            <TextInput
-              value={nomDemarcheur}
-              onChangeText={setNomDemarcheur}
-              style={styles.input}
-              placeholder="Ex: M. Ouédraogo"
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.label}>Téléphone démarcheur</Text>
-            <TextInput
-              value={telephoneDemarcheur}
-              onChangeText={setTelephoneDemarcheur}
-              style={styles.input}
-              keyboardType="phone-pad"
-            />
-          </View>
-        </View>
-
-        {/* Moto */}
-        <Text style={styles.sectionTitle}>MOTO</Text>
-        {!id && (
-          <Text style={styles.hintInfo}>
-            Renseignez le n° de série ou l'immatriculation : si la moto existe déjà dans votre base,
-            les autres infos seront récupérées automatiquement.
-          </Text>
-        )}
-        <Text style={styles.label}>
-          N° Série Moto{lookupLoading ? " (recherche...)" : ""}
-        </Text>
-        <TextInput
-          value={numeroSerie}
-          onChangeText={setNumeroSerie}
-          onBlur={handleMotoLookup}
-          style={styles.input}
-        />
-
-        <Text style={styles.label}>Immatriculation</Text>
-        <TextInput
-          value={immatriculation}
-          onChangeText={setImmatriculation}
-          onBlur={handleMotoLookup}
-          style={styles.input}
-        />
-        {matchedMoto && (
-          <Text style={styles.hintOk}>
-            ✓ Moto reconnue : {[matchedMoto.marque, matchedMoto.modele || matchedMoto.type, matchedMoto.couleur]
-              .filter(Boolean)
-              .join(" ")}
-          </Text>
-        )}
-
-        <Text style={styles.label}>Provenance</Text>
-        <TextInput
-          value={provenance}
-          onChangeText={setProvenance}
-          style={styles.input}
-        />
-
-        <Text style={styles.label}>Nature</Text>
-        <TextInput
-          value={nature}
-          onChangeText={setNature}
-          style={styles.input}
-        />
-
-        <Text style={styles.label}>Nom du Signateur / Provenance</Text>
-        <TextInput
-          value={nomSignateur}
-          onChangeText={setNomSignateur}
-          style={styles.input}
-        />
-
-        {/* Pièce d'identité du client */}
-        <Text style={styles.sectionTitle}>PIÈCE D'IDENTITÉ DU CLIENT</Text>
-        <View style={photoStyles.radioRow}>
-          <TouchableOpacity
-            onPress={() => setClientIdType("cnib")}
-            style={[photoStyles.radio, clientIdType === "cnib" && photoStyles.radioActive]}
-          >
-            <Text
-              style={[
-                photoStyles.radioText,
-                clientIdType === "cnib" && photoStyles.radioTextActive,
-              ]}
-            >
-              CNIB (recto / verso)
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setClientIdType("passport")}
-            style={[
-              photoStyles.radio,
-              clientIdType === "passport" && photoStyles.radioActive,
-            ]}
-          >
-            <Text
-              style={[
-                photoStyles.radioText,
-                clientIdType === "passport" && photoStyles.radioTextActive,
-              ]}
-            >
-              Passeport (recto)
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <PhotoPicker
-          label={clientIdType === "passport" ? "Passeport (recto)" : "CNIB — Recto"}
-          uri={clientIdRecto}
-          remoteUrl={remoteFileUrl("client_id_recto")}
-          aspect={clientIdType === "passport" ? PASSPORT_ASPECT : ID_ASPECT}
-          onPick={() =>
-            pickPhoto(
-              setClientIdRecto,
-              clientIdType === "passport" ? PASSPORT_ASPECT : ID_ASPECT,
-            )
-          }
-          onClear={() => setClientIdRecto(null)}
-        />
-        {clientIdType === "cnib" && (
-          <PhotoPicker
-            label="CNIB — Verso"
-            uri={clientIdVerso}
-            remoteUrl={remoteFileUrl("client_id_verso")}
-            aspect={ID_ASPECT}
-            onPick={() => pickPhoto(setClientIdVerso, ID_ASPECT)}
-            onClear={() => setClientIdVerso(null)}
+          <Text style={styles.label}>Nom & Prénom du client</Text>
+          <TextInput
+            value={nomPrenom}
+            onChangeText={setNomPrenom}
+            style={styles.input}
+            placeholder="Ex: Moussa Ouédraogo"
           />
-        )}
 
-        {/* Carte grise */}
-        <Text style={styles.sectionTitle}>CARTE GRISE</Text>
-        <PhotoPicker
-          label="Carte grise — Recto"
-          uri={carteGriseRecto}
-          remoteUrl={remoteFileUrl("carte_grise_recto")}
-          aspect={ID_ASPECT}
-          onPick={() => pickPhoto(setCarteGriseRecto, ID_ASPECT)}
-          onClear={() => setCarteGriseRecto(null)}
-        />
-        <PhotoPicker
-          label="Carte grise — Verso"
-          uri={carteGriseVerso}
-          remoteUrl={remoteFileUrl("carte_grise_verso")}
-          aspect={ID_ASPECT}
-          onPick={() => pickPhoto(setCarteGriseVerso, ID_ASPECT)}
-          onClear={() => setCarteGriseVerso(null)}
-        />
+          {/* Démarcheur */}
+          <Text style={styles.sectionTitle}>DÉMARCHEUR</Text>
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Nom du démarcheur</Text>
+              <TextInput
+                value={nomDemarcheur}
+                onChangeText={setNomDemarcheur}
+                style={styles.input}
+                placeholder="Ex: M. Ouédraogo"
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Téléphone démarcheur</Text>
+              <TextInput
+                value={telephoneDemarcheur}
+                onChangeText={setTelephoneDemarcheur}
+                style={styles.input}
+                keyboardType="phone-pad"
+              />
+            </View>
+          </View>
 
-        {/* Certificat de vente */}
-        <Text style={styles.sectionTitle}>CERTIFICAT DE VENTE</Text>
-        <PhotoPicker
-          label="Certificat de vente"
-          uri={certificatVente}
-          remoteUrl={remoteFileUrl("certificat_vente")}
-          aspect={CERT_ASPECT}
-          onPick={() => pickPhoto(setCertificatVente, CERT_ASPECT)}
-          onClear={() => setCertificatVente(null)}
-        />
+          {/* Moto */}
+          <Text style={styles.sectionTitle}>MOTO</Text>
+          {!id && (
+            <Text style={styles.hintInfo}>
+              Renseignez le n° de série ou l'immatriculation : si la moto existe
+              déjà dans votre base, les autres infos seront récupérées
+              automatiquement.
+            </Text>
+          )}
+          <Text style={styles.label}>
+            N° Série Moto{lookupLoading ? " (recherche...)" : ""}
+          </Text>
+          <TextInput
+            value={numeroSerie}
+            onChangeText={setNumeroSerie}
+            onBlur={handleMotoLookup}
+            style={styles.input}
+          />
 
-        {/* Statut récupération */}
-        <Text style={styles.sectionTitle}>STATUT DE RÉCUPÉRATION</Text>
-        <Checkbox
-          label="Moto récupérée"
-          value={motoRecuperee}
-          onChange={setMotoRecuperee}
-        />
-        {!motoRecuperee && (
-          <Text style={styles.statusHint}>Statut : moto non récupérée</Text>
-        )}
+          <Text style={styles.label}>Immatriculation</Text>
+          <TextInput
+            value={immatriculation}
+            onChangeText={setImmatriculation}
+            onBlur={handleMotoLookup}
+            style={styles.input}
+          />
+          {matchedMoto && (
+            <Text style={styles.hintOk}>
+              ✓ Moto reconnue :{" "}
+              {[
+                matchedMoto.marque,
+                matchedMoto.modele || matchedMoto.type,
+                matchedMoto.couleur,
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            </Text>
+          )}
 
-        <View style={{ height: 8 }} />
-        <Checkbox
-          label="Documents récupérés"
-          value={documentsRecuperes}
-          onChange={setDocumentsRecuperes}
-        />
-        {!documentsRecuperes && (
-          <Text style={styles.statusHint}>Statut : documents non récupérés</Text>
-        )}
+          <Text style={styles.label}>Provenance</Text>
+          <TextInput
+            value={provenance}
+            onChangeText={setProvenance}
+            style={styles.input}
+          />
 
-        {documentsRecuperes && (
-          <>
-            <Text style={styles.label}>Type(s) de document(s) récupéré(s)</Text>
-            <TextInput
-              value={typesDocuments}
-              onChangeText={setTypesDocuments}
-              style={[styles.input, { minHeight: 60 }]}
-              placeholder="Ex: Carte grise, certificat de vente, attestation d'assurance..."
-              multiline
+          <Text style={styles.label}>Nature</Text>
+          <TextInput
+            value={nature}
+            onChangeText={setNature}
+            style={styles.input}
+          />
+
+          <Text style={styles.label}>Nom du Signateur / Provenance</Text>
+          <TextInput
+            value={nomSignateur}
+            onChangeText={setNomSignateur}
+            style={styles.input}
+          />
+
+          {/* Pièce d'identité du client */}
+          <Text style={styles.sectionTitle}>PIÈCE D'IDENTITÉ DU CLIENT</Text>
+          <View style={photoStyles.radioRow}>
+            <TouchableOpacity
+              onPress={() => setClientIdType("cnib")}
+              style={[
+                photoStyles.radio,
+                clientIdType === "cnib" && photoStyles.radioActive,
+              ]}
+            >
+              <Text
+                style={[
+                  photoStyles.radioText,
+                  clientIdType === "cnib" && photoStyles.radioTextActive,
+                ]}
+              >
+                CNIB (recto / verso)
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setClientIdType("passport")}
+              style={[
+                photoStyles.radio,
+                clientIdType === "passport" && photoStyles.radioActive,
+              ]}
+            >
+              <Text
+                style={[
+                  photoStyles.radioText,
+                  clientIdType === "passport" && photoStyles.radioTextActive,
+                ]}
+              >
+                Passeport (recto)
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <PhotoPicker
+            label={
+              clientIdType === "passport" ? "Passeport (recto)" : "CNIB — Recto"
+            }
+            uri={clientIdRecto}
+            remoteUrl={remoteFileUrl("client_id_recto")}
+            aspect={clientIdType === "passport" ? PASSPORT_ASPECT : ID_ASPECT}
+            onPick={() =>
+              pickPhoto(
+                setClientIdRecto,
+                clientIdType === "passport" ? PASSPORT_ASPECT : ID_ASPECT,
+              )
+            }
+            onClear={() => setClientIdRecto(null)}
+          />
+          {clientIdType === "cnib" && (
+            <PhotoPicker
+              label="CNIB — Verso"
+              uri={clientIdVerso}
+              remoteUrl={remoteFileUrl("client_id_verso")}
+              aspect={ID_ASPECT}
+              onPick={() => pickPhoto(setClientIdVerso, ID_ASPECT)}
+              onClear={() => setClientIdVerso(null)}
             />
-          </>
-        )}
+          )}
 
-        {/* Signatures conditionnelles (empilées : 2 WebViews côte à côte
+          {/* Carte grise */}
+          <Text style={styles.sectionTitle}>CARTE GRISE</Text>
+          <PhotoPicker
+            label="Carte grise — Recto"
+            uri={carteGriseRecto}
+            remoteUrl={remoteFileUrl("carte_grise_recto")}
+            aspect={ID_ASPECT}
+            onPick={() => pickPhoto(setCarteGriseRecto, ID_ASPECT)}
+            onClear={() => setCarteGriseRecto(null)}
+          />
+          <PhotoPicker
+            label="Carte grise — Verso"
+            uri={carteGriseVerso}
+            remoteUrl={remoteFileUrl("carte_grise_verso")}
+            aspect={ID_ASPECT}
+            onPick={() => pickPhoto(setCarteGriseVerso, ID_ASPECT)}
+            onClear={() => setCarteGriseVerso(null)}
+          />
+
+          {/* Certificat de vente */}
+          <Text style={styles.sectionTitle}>CERTIFICAT DE VENTE</Text>
+          <PhotoPicker
+            label="Certificat de vente"
+            uri={certificatVente}
+            remoteUrl={remoteFileUrl("certificat_vente")}
+            aspect={CERT_ASPECT}
+            onPick={() => pickPhoto(setCertificatVente, CERT_ASPECT)}
+            onClear={() => setCertificatVente(null)}
+          />
+
+          {/* Statut récupération */}
+          <Text style={styles.sectionTitle}>STATUT DE RÉCUPÉRATION</Text>
+          <Checkbox
+            label="Moto récupérée"
+            value={motoRecuperee}
+            onChange={setMotoRecuperee}
+          />
+          {!motoRecuperee && (
+            <Text style={styles.statusHint}>Statut : moto non récupérée</Text>
+          )}
+
+          <View style={{ height: 8 }} />
+          <Checkbox
+            label="Documents récupérés"
+            value={documentsRecuperes}
+            onChange={setDocumentsRecuperes}
+          />
+          {!documentsRecuperes && (
+            <Text style={styles.statusHint}>
+              Statut : documents non récupérés
+            </Text>
+          )}
+
+          {documentsRecuperes && (
+            <>
+              <Text style={styles.label}>
+                Type(s) de document(s) récupéré(s)
+              </Text>
+              <TextInput
+                value={typesDocuments}
+                onChangeText={setTypesDocuments}
+                style={[styles.input, { minHeight: 60 }]}
+                placeholder="Ex: Carte grise, certificat de vente, attestation d'assurance..."
+                multiline
+              />
+            </>
+          )}
+
+          {/* Signatures conditionnelles (empilées : 2 WebViews côte à côte
             cassent la zone tactile sur Android) */}
-        {(motoRecuperee || documentsRecuperes) && (
-          <>
-            <Text style={styles.sectionTitle}>SIGNATURES</Text>
-            {motoRecuperee && (
-              <SignatureBlock
-                title="Récupération moto :"
-                signatureString={signatureMoto}
-                remoteUrl={remoteFileUrl("signature_uri")}
-                onScrollLock={(locked) => setScrollEnabled(!locked)}
-                onValidate={setSignatureMoto}
-                onClear={() => setSignatureMoto(null)}
-              />
-            )}
-            {documentsRecuperes && (
-              <SignatureBlock
-                title="Récupération documents :"
-                signatureString={signatureDocuments}
-                remoteUrl={remoteFileUrl("signature_documents_uri")}
-                onScrollLock={(locked) => setScrollEnabled(!locked)}
-                onValidate={setSignatureDocuments}
-                onClear={() => setSignatureDocuments(null)}
-              />
-            )}
-          </>
-        )}
+          {(motoRecuperee || documentsRecuperes) && (
+            <>
+              <Text style={styles.sectionTitle}>SIGNATURES</Text>
+              {motoRecuperee && (
+                <SignatureBlock
+                  title="Récupération moto :"
+                  signatureString={signatureMoto}
+                  remoteUrl={remoteFileUrl("signature_uri")}
+                  onScrollLock={(locked) => setScrollEnabled(!locked)}
+                  onValidate={setSignatureMoto}
+                  onClear={() => setSignatureMoto(null)}
+                />
+              )}
+              {documentsRecuperes && (
+                <SignatureBlock
+                  title="Récupération documents :"
+                  signatureString={signatureDocuments}
+                  remoteUrl={remoteFileUrl("signature_documents_uri")}
+                  onScrollLock={(locked) => setScrollEnabled(!locked)}
+                  onValidate={setSignatureDocuments}
+                  onClear={() => setSignatureDocuments(null)}
+                />
+              )}
+            </>
+          )}
 
-        {/* Rendez-vous de récupération (uniquement en création et si quelque chose
+          {/* Rendez-vous de récupération (uniquement en création et si quelque chose
             n'a pas été récupéré) */}
-        {!id && besoinRDV && (
-          <View style={styles.rdvAutoBox}>
-            <Text style={styles.rdvAutoTitle}>
-              <Ionicons name="calendar-outline" size={14} color="#5856D6" /> Rendez-vous
-              de récupération
-            </Text>
-            <Text style={styles.rdvAutoHint}>
-              Comme {!motoRecuperee && !documentsRecuperes
-                ? "la moto et les documents n'ont"
-                : !motoRecuperee
-                  ? "la moto n'a"
-                  : "les documents n'ont"}{" "}
-              pas été récupéré{!motoRecuperee && !documentsRecuperes ? "s" : !motoRecuperee ? "e" : "s"},
-              programmez un rendez-vous pour la récupération.
-            </Text>
+          {!id && besoinRDV && (
+            <View style={styles.rdvAutoBox}>
+              <Text style={styles.rdvAutoTitle}>
+                <Ionicons name="calendar-outline" size={14} color="#5856D6" />{" "}
+                Rendez-vous de récupération
+              </Text>
+              <Text style={styles.rdvAutoHint}>
+                Comme{" "}
+                {!motoRecuperee && !documentsRecuperes
+                  ? "la moto et les documents n'ont"
+                  : !motoRecuperee
+                    ? "la moto n'a"
+                    : "les documents n'ont"}{" "}
+                pas été récupéré
+                {!motoRecuperee && !documentsRecuperes
+                  ? "s"
+                  : !motoRecuperee
+                    ? "e"
+                    : "s"}
+                , programmez un rendez-vous pour la récupération.
+              </Text>
 
-            <Checkbox
-              label="Créer automatiquement le rendez-vous"
-              value={autoCreerRDV}
-              onChange={setAutoCreerRDV}
-            />
+              <Checkbox
+                label="Créer automatiquement le rendez-vous"
+                value={autoCreerRDV}
+                onChange={setAutoCreerRDV}
+              />
 
-            {autoCreerRDV && (
-              <>
-                <View style={{ flexDirection: "row", gap: 10, marginTop: 8 }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.label}>Date (JJ/MM/AAAA) *</Text>
-                    <TextInput
-                      value={rdvDate}
-                      onChangeText={(t) => {
-                        let v = t.replace(/[^0-9]/g, "");
-                        if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2);
-                        if (v.length > 5) v = v.slice(0, 5) + "/" + v.slice(5);
-                        setRdvDate(v.slice(0, 10));
-                      }}
-                      style={styles.input}
-                      placeholder="15/06/2026"
-                      keyboardType="numeric"
-                      maxLength={10}
-                    />
+              {autoCreerRDV && (
+                <>
+                  <View style={{ flexDirection: "row", gap: 10, marginTop: 8 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.label}>Date (JJ/MM/AAAA) *</Text>
+                      <TextInput
+                        value={rdvDate}
+                        onChangeText={(t) => {
+                          let v = t.replace(/[^0-9]/g, "");
+                          if (v.length > 2)
+                            v = v.slice(0, 2) + "/" + v.slice(2);
+                          if (v.length > 5)
+                            v = v.slice(0, 5) + "/" + v.slice(5);
+                          setRdvDate(v.slice(0, 10));
+                        }}
+                        style={styles.input}
+                        placeholder="15/06/2026"
+                        keyboardType="numeric"
+                        maxLength={10}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.label}>Heure (HH:MM)</Text>
+                      <TextInput
+                        value={rdvHeure}
+                        onChangeText={setRdvHeure}
+                        style={styles.input}
+                        placeholder="Ex: 14:30"
+                      />
+                    </View>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.label}>Heure (HH:MM)</Text>
-                    <TextInput
-                      value={rdvHeure}
-                      onChangeText={setRdvHeure}
-                      style={styles.input}
-                      placeholder="Ex: 14:30"
-                    />
+
+                  <View style={styles.rdvPreview}>
+                    <Text style={styles.rdvPreviewLabel}>Motif :</Text>
+                    <Text style={styles.rdvPreviewValue}>
+                      {computeMotifRDV()}
+                    </Text>
+                    <Text style={styles.rdvPreviewLabel}>Lieu :</Text>
+                    <Text style={styles.rdvPreviewValue}>
+                      {nomEntreprise ||
+                        "(Configurez le nom dans Paramètres > Entête)"}
+                    </Text>
+                    <Text style={styles.rdvPreviewLabel}>Client :</Text>
+                    <Text style={styles.rdvPreviewValue}>
+                      {nomPrenom || "(Saisissez le nom du client)"}
+                    </Text>
                   </View>
-                </View>
+                </>
+              )}
+            </View>
+          )}
 
-                <View style={styles.rdvPreview}>
-                  <Text style={styles.rdvPreviewLabel}>Motif :</Text>
-                  <Text style={styles.rdvPreviewValue}>{computeMotifRDV()}</Text>
-                  <Text style={styles.rdvPreviewLabel}>Lieu :</Text>
-                  <Text style={styles.rdvPreviewValue}>
-                    {nomEntreprise || "(Configurez le nom dans Paramètres > Entête)"}
-                  </Text>
-                  <Text style={styles.rdvPreviewLabel}>Client :</Text>
-                  <Text style={styles.rdvPreviewValue}>
-                    {nomPrenom || "(Saisissez le nom du client)"}
-                  </Text>
-                </View>
-              </>
-            )}
+          {/* Auto-création du reçu (uniquement en création) */}
+          {!id && (
+            <View style={styles.recuAutoBox}>
+              <Checkbox
+                label="Créer automatiquement le réçu correspondant"
+                value={autoCreerRecu}
+                onChange={setAutoCreerRecu}
+              />
+              <Text style={styles.recuAutoHint}>
+                Un réçu pré-rempli (date, client, infos moto) sera ajouté au
+                dossier reçus du même nom. Vous pourrez le compléter
+                (signatures, prix, etc.) dans la partie Réçus.
+              </Text>
+            </View>
+          )}
+
+          <View style={{ marginTop: 30 }}>
+            <TouchableOpacity onPress={handleSave} style={styles.saveBtn}>
+              <Text style={styles.saveBtnText}>
+                {id ? "METTRE À JOUR" : "SAUVEGARDER LE REGISTRE"}
+              </Text>
+            </TouchableOpacity>
           </View>
-        )}
-
-        {/* Auto-création du reçu (uniquement en création) */}
-        {!id && (
-          <View style={styles.recuAutoBox}>
-            <Checkbox
-              label="Créer automatiquement le réçu correspondant"
-              value={autoCreerRecu}
-              onChange={setAutoCreerRecu}
-            />
-            <Text style={styles.recuAutoHint}>
-              Un réçu pré-rempli (date, client, infos moto) sera ajouté au dossier reçus du même nom.
-              Vous pourrez le compléter (signatures, prix, etc.) dans la partie Réçus.
-            </Text>
-          </View>
-        )}
-
-        <View style={{ marginTop: 30 }}>
-          <TouchableOpacity onPress={handleSave} style={styles.saveBtn}>
-            <Text style={styles.saveBtnText}>
-              {id ? "METTRE À JOUR" : "SAUVEGARDER LE REGISTRE"}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -1156,7 +1244,13 @@ const photoStyles = StyleSheet.create({
     width: "100%",
   },
   preview: { width: "100%", height: "100%" },
-  empty: { flex: 1, justifyContent: "center", alignItems: "center", gap: 4, padding: 10 },
+  empty: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 4,
+    padding: 10,
+  },
   emptyText: { color: "#666", fontSize: 13, fontWeight: "600" },
   hintText: { color: "#999", fontSize: 10, textAlign: "center", marginTop: 2 },
   frameGuide: {

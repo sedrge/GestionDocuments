@@ -1,15 +1,16 @@
-import React, { useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Modal,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { WebView } from "react-native-webview";
 import * as Location from "expo-location";
+import { useRef, useState } from "react";
+import {
+    ActivityIndicator,
+    Modal,
+    SafeAreaView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { WebView } from "react-native-webview";
 
 export interface LocationResult {
   latitude: number;
@@ -169,10 +170,11 @@ export default function MapPickerModal({
   onClose,
   onLocationSelected,
   initialLatitude = 12.3647,
-  initialLongitude = -1.5330,
+  initialLongitude = -1.533,
 }: MapPickerModalProps) {
   const [loading, setLoading] = useState(true);
   const webViewRef = useRef<WebView>(null);
+  const insets = useSafeAreaInsets();
 
   const handleMessage = async (event: { nativeEvent: { data: string } }) => {
     try {
@@ -182,7 +184,7 @@ export default function MapPickerModal({
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== "granted") {
           webViewRef.current?.injectJavaScript(
-            `locateError("Permission de localisation refusée. Activez-la dans les paramètres."); true;`
+            `locateError("Permission de localisation refusée. Activez-la dans les paramètres."); true;`,
           );
           return;
         }
@@ -192,11 +194,11 @@ export default function MapPickerModal({
           });
           const { latitude, longitude } = pos.coords;
           webViewRef.current?.injectJavaScript(
-            `receiveLocation(${latitude}, ${longitude}); true;`
+            `receiveLocation(${latitude}, ${longitude}); true;`,
           );
         } catch {
           webViewRef.current?.injectJavaScript(
-            `locateError("Impossible de récupérer votre position GPS."); true;`
+            `locateError("Impossible de récupérer votre position GPS."); true;`,
           );
         }
         return;
@@ -219,7 +221,7 @@ export default function MapPickerModal({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, { paddingBottom: insets.bottom }]}>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Localisation de la boutique</Text>
@@ -229,7 +231,8 @@ export default function MapPickerModal({
         </View>
 
         <Text style={styles.subtitle}>
-          Touchez la carte ou utilisez votre position GPS pour marquer l'emplacement.
+          Touchez la carte ou utilisez votre position GPS pour marquer
+          l'emplacement.
         </Text>
 
         {/* Loading overlay */}
@@ -243,7 +246,7 @@ export default function MapPickerModal({
         {/* Map WebView */}
         <WebView
           ref={webViewRef}
-          style={styles.webview}
+          style={[styles.webview, { marginBottom: insets.bottom }]}
           source={{ html: buildMapHtml(initialLatitude, initialLongitude) }}
           javaScriptEnabled
           domStorageEnabled

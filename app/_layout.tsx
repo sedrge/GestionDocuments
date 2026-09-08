@@ -1,25 +1,38 @@
-import { Ionicons } from '@expo/vector-icons';
-import { router, Stack, useSegments } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import { router, Stack, useSegments } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import "react-native-reanimated";
+import {
+    SafeAreaProvider,
+    useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
-import { TenantProvider, useTenant } from '../context/TenantContext';
-import { ThemeProvider } from '../context/ThemeContext';
-import { FeatureFlagsProvider } from '../context/FeatureFlagsContext';
-import { registerForPushNotifications, setupNotificationListeners } from '@/lib/firebase';
-import { useAppUpdates } from '@/hooks/use-app-updates';
-import { getToken } from '../lib/api';
+import { useAppUpdates } from "@/hooks/use-app-updates";
+import {
+    registerForPushNotifications,
+    setupNotificationListeners,
+} from "@/lib/firebase";
+import { FeatureFlagsProvider } from "../context/FeatureFlagsContext";
+import { TenantProvider, useTenant } from "../context/TenantContext";
+import { ThemeProvider } from "../context/ThemeContext";
+import { getToken } from "../lib/api";
 
 export const unstable_settings = {
-  anchor: '(tabs)',
+  anchor: "(tabs)",
 };
 
 function RouteGuard() {
-  const { loading, isAuthenticated, tenant, pendingState, isSuperAdmin, isImpersonating } = useTenant();
+  const {
+    loading,
+    isAuthenticated,
+    tenant,
+    pendingState,
+    isSuperAdmin,
+    isImpersonating,
+  } = useTenant();
   const segments = useSegments();
 
   useEffect(() => {
@@ -29,25 +42,31 @@ function RouteGuard() {
     if (!root) return;
 
     // Routes publiques
-    if (root === '(tabs)' || root === 'chat' || root === 'contact' || root === 'dev-api-test') return;
+    if (
+      root === "(tabs)" ||
+      root === "chat" ||
+      root === "contact" ||
+      root === "dev-api-test"
+    )
+      return;
 
-    const inAuthFlow = root === 'onboarding' || root === 'auth';
-    const inPendingScreen = root === 'pending';
-    const inAdminFlow = root === 'admin';
+    const inAuthFlow = root === "onboarding" || root === "auth";
+    const inPendingScreen = root === "pending";
+    const inAdminFlow = root === "admin";
 
     if (!isAuthenticated) {
-      if (!inAuthFlow) router.replace('/onboarding');
+      if (!inAuthFlow) router.replace("/onboarding");
       return;
     }
 
     if (pendingState) {
-      if (!inPendingScreen) router.replace('/pending');
+      if (!inPendingScreen) router.replace("/pending");
       return;
     }
 
     // Super admin : redirige vers le hub super-admin (sauf si impersonation active)
     if (isSuperAdmin) {
-      if (!inAdminFlow) router.replace('/admin/super-admin-home');
+      if (!inAdminFlow) router.replace("/admin/super-admin-home");
       return;
     }
 
@@ -57,9 +76,17 @@ function RouteGuard() {
     // atterrit sur /home après connexion (cohérent avec la logique de
     // (tabs)/index.tsx qui fait de même après un redémarrage de l'app).
     if (tenant && inAuthFlow) {
-      router.replace('/home');
+      router.replace("/home");
     }
-  }, [loading, isAuthenticated, tenant, pendingState, isSuperAdmin, isImpersonating, segments]);
+  }, [
+    loading,
+    isAuthenticated,
+    tenant,
+    pendingState,
+    isSuperAdmin,
+    isImpersonating,
+    segments,
+  ]);
 
   return null;
 }
@@ -72,13 +99,14 @@ function ImpersonationBanner() {
     <View style={bannerStyles.banner}>
       <Ionicons name="eye-outline" size={15} color="#fff" />
       <Text style={bannerStyles.bannerText} numberOfLines={1}>
-        Dépannage: <Text style={{ fontWeight: '700' }}>{tenant?.enterprise_name}</Text>
+        Dépannage:{" "}
+        <Text style={{ fontWeight: "700" }}>{tenant?.enterprise_name}</Text>
       </Text>
       <TouchableOpacity
         style={bannerStyles.exitBtn}
         onPress={() => {
           stopImpersonation();
-          router.replace('/admin/super-admin-home');
+          router.replace("/admin/super-admin-home");
         }}
         activeOpacity={0.8}
       >
@@ -106,7 +134,11 @@ function UpdateBanner() {
       <Text style={bannerStyles.bannerText} numberOfLines={1}>
         Nouvelle version disponible
       </Text>
-      <TouchableOpacity style={bannerStyles.exitBtn} onPress={applyJsUpdate} activeOpacity={0.8}>
+      <TouchableOpacity
+        style={bannerStyles.exitBtn}
+        onPress={applyJsUpdate}
+        activeOpacity={0.8}
+      >
         <Text style={bannerStyles.exitText}>Redémarrer</Text>
       </TouchableOpacity>
     </View>
@@ -115,49 +147,49 @@ function UpdateBanner() {
 
 const bannerStyles = StyleSheet.create({
   banner: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
     zIndex: 99,
-    backgroundColor: '#5856D6',
-    flexDirection: 'row',
-    alignItems: 'center',
+    backgroundColor: "#5856D6",
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
     gap: 8,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 8,
   },
   updateBanner: {
-    position: 'absolute',
+    position: "absolute",
     left: 12,
     right: 12,
     zIndex: 99,
-    backgroundColor: '#2E7D32',
-    flexDirection: 'row',
-    alignItems: 'center',
+    backgroundColor: "#2E7D32",
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 12,
     gap: 8,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 8,
   },
-  bannerText: { color: '#fff', flex: 1, fontSize: 13 },
+  bannerText: { color: "#fff", flex: 1, fontSize: 13 },
   exitBtn: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: "rgba(255,255,255,0.25)",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
   },
-  exitText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  exitText: { color: "#fff", fontSize: 12, fontWeight: "700" },
 });
 
 function AppStack() {
@@ -202,7 +234,13 @@ function AppStack() {
         <Stack.Screen name="aide" />
         <Stack.Screen name="chat" />
         <Stack.Screen name="dev-api-test" />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: true }} />
+        <Stack.Screen name="auth/verify-email" />
+        <Stack.Screen name="auth/forgot-password" />
+        <Stack.Screen name="auth/reset-password" />
+        <Stack.Screen
+          name="modal"
+          options={{ presentation: "modal", headerShown: true }}
+        />
       </Stack>
       <ImpersonationBanner />
       <UpdateBanner />
@@ -217,7 +255,7 @@ export default function RootLayout() {
       const authToken = await getToken();
       if (authToken) {
         const token = await registerForPushNotifications();
-        if (token) console.log('✅ Token push enregistré:', token);
+        if (token) console.log("✅ Token push enregistré:", token);
         setupNotificationListeners();
       }
     };

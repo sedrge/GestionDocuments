@@ -1,40 +1,22 @@
+import PasswordInput from "@/components/PasswordInput";
+import { useTheme } from "@/context/ThemeContext";
 import { joinEnterprise } from "@/lib/multitenant";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import { useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const themes = {
-  light: {
-    bg: "#F5F5F7",
-    card: "#FFFFFF",
-    text: "#1C1C1E",
-    subText: "#8E8E93",
-    primary: "#007AFF",
-    border: "#D1D1D6",
-  },
-  dark: {
-    bg: "#121212",
-    card: "#1E1E1E",
-    text: "#FFFFFF",
-    subText: "#A1A1A1",
-    primary: "#0A84FF",
-    border: "#38383A",
-  },
-};
-
 export default function JoinEnterpriseScreen() {
-  const isDark = true;
-  const theme = isDark ? themes.dark : themes.light;
+  const { theme } = useTheme();
   const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -87,8 +69,12 @@ export default function JoinEnterpriseScreen() {
       if (result.success) {
         Alert.alert("✅ Compte créé !", result.message, [
           {
-            text: "Se connecter",
-            onPress: () => router.replace("/auth/login"),
+            text: "Confirmer mon email",
+            onPress: () =>
+              router.replace({
+                pathname: "/auth/verify-email",
+                params: { email: formData.email.trim() },
+              } as never),
           },
         ]);
       } else {
@@ -104,193 +90,197 @@ export default function JoinEnterpriseScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
-    <ScrollView
-      style={{ flex: 1 }}
-      contentContainerStyle={styles.content}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={[styles.backBtn, { color: theme.primary }]}>
-            ← Retour
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Text style={[styles.backBtn, { color: theme.primary }]}>
+              ← Retour
+            </Text>
+          </TouchableOpacity>
+          <Text style={[styles.title, { color: theme.text }]}>
+            Rejoindre une Entreprise
+          </Text>
+        </View>
+
+        {/* Info Box */}
+        <View
+          style={[
+            styles.infoBox,
+            {
+              backgroundColor: theme.primary + "20",
+              borderColor: theme.primary,
+            },
+          ]}
+        >
+          <Text style={[styles.infoText, { color: theme.text }]}>
+            💡 Demandez le code d'entreprise à votre administrateur
+          </Text>
+        </View>
+
+        {/* Formulaire */}
+        <View
+          style={[
+            styles.form,
+            { backgroundColor: theme.card, borderColor: theme.border },
+          ]}
+        >
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>
+            📋 Code de l'Entreprise
+          </Text>
+
+          <Text style={[styles.label, { color: theme.text }]}>
+            Code (ex: ENT-ABC123)
+          </Text>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.bg,
+                color: theme.text,
+                borderColor: theme.border,
+              },
+            ]}
+            placeholder="ENT-XXXXXX"
+            placeholderTextColor={theme.subText}
+            value={formData.code}
+            onChangeText={(text) =>
+              setFormData({ ...formData, code: text.toUpperCase() })
+            }
+          />
+
+          {/* User Info Section */}
+          <Text
+            style={[styles.sectionTitle, { color: theme.text, marginTop: 24 }]}
+          >
+            👤 Vos Informations
+          </Text>
+
+          <Text style={[styles.label, { color: theme.text }]}>Nom complet</Text>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.bg,
+                color: theme.text,
+                borderColor: theme.border,
+              },
+            ]}
+            placeholder="Awa Ouédraogo"
+            placeholderTextColor={theme.subText}
+            value={formData.fullName}
+            onChangeText={(text) =>
+              setFormData({ ...formData, fullName: text })
+            }
+          />
+
+          <Text style={[styles.label, { color: theme.text }]}>Email</Text>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.bg,
+                color: theme.text,
+                borderColor: theme.border,
+              },
+            ]}
+            placeholder="awa@example.bf"
+            placeholderTextColor={theme.subText}
+            keyboardType="email-address"
+            value={formData.email}
+            onChangeText={(text) => setFormData({ ...formData, email: text })}
+          />
+
+          <Text style={[styles.label, { color: theme.text }]}>Téléphone</Text>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.bg,
+                color: theme.text,
+                borderColor: theme.border,
+              },
+            ]}
+            placeholder="+226 70 00 00 00"
+            placeholderTextColor={theme.subText}
+            value={formData.phone}
+            onChangeText={(text) => setFormData({ ...formData, phone: text })}
+          />
+
+          {/* Password Section */}
+          <Text
+            style={[styles.sectionTitle, { color: theme.text, marginTop: 24 }]}
+          >
+            🔐 Mot de Passe
+          </Text>
+
+          <Text style={[styles.label, { color: theme.text }]}>
+            Mot de passe
+          </Text>
+          <PasswordInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.bg,
+                color: theme.text,
+                borderColor: theme.border,
+              },
+            ]}
+            placeholder="••••••••"
+            placeholderTextColor={theme.subText}
+            value={formData.password}
+            onChangeText={(text) =>
+              setFormData({ ...formData, password: text })
+            }
+          />
+
+          <Text style={[styles.label, { color: theme.text }]}>
+            Confirmer le mot de passe
+          </Text>
+          <PasswordInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.bg,
+                color: theme.text,
+                borderColor: theme.border,
+              },
+            ]}
+            placeholder="••••••••"
+            placeholderTextColor={theme.subText}
+            value={formData.passwordConfirm}
+            onChangeText={(text) =>
+              setFormData({ ...formData, passwordConfirm: text })
+            }
+          />
+        </View>
+
+        {/* Submit Button */}
+        <TouchableOpacity
+          style={[
+            styles.submitButton,
+            { backgroundColor: theme.primary, opacity: loading ? 0.6 : 1 },
+          ]}
+          onPress={handleSubmit}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Rejoindre l'entreprise</Text>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={() => router.back()}
+          disabled={loading}
+        >
+          <Text style={[styles.cancelText, { color: theme.primary }]}>
+            Annuler
           </Text>
         </TouchableOpacity>
-        <Text style={[styles.title, { color: theme.text }]}>
-          Rejoindre une Entreprise
-        </Text>
-      </View>
-
-      {/* Info Box */}
-      <View
-        style={[
-          styles.infoBox,
-          { backgroundColor: theme.primary + "20", borderColor: theme.primary },
-        ]}
-      >
-        <Text style={[styles.infoText, { color: theme.text }]}>
-          💡 Demandez le code d'entreprise à votre administrateur
-        </Text>
-      </View>
-
-      {/* Formulaire */}
-      <View
-        style={[
-          styles.form,
-          { backgroundColor: theme.card, borderColor: theme.border },
-        ]}
-      >
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>
-          📋 Code de l'Entreprise
-        </Text>
-
-        <Text style={[styles.label, { color: theme.text }]}>
-          Code (ex: ENT-ABC123)
-        </Text>
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: theme.bg,
-              color: theme.text,
-              borderColor: theme.border,
-            },
-          ]}
-          placeholder="ENT-XXXXXX"
-          placeholderTextColor={theme.subText}
-          value={formData.code}
-          onChangeText={(text) =>
-            setFormData({ ...formData, code: text.toUpperCase() })
-          }
-        />
-
-        {/* User Info Section */}
-        <Text
-          style={[styles.sectionTitle, { color: theme.text, marginTop: 24 }]}
-        >
-          👤 Vos Informations
-        </Text>
-
-        <Text style={[styles.label, { color: theme.text }]}>Nom complet</Text>
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: theme.bg,
-              color: theme.text,
-              borderColor: theme.border,
-            },
-          ]}
-          placeholder="Marc Lefevre"
-          placeholderTextColor={theme.subText}
-          value={formData.fullName}
-          onChangeText={(text) => setFormData({ ...formData, fullName: text })}
-        />
-
-        <Text style={[styles.label, { color: theme.text }]}>Email</Text>
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: theme.bg,
-              color: theme.text,
-              borderColor: theme.border,
-            },
-          ]}
-          placeholder="marc@example.com"
-          placeholderTextColor={theme.subText}
-          keyboardType="email-address"
-          value={formData.email}
-          onChangeText={(text) => setFormData({ ...formData, email: text })}
-        />
-
-        <Text style={[styles.label, { color: theme.text }]}>Téléphone</Text>
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: theme.bg,
-              color: theme.text,
-              borderColor: theme.border,
-            },
-          ]}
-          placeholder="+33 6 12 34 56 78"
-          placeholderTextColor={theme.subText}
-          value={formData.phone}
-          onChangeText={(text) => setFormData({ ...formData, phone: text })}
-        />
-
-        {/* Password Section */}
-        <Text
-          style={[styles.sectionTitle, { color: theme.text, marginTop: 24 }]}
-        >
-          🔐 Mot de Passe
-        </Text>
-
-        <Text style={[styles.label, { color: theme.text }]}>Mot de passe</Text>
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: theme.bg,
-              color: theme.text,
-              borderColor: theme.border,
-            },
-          ]}
-          placeholder="••••••••"
-          placeholderTextColor={theme.subText}
-          secureTextEntry
-          value={formData.password}
-          onChangeText={(text) => setFormData({ ...formData, password: text })}
-        />
-
-        <Text style={[styles.label, { color: theme.text }]}>
-          Confirmer le mot de passe
-        </Text>
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: theme.bg,
-              color: theme.text,
-              borderColor: theme.border,
-            },
-          ]}
-          placeholder="••••••••"
-          placeholderTextColor={theme.subText}
-          secureTextEntry
-          value={formData.passwordConfirm}
-          onChangeText={(text) =>
-            setFormData({ ...formData, passwordConfirm: text })
-          }
-        />
-      </View>
-
-      {/* Submit Button */}
-      <TouchableOpacity
-        style={[
-          styles.submitButton,
-          { backgroundColor: theme.primary, opacity: loading ? 0.6 : 1 },
-        ]}
-        onPress={handleSubmit}
-        disabled={loading}
-      >
-        {loading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>Rejoindre l'entreprise</Text>
-        )}
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.cancelButton}
-        onPress={() => router.back()}
-        disabled={loading}
-      >
-        <Text style={[styles.cancelText, { color: theme.primary }]}>
-          Annuler
-        </Text>
-      </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
     </SafeAreaView>
   );
 }

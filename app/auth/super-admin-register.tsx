@@ -2,18 +2,19 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import PasswordInput from "../../components/PasswordInput";
 import { useTheme } from "../../context/ThemeContext";
 import { api } from "../../lib/api";
 
@@ -159,7 +160,7 @@ export default function SuperAdminRegisterScreen() {
               : "Premier compte Super Admin de l'application."}
           </Text>
 
-          <TextInput
+          <PasswordInput
             style={[
               styles.input,
               {
@@ -203,12 +204,11 @@ export default function SuperAdminRegisterScreen() {
             ]}
             placeholder="Mot de passe (min. 8 caractères)"
             placeholderTextColor={theme.subText}
-            secureTextEntry
             value={password}
             onChangeText={setPassword}
           />
 
-          <TextInput
+          <PasswordInput
             style={[
               styles.input,
               {
@@ -219,7 +219,6 @@ export default function SuperAdminRegisterScreen() {
             ]}
             placeholder="Confirmer le mot de passe"
             placeholderTextColor={theme.subText}
-            secureTextEntry
             value={confirmPassword}
             onChangeText={setConfirmPassword}
           />

@@ -1,65 +1,65 @@
-import { Ionicons } from '@expo/vector-icons';
-import * as Linking from 'expo-linking';
-import * as LocalAuthentication from 'expo-local-authentication';
-import { router } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
-import { useVideoPlayer, VideoView } from 'expo-video';
-import { useEffect, useRef, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import * as Linking from "expo-linking";
+import * as LocalAuthentication from "expo-local-authentication";
+import { router } from "expo-router";
+import * as SecureStore from "expo-secure-store";
+import { useVideoPlayer, VideoView } from "expo-video";
+import { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  Dimensions,
-  FlatList,
-  Image,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  RefreshControl,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { api } from '../../lib/api';
-import { useTenant } from '../../context/TenantContext';
-import { useTheme } from '../../context/ThemeContext';
+    ActivityIndicator,
+    Alert,
+    Animated,
+    Dimensions,
+    FlatList,
+    Image,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import PasswordInput from "../../components/PasswordInput";
+import { useTenant } from "../../context/TenantContext";
+import { useTheme } from "../../context/ThemeContext";
+import { api } from "../../lib/api";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
 // ─── COULEURS DYNAMIQUES ────────────────────────────────────────────────────
 const DARK = {
-  bg: '#0D0D0D',
-  card: '#181818',
-  cardBorder: '#252525',
-  text: '#F0F0F0',
-  subText: '#888888',
-  primary: '#0A84FF',
-  accent: '#FF6B00',
-  separator: '#1E1E1E',
-  headerBg: '#111111',
-  pill: '#232323',
-  pillActive: '#0A84FF',
-  price: '#34C759',
+  bg: "#0D0D0D",
+  card: "#181818",
+  cardBorder: "#252525",
+  text: "#F0F0F0",
+  subText: "#888888",
+  primary: "#0A84FF",
+  accent: "#FF6B00",
+  separator: "#1E1E1E",
+  headerBg: "#111111",
+  pill: "#232323",
+  pillActive: "#0A84FF",
+  price: "#34C759",
 };
 
 const LIGHT = {
-  bg: '#F5F5F7',
-  card: '#FFFFFF',
-  cardBorder: '#E5E5EA',
-  text: '#1C1C1E',
-  subText: '#8E8E93',
-  primary: '#007AFF',
-  accent: '#FF6B00',
-  separator: '#F0F0F2',
-  headerBg: '#FFFFFF',
-  pill: '#E5E5EA',
-  pillActive: '#007AFF',
-  price: '#34C759',
+  bg: "#F5F5F7",
+  card: "#FFFFFF",
+  cardBorder: "#E5E5EA",
+  text: "#1C1C1E",
+  subText: "#8E8E93",
+  primary: "#007AFF",
+  accent: "#FF6B00",
+  separator: "#F0F0F2",
+  headerBg: "#FFFFFF",
+  pill: "#E5E5EA",
+  pillActive: "#007AFF",
+  price: "#34C759",
 };
 
 function useColors() {
@@ -85,7 +85,12 @@ type FeedMoto = {
   description?: string | null;
   like_count?: number;
   images: { image_uri: string; is_principal: boolean; position: number }[];
-  enterprise?: { name: string; logo_url: string | null; phone: string | null; is_active: boolean } | null;
+  enterprise?: {
+    name: string;
+    logo_url: string | null;
+    phone: string | null;
+    is_active: boolean;
+  } | null;
 };
 
 type EnterpriseContact = {
@@ -97,8 +102,8 @@ type EnterpriseContact = {
   description: string | null;
 };
 
-const FILTERS = ['Tout', 'Neuf', 'Occasion'] as const;
-type Filter = typeof FILTERS[number];
+const FILTERS = ["Tout", "Neuf", "Occasion"] as const;
+type Filter = (typeof FILTERS)[number];
 
 type FeedPub = {
   id: string;
@@ -108,24 +113,28 @@ type FeedPub = {
   video_url: string | null;
   created_at: string;
   like_count?: number;
-  enterprise?: { name: string; logo_url: string | null; is_active: boolean } | null;
+  enterprise?: {
+    name: string;
+    logo_url: string | null;
+    is_active: boolean;
+  } | null;
 };
 
 type FeedItem =
-  | { kind: 'moto'; data: FeedMoto }
-  | { kind: 'pub';  data: FeedPub  };
+  | { kind: "moto"; data: FeedMoto }
+  | { kind: "pub"; data: FeedPub };
 
 // ─── PAGINATION ─────────────────────────────────────────────────────────────
 const MOTO_PAGE_SIZE = 12;
-const PUB_PAGE_SIZE  = 6;
+const PUB_PAGE_SIZE = 6;
 
-const LIKED_MOTOS_KEY = 'LIKED_MOTOS_V1';
-const LIKED_PUBS_KEY  = 'LIKED_PUBS_V1';
+const LIKED_MOTOS_KEY = "LIKED_MOTOS_V1";
+const LIKED_PUBS_KEY = "LIKED_PUBS_V1";
 
 // ─── UTILITAIRES ────────────────────────────────────────────────────────────
 function formatPrice(p: number | null): string {
-  if (!p) return 'Prix sur demande';
-  return p.toLocaleString('fr-FR') + ' FCFA';
+  if (!p) return "Prix sur demande";
+  return p.toLocaleString("fr-FR") + " FCFA";
 }
 
 function timeAgo(dateStr: string): string {
@@ -137,33 +146,64 @@ function timeAgo(dateStr: string): string {
   if (hrs < 24) return `Il y a ${hrs}h`;
   const days = Math.floor(hrs / 24);
   if (days < 7) return `Il y a ${days}j`;
-  return new Date(dateStr).toLocaleDateString('fr-FR');
+  return new Date(dateStr).toLocaleDateString("fr-FR");
 }
 
 // ─── AVATAR ENTREPRISE ───────────────────────────────────────────────────────
-function EnterpriseAvatar({ name, logoUrl, size = 38 }: { name: string; logoUrl?: string | null; size?: number }) {
+function EnterpriseAvatar({
+  name,
+  logoUrl,
+  size = 38,
+}: {
+  name: string;
+  logoUrl?: string | null;
+  size?: number;
+}) {
   const { C } = useColors();
   const [imgError, setImgError] = useState(false);
-  const initial = name ? name.charAt(0).toUpperCase() : '?';
+  const initial = name ? name.charAt(0).toUpperCase() : "?";
 
   if (logoUrl && !imgError) {
     return (
       <Image
         source={{ uri: logoUrl }}
-        style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: C.pill }}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: C.pill,
+        }}
         onError={() => setImgError(true)}
       />
     );
   }
   return (
-    <View style={[styles.avatarFallback, { width: size, height: size, borderRadius: size / 2, backgroundColor: C.primary }]}>
-      <Text style={[styles.avatarText, { fontSize: size * 0.42 }]}>{initial}</Text>
+    <View
+      style={[
+        styles.avatarFallback,
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: C.primary,
+        },
+      ]}
+    >
+      <Text style={[styles.avatarText, { fontSize: size * 0.42 }]}>
+        {initial}
+      </Text>
     </View>
   );
 }
 
 // ─── CARTE MOTO ─────────────────────────────────────────────────────────────
-function MotoCard({ item, onPress, onContact, isLiked, onLike }: {
+function MotoCard({
+  item,
+  onPress,
+  onContact,
+  isLiked,
+  onLike,
+}: {
   item: FeedMoto;
   onPress?: () => void;
   onContact?: () => void;
@@ -171,25 +211,43 @@ function MotoCard({ item, onPress, onContact, isLiked, onLike }: {
   onLike: () => void;
 }) {
   const { C } = useColors();
-  const principalImg = item.images?.find(i => i.is_principal) ?? item.images?.[0];
+  const principalImg =
+    item.images?.find((i) => i.is_principal) ?? item.images?.[0];
   const imgUri = principalImg?.image_uri;
   const [imgError, setImgError] = useState(false);
-  const enterpriseName = item.enterprise?.name ?? 'Entreprise';
+  const enterpriseName = item.enterprise?.name ?? "Entreprise";
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () =>
-    Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true, speed: 30 }).start();
+    Animated.spring(scaleAnim, {
+      toValue: 0.97,
+      useNativeDriver: true,
+      speed: 30,
+    }).start();
   const handlePressOut = () =>
-    Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, speed: 30 }).start();
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 30,
+    }).start();
 
   const etatBadge = item.etat
-    ? item.etat.toLowerCase() === 'neuf'
-      ? { label: 'NEUF', color: C.price }
-      : { label: 'OCCASION', color: C.accent }
+    ? item.etat.toLowerCase() === "neuf"
+      ? { label: "NEUF", color: C.price }
+      : { label: "OCCASION", color: C.accent }
     : null;
 
   return (
-    <Animated.View style={[styles.card, { transform: [{ scale: scaleAnim }], backgroundColor: C.card, borderColor: C.cardBorder }]}>
+    <Animated.View
+      style={[
+        styles.card,
+        {
+          transform: [{ scale: scaleAnim }],
+          backgroundColor: C.card,
+          borderColor: C.cardBorder,
+        },
+      ]}
+    >
       <TouchableOpacity
         activeOpacity={1}
         onPress={onPress}
@@ -198,17 +256,29 @@ function MotoCard({ item, onPress, onContact, isLiked, onLike }: {
       >
         {/* En-tête carte */}
         <View style={styles.cardHeader}>
-          <EnterpriseAvatar name={enterpriseName} logoUrl={item.enterprise?.logo_url} />
+          <EnterpriseAvatar
+            name={enterpriseName}
+            logoUrl={item.enterprise?.logo_url}
+          />
           <View style={styles.cardHeaderText}>
-            <Text style={[styles.enterpriseName, { color: C.text }]} numberOfLines={1}>{enterpriseName}</Text>
+            <Text
+              style={[styles.enterpriseName, { color: C.text }]}
+              numberOfLines={1}
+            >
+              {enterpriseName}
+            </Text>
             <View style={styles.cardMeta}>
               <Ionicons name="location-outline" size={11} color={C.subText} />
-              <Text style={[styles.cardTime, { color: C.subText }]}>{timeAgo(item.created_at)}</Text>
+              <Text style={[styles.cardTime, { color: C.subText }]}>
+                {timeAgo(item.created_at)}
+              </Text>
             </View>
           </View>
           {etatBadge && (
             <View style={[styles.etatBadge, { borderColor: etatBadge.color }]}>
-              <Text style={[styles.etatBadgeText, { color: etatBadge.color }]}>{etatBadge.label}</Text>
+              <Text style={[styles.etatBadgeText, { color: etatBadge.color }]}>
+                {etatBadge.label}
+              </Text>
             </View>
           )}
         </View>
@@ -222,7 +292,12 @@ function MotoCard({ item, onPress, onContact, isLiked, onLike }: {
             onError={() => setImgError(true)}
           />
         ) : (
-          <View style={[styles.motoImagePlaceholder, { backgroundColor: C.separator }]}>
+          <View
+            style={[
+              styles.motoImagePlaceholder,
+              { backgroundColor: C.separator },
+            ]}
+          >
             <Ionicons name="bicycle" size={64} color={C.cardBorder} />
           </View>
         )}
@@ -236,36 +311,71 @@ function MotoCard({ item, onPress, onContact, isLiked, onLike }: {
             {item.type && (
               <View style={[styles.tag, { backgroundColor: C.pill }]}>
                 <Ionicons name="layers-outline" size={12} color={C.subText} />
-                <Text style={[styles.tagText, { color: C.subText }]}>{item.type}</Text>
+                <Text style={[styles.tagText, { color: C.subText }]}>
+                  {item.type}
+                </Text>
               </View>
             )}
             {item.couleur && (
               <View style={[styles.tag, { backgroundColor: C.pill }]}>
-                <Ionicons name="color-palette-outline" size={12} color={C.subText} />
-                <Text style={[styles.tagText, { color: C.subText }]}>{item.couleur}</Text>
+                <Ionicons
+                  name="color-palette-outline"
+                  size={12}
+                  color={C.subText}
+                />
+                <Text style={[styles.tagText, { color: C.subText }]}>
+                  {item.couleur}
+                </Text>
               </View>
             )}
           </View>
-          <Text style={[styles.price, { color: C.price }]}>{formatPrice(item.prix_vente)}</Text>
+          <Text style={[styles.price, { color: C.price }]}>
+            {formatPrice(item.prix_vente)}
+          </Text>
         </View>
 
         {/* Actions */}
         <View style={[styles.cardActions, { borderTopColor: C.cardBorder }]}>
-          <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7} onPress={onLike}>
-            <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={19} color={isLiked ? '#FF3B30' : C.subText} />
-            <Text style={[styles.actionText, { color: isLiked ? '#FF3B30' : C.subText }]}>
+          <TouchableOpacity
+            style={styles.actionBtn}
+            activeOpacity={0.7}
+            onPress={onLike}
+          >
+            <Ionicons
+              name={isLiked ? "heart" : "heart-outline"}
+              size={19}
+              color={isLiked ? "#FF3B30" : C.subText}
+            />
+            <Text
+              style={[
+                styles.actionText,
+                { color: isLiked ? "#FF3B30" : C.subText },
+              ]}
+            >
               {(item.like_count ?? 0) > 0 ? String(item.like_count) : "J'aime"}
             </Text>
           </TouchableOpacity>
-          <View style={[styles.actionDivider, { backgroundColor: C.cardBorder }]} />
+          <View
+            style={[styles.actionDivider, { backgroundColor: C.cardBorder }]}
+          />
           <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
             <Ionicons name="share-social-outline" size={19} color={C.subText} />
-            <Text style={[styles.actionText, { color: C.subText }]}>Partager</Text>
+            <Text style={[styles.actionText, { color: C.subText }]}>
+              Partager
+            </Text>
           </TouchableOpacity>
-          <View style={[styles.actionDivider, { backgroundColor: C.cardBorder }]} />
-          <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7} onPress={onContact}>
+          <View
+            style={[styles.actionDivider, { backgroundColor: C.cardBorder }]}
+          />
+          <TouchableOpacity
+            style={styles.actionBtn}
+            activeOpacity={0.7}
+            onPress={onContact}
+          >
             <Ionicons name="call-outline" size={19} color={C.primary} />
-            <Text style={[styles.actionText, { color: C.primary }]}>Contacter</Text>
+            <Text style={[styles.actionText, { color: C.primary }]}>
+              Contacter
+            </Text>
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -285,43 +395,114 @@ function TrendingSection({
 }) {
   const { C } = useColors();
   const trending = [...motos]
-    .filter(m => (m.like_count ?? 0) > 0)
+    .filter((m) => (m.like_count ?? 0) > 0)
     .sort((a, b) => (b.like_count ?? 0) - (a.like_count ?? 0))
     .slice(0, 6);
 
   if (trending.length === 0) return null;
 
   return (
-    <View style={{ marginBottom: 4, backgroundColor: C.card, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.cardBorder }}>
-      <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+    <View
+      style={{
+        marginBottom: 4,
+        backgroundColor: C.card,
+        paddingBottom: 12,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: C.cardBorder,
+      }}
+    >
+      <View
+        style={{
+          paddingHorizontal: 14,
+          paddingTop: 12,
+          paddingBottom: 8,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 6,
+        }}
+      >
         <Ionicons name="flame" size={16} color="#FF3B30" />
-        <Text style={{ fontSize: 14, fontWeight: '700', color: C.text }}>En tendance</Text>
+        <Text style={{ fontSize: 14, fontWeight: "700", color: C.text }}>
+          En tendance
+        </Text>
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 10, gap: 10 }}>
-        {trending.map(moto => {
-          const principalImg = moto.images?.find(i => i.is_principal) ?? moto.images?.[0];
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 10, gap: 10 }}
+      >
+        {trending.map((moto) => {
+          const principalImg =
+            moto.images?.find((i) => i.is_principal) ?? moto.images?.[0];
           const imgUri = principalImg?.image_uri;
           const isLiked = likedMotos.has(moto.id);
           return (
             <TouchableOpacity
               key={moto.id}
-              style={{ width: 130, backgroundColor: C.bg, borderRadius: 12, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, borderColor: C.cardBorder }}
+              style={{
+                width: 130,
+                backgroundColor: C.bg,
+                borderRadius: 12,
+                overflow: "hidden",
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: C.cardBorder,
+              }}
               onPress={() => onPress(moto)}
               activeOpacity={0.85}
             >
               {imgUri ? (
-                <Image source={{ uri: imgUri }} style={{ width: 130, height: 90 }} resizeMode="cover" />
+                <Image
+                  source={{ uri: imgUri }}
+                  style={{ width: 130, height: 90 }}
+                  resizeMode="cover"
+                />
               ) : (
-                <View style={{ width: 130, height: 90, backgroundColor: C.separator, justifyContent: 'center', alignItems: 'center' }}>
+                <View
+                  style={{
+                    width: 130,
+                    height: 90,
+                    backgroundColor: C.separator,
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}
+                >
                   <Ionicons name="bicycle" size={32} color={C.cardBorder} />
                 </View>
               )}
               <View style={{ padding: 7 }}>
-                <Text style={{ fontSize: 12, fontWeight: '700', color: C.text }} numberOfLines={1}>{moto.marque} {moto.modele}</Text>
-                <Text style={{ fontSize: 11, color: C.price, fontWeight: '600', marginTop: 2 }}>{formatPrice(moto.prix_vente)}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 4 }}>
-                  <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={11} color={isLiked ? '#FF3B30' : C.subText} />
-                  <Text style={{ fontSize: 11, color: C.subText }}>{moto.like_count ?? 0} like{(moto.like_count ?? 0) > 1 ? 's' : ''}</Text>
+                <Text
+                  style={{ fontSize: 12, fontWeight: "700", color: C.text }}
+                  numberOfLines={1}
+                >
+                  {moto.marque} {moto.modele}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    color: C.price,
+                    fontWeight: "600",
+                    marginTop: 2,
+                  }}
+                >
+                  {formatPrice(moto.prix_vente)}
+                </Text>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 3,
+                    marginTop: 4,
+                  }}
+                >
+                  <Ionicons
+                    name={isLiked ? "heart" : "heart-outline"}
+                    size={11}
+                    color={isLiked ? "#FF3B30" : C.subText}
+                  />
+                  <Text style={{ fontSize: 11, color: C.subText }}>
+                    {moto.like_count ?? 0} like
+                    {(moto.like_count ?? 0) > 1 ? "s" : ""}
+                  </Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -343,14 +524,21 @@ function FeedHeader({
   const { C, isDark, toggleTheme } = useColors();
 
   return (
-    <View style={[styles.feedHeader, { backgroundColor: C.headerBg, borderBottomColor: C.cardBorder }]}>
+    <View
+      style={[
+        styles.feedHeader,
+        { backgroundColor: C.headerBg, borderBottomColor: C.cardBorder },
+      ]}
+    >
       <View style={styles.feedHeaderLeft}>
         <View style={[styles.logoCircle, { backgroundColor: C.primary }]}>
           <Ionicons name="bicycle" size={20} color="#fff" />
         </View>
         <View>
           <Text style={[styles.appName, { color: C.text }]}>SenMoto</Text>
-          <Text style={[styles.appTagline, { color: C.subText }]}>Catalogue public</Text>
+          <Text style={[styles.appTagline, { color: C.subText }]}>
+            Catalogue public
+          </Text>
         </View>
       </View>
 
@@ -361,13 +549,20 @@ function FeedHeader({
           style={[styles.themeBtn, { backgroundColor: C.pill }]}
           activeOpacity={0.8}
         >
-          <Ionicons name={isDark ? 'sunny-outline' : 'moon-outline'} size={18} color={C.text} />
+          <Ionicons
+            name={isDark ? "sunny-outline" : "moon-outline"}
+            size={18}
+            color={C.text}
+          />
         </TouchableOpacity>
 
         {/* Bouton connexion */}
         <TouchableOpacity
-          style={[styles.loginBtn, { backgroundColor: isAuthenticated ? '#1C3A5E' : C.primary }]}
-          onPress={() => router.push(isAuthenticated ? '/home' : '/onboarding')}
+          style={[
+            styles.loginBtn,
+            { backgroundColor: isAuthenticated ? "#1C3A5E" : C.primary },
+          ]}
+          onPress={() => router.push(isAuthenticated ? "/home" : "/onboarding")}
           activeOpacity={0.8}
         >
           {isLoading ? (
@@ -375,13 +570,15 @@ function FeedHeader({
           ) : (
             <>
               <Ionicons
-                name={isAuthenticated ? 'person-circle-outline' : 'log-in-outline'}
+                name={
+                  isAuthenticated ? "person-circle-outline" : "log-in-outline"
+                }
                 size={15}
                 color="#fff"
                 style={{ marginRight: 5 }}
               />
               <Text style={styles.loginBtnText}>
-                {isAuthenticated ? 'Mon Espace' : 'Connexion'}
+                {isAuthenticated ? "Mon Espace" : "Connexion"}
               </Text>
             </>
           )}
@@ -397,9 +594,11 @@ function EmptyFeed() {
   return (
     <View style={styles.emptyContainer}>
       <Ionicons name="storefront-outline" size={72} color={C.cardBorder} />
-      <Text style={[styles.emptyTitle, { color: C.text }]}>Aucune publication</Text>
+      <Text style={[styles.emptyTitle, { color: C.text }]}>
+        Aucune publication
+      </Text>
       <Text style={[styles.emptyText, { color: C.subText }]}>
-        Les entreprises publient leurs motos ici.{'\n'}
+        Les entreprises publient leurs motos ici.{"\n"}
         Revenez bientôt ou actualisez la page.
       </Text>
     </View>
@@ -417,20 +616,35 @@ function PinScreen({
   onSwitchUser: () => void;
 }) {
   const { C } = useColors();
-  const [pin, setPin] = useState('');
+  const [pin, setPin] = useState("");
 
   return (
-    <SafeAreaView style={[styles.pinContainer, { backgroundColor: C.bg, paddingTop: 0 }]}>
-      <View style={[styles.pinCard, { backgroundColor: C.card, borderColor: C.cardBorder }]}>
-        <Ionicons name="lock-closed" size={48} color={C.primary} style={{ marginBottom: 20 }} />
-        <Text style={[styles.pinTitle, { color: C.text }]}>{storedPin ? '🔐 Accès verrouillé' : '🛡️ Sécurisez votre accès'}</Text>
-        <Text style={[styles.pinSubtitle, { color: C.subText }]}>Entrez votre code PIN pour continuer</Text>
-        <TextInput
+    <SafeAreaView
+      style={[styles.pinContainer, { backgroundColor: C.bg, paddingTop: 0 }]}
+    >
+      <View
+        style={[
+          styles.pinCard,
+          { backgroundColor: C.card, borderColor: C.cardBorder },
+        ]}
+      >
+        <Ionicons
+          name="lock-closed"
+          size={48}
+          color={C.primary}
+          style={{ marginBottom: 20 }}
+        />
+        <Text style={[styles.pinTitle, { color: C.text }]}>
+          {storedPin ? "🔐 Accès verrouillé" : "🛡️ Sécurisez votre accès"}
+        </Text>
+        <Text style={[styles.pinSubtitle, { color: C.subText }]}>
+          Entrez votre code PIN pour continuer
+        </Text>
+        <PasswordInput
           style={[styles.pinInput, { borderColor: C.primary, color: C.text }]}
           placeholder="• • • •"
           placeholderTextColor={C.subText}
           keyboardType="numeric"
-          secureTextEntry
           maxLength={4}
           value={pin}
           onChangeText={setPin}
@@ -441,10 +655,14 @@ function PinScreen({
           onPress={() => onSubmit(pin)}
           activeOpacity={0.85}
         >
-          <Text style={styles.pinSubmitText}>{storedPin ? 'Déverrouiller' : 'Enregistrer le PIN'}</Text>
+          <Text style={styles.pinSubmitText}>
+            {storedPin ? "Déverrouiller" : "Enregistrer le PIN"}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={onSwitchUser} style={{ marginTop: 24 }}>
-          <Text style={{ color: '#FF3B30', textAlign: 'center' }}>Changer d'utilisateur</Text>
+          <Text style={{ color: "#FF3B30", textAlign: "center" }}>
+            Changer d'utilisateur
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -475,7 +693,11 @@ function ImageGrid({
   if (n === 1) {
     return (
       <TouchableOpacity onPress={() => onPressImage(0)} activeOpacity={0.9}>
-        <Image source={{ uri: images[0] }} style={imgStyle(W, 260)} resizeMode="cover" />
+        <Image
+          source={{ uri: images[0] }}
+          style={imgStyle(W, 260)}
+          resizeMode="cover"
+        />
       </TouchableOpacity>
     );
   }
@@ -483,10 +705,18 @@ function ImageGrid({
   if (n === 2) {
     const iw = (W - GAP) / 2;
     return (
-      <View style={{ flexDirection: 'row', gap: GAP }}>
+      <View style={{ flexDirection: "row", gap: GAP }}>
         {images.map((img, i) => (
-          <TouchableOpacity key={i} onPress={() => onPressImage(i)} activeOpacity={0.9}>
-            <Image source={{ uri: img }} style={imgStyle(iw, 210)} resizeMode="cover" />
+          <TouchableOpacity
+            key={i}
+            onPress={() => onPressImage(i)}
+            activeOpacity={0.9}
+          >
+            <Image
+              source={{ uri: img }}
+              style={imgStyle(iw, 210)}
+              resizeMode="cover"
+            />
           </TouchableOpacity>
         ))}
       </View>
@@ -498,13 +728,21 @@ function ImageGrid({
     const rightW = W - GAP - leftW;
     const rowH = 230;
     return (
-      <View style={{ flexDirection: 'row', gap: GAP }}>
+      <View style={{ flexDirection: "row", gap: GAP }}>
         <TouchableOpacity onPress={() => onPressImage(0)} activeOpacity={0.9}>
-          <Image source={{ uri: images[0] }} style={imgStyle(leftW, rowH)} resizeMode="cover" />
+          <Image
+            source={{ uri: images[0] }}
+            style={imgStyle(leftW, rowH)}
+            resizeMode="cover"
+          />
         </TouchableOpacity>
         <View style={{ gap: GAP }}>
           {images.slice(1).map((img, i) => (
-            <TouchableOpacity key={i} onPress={() => onPressImage(i + 1)} activeOpacity={0.9}>
+            <TouchableOpacity
+              key={i}
+              onPress={() => onPressImage(i + 1)}
+              activeOpacity={0.9}
+            >
               <Image
                 source={{ uri: img }}
                 style={imgStyle(rightW, (rowH - GAP) / 2)}
@@ -521,17 +759,33 @@ function ImageGrid({
     const iw = (W - GAP) / 2;
     return (
       <View style={{ gap: GAP }}>
-        <View style={{ flexDirection: 'row', gap: GAP }}>
+        <View style={{ flexDirection: "row", gap: GAP }}>
           {images.slice(0, 2).map((img, i) => (
-            <TouchableOpacity key={i} onPress={() => onPressImage(i)} activeOpacity={0.9}>
-              <Image source={{ uri: img }} style={imgStyle(iw, 175)} resizeMode="cover" />
+            <TouchableOpacity
+              key={i}
+              onPress={() => onPressImage(i)}
+              activeOpacity={0.9}
+            >
+              <Image
+                source={{ uri: img }}
+                style={imgStyle(iw, 175)}
+                resizeMode="cover"
+              />
             </TouchableOpacity>
           ))}
         </View>
-        <View style={{ flexDirection: 'row', gap: GAP }}>
+        <View style={{ flexDirection: "row", gap: GAP }}>
           {images.slice(2, 4).map((img, i) => (
-            <TouchableOpacity key={i} onPress={() => onPressImage(i + 2)} activeOpacity={0.9}>
-              <Image source={{ uri: img }} style={imgStyle(iw, 175)} resizeMode="cover" />
+            <TouchableOpacity
+              key={i}
+              onPress={() => onPressImage(i + 2)}
+              activeOpacity={0.9}
+            >
+              <Image
+                source={{ uri: img }}
+                style={imgStyle(iw, 175)}
+                resizeMode="cover"
+              />
             </TouchableOpacity>
           ))}
         </View>
@@ -547,33 +801,50 @@ function ImageGrid({
 
   return (
     <View style={{ gap: GAP }}>
-      <View style={{ flexDirection: 'row', gap: GAP }}>
+      <View style={{ flexDirection: "row", gap: GAP }}>
         {shown.slice(0, 2).map((img, i) => (
-          <TouchableOpacity key={i} onPress={() => onPressImage(i)} activeOpacity={0.9}>
-            <Image source={{ uri: img }} style={imgStyle(topW, 195)} resizeMode="cover" />
+          <TouchableOpacity
+            key={i}
+            onPress={() => onPressImage(i)}
+            activeOpacity={0.9}
+          >
+            <Image
+              source={{ uri: img }}
+              style={imgStyle(topW, 195)}
+              resizeMode="cover"
+            />
           </TouchableOpacity>
         ))}
       </View>
-      <View style={{ flexDirection: 'row', gap: GAP }}>
+      <View style={{ flexDirection: "row", gap: GAP }}>
         {shown.slice(2).map((img, i) => (
           <TouchableOpacity
             key={i}
             onPress={() => onPressImage(i + 2)}
             activeOpacity={0.9}
-            style={{ position: 'relative' }}
+            style={{ position: "relative" }}
           >
-            <Image source={{ uri: img }} style={imgStyle(botW, 128)} resizeMode="cover" />
+            <Image
+              source={{ uri: img }}
+              style={imgStyle(botW, 128)}
+              resizeMode="cover"
+            />
             {i === 2 && remaining > 0 && (
               <View
                 style={{
-                  position: 'absolute',
-                  top: 0, left: 0, right: 0, bottom: 0,
-                  backgroundColor: 'rgba(0,0,0,0.52)',
-                  justifyContent: 'center',
-                  alignItems: 'center',
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: "rgba(0,0,0,0.52)",
+                  justifyContent: "center",
+                  alignItems: "center",
                 }}
               >
-                <Text style={{ color: '#fff', fontSize: 24, fontWeight: '800' }}>
+                <Text
+                  style={{ color: "#fff", fontSize: 24, fontWeight: "800" }}
+                >
                   +{remaining}
                 </Text>
               </View>
@@ -599,11 +870,17 @@ function ImageGalleryModal({
 
   return (
     <Modal visible animationType="fade" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: '#000' }}>
+      <View style={{ flex: 1, backgroundColor: "#000" }}>
         {/* Fermer */}
         <TouchableOpacity
           onPress={onClose}
-          style={{ position: 'absolute', top: 50, right: 16, zIndex: 10, padding: 8 }}
+          style={{
+            position: "absolute",
+            top: 50,
+            right: 16,
+            zIndex: 10,
+            padding: 8,
+          }}
           activeOpacity={0.8}
         >
           <Ionicons name="close" size={30} color="#fff" />
@@ -612,15 +889,21 @@ function ImageGalleryModal({
         {/* Compteur */}
         <View
           style={{
-            position: 'absolute',
+            position: "absolute",
             top: 54,
             left: 0,
             right: 0,
-            alignItems: 'center',
+            alignItems: "center",
             zIndex: 10,
           }}
         >
-          <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 14, fontWeight: '600' }}>
+          <Text
+            style={{
+              color: "rgba(255,255,255,0.8)",
+              fontSize: 14,
+              fontWeight: "600",
+            }}
+          >
             {currentIndex + 1} / {images.length}
           </Text>
         </View>
@@ -632,7 +915,11 @@ function ImageGalleryModal({
           showsHorizontalScrollIndicator={false}
           initialScrollIndex={startIndex}
           keyExtractor={(_, i) => String(i)}
-          getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
+          getItemLayout={(_, i) => ({
+            length: width,
+            offset: width * i,
+            index: i,
+          })}
           onMomentumScrollEnd={(e) => {
             const idx = Math.round(e.nativeEvent.contentOffset.x / width);
             setCurrentIndex(idx);
@@ -640,7 +927,7 @@ function ImageGalleryModal({
           renderItem={({ item }) => (
             <Image
               source={{ uri: item }}
-              style={{ width, height: '100%' }}
+              style={{ width, height: "100%" }}
               resizeMode="contain"
             />
           )}
@@ -665,15 +952,19 @@ function FeedVideo({ uri }: { uri: string }) {
 
   return (
     <TouchableOpacity activeOpacity={1} onPress={() => setMuted((m) => !m)}>
-      <View style={{ width: '100%', height: 420, backgroundColor: '#000' }}>
+      <View style={{ width: "100%", height: 420, backgroundColor: "#000" }}>
         <VideoView
           player={player}
-          style={{ width: '100%', height: '100%' }}
+          style={{ width: "100%", height: "100%" }}
           contentFit="contain"
           nativeControls={false}
         />
         <View style={styles.videoMuteBadge}>
-          <Ionicons name={muted ? 'volume-mute' : 'volume-high'} size={16} color="#fff" />
+          <Ionicons
+            name={muted ? "volume-mute" : "volume-high"}
+            size={16}
+            color="#fff"
+          />
         </View>
       </View>
     </TouchableOpacity>
@@ -697,7 +988,7 @@ function PublicationCard({
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
 
-  const enterpriseName = item.enterprise?.name ?? 'Entreprise';
+  const enterpriseName = item.enterprise?.name ?? "Entreprise";
   const TEXT_LIMIT = 120;
   const isLong = (item.texte?.length ?? 0) > TEXT_LIMIT;
 
@@ -707,21 +998,36 @@ function PublicationCard({
   };
 
   return (
-    <View style={[styles.card, { backgroundColor: C.card, borderColor: C.cardBorder }]}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: C.card, borderColor: C.cardBorder },
+      ]}
+    >
       {/* En-tête */}
       <View style={styles.cardHeader}>
-        <EnterpriseAvatar name={enterpriseName} logoUrl={item.enterprise?.logo_url} />
+        <EnterpriseAvatar
+          name={enterpriseName}
+          logoUrl={item.enterprise?.logo_url}
+        />
         <View style={styles.cardHeaderText}>
-          <Text style={[styles.enterpriseName, { color: C.text }]} numberOfLines={1}>
+          <Text
+            style={[styles.enterpriseName, { color: C.text }]}
+            numberOfLines={1}
+          >
             {enterpriseName}
           </Text>
           <View style={styles.cardMeta}>
             <Ionicons name="globe-outline" size={11} color={C.subText} />
-            <Text style={[styles.cardTime, { color: C.subText }]}>{timeAgo(item.created_at)}</Text>
+            <Text style={[styles.cardTime, { color: C.subText }]}>
+              {timeAgo(item.created_at)}
+            </Text>
           </View>
         </View>
         <View style={[styles.etatBadge, { borderColor: C.primary }]}>
-          <Text style={[styles.etatBadgeText, { color: C.primary }]}>OFFRE</Text>
+          <Text style={[styles.etatBadgeText, { color: C.primary }]}>
+            OFFRE
+          </Text>
         </View>
       </View>
 
@@ -739,11 +1045,25 @@ function PublicationCard({
             {item.texte}
           </Text>
           {!expanded && isLong ? (
-            <Text style={{ color: C.primary, fontSize: 13, fontWeight: '600', marginTop: 4 }}>
+            <Text
+              style={{
+                color: C.primary,
+                fontSize: 13,
+                fontWeight: "600",
+                marginTop: 4,
+              }}
+            >
               Voir plus
             </Text>
           ) : expanded ? (
-            <Text style={{ color: C.primary, fontSize: 13, fontWeight: '600', marginTop: 4 }}>
+            <Text
+              style={{
+                color: C.primary,
+                fontSize: 13,
+                fontWeight: "600",
+                marginTop: 4,
+              }}
+            >
               Voir moins
             </Text>
           ) : null}
@@ -752,32 +1072,57 @@ function PublicationCard({
 
       {/* Vidéo (façon reel) ou grille d'images */}
       {item.video_url ? (
-        <View style={{ overflow: 'hidden' }}>
+        <View style={{ overflow: "hidden" }}>
           <FeedVideo uri={item.video_url} />
         </View>
       ) : item.image_urls && item.image_urls.length > 0 ? (
-        <View style={{ overflow: 'hidden' }}>
+        <View style={{ overflow: "hidden" }}>
           <ImageGrid images={item.image_urls} onPressImage={openGallery} />
         </View>
       ) : null}
 
       {/* Actions */}
       <View style={[styles.cardActions, { borderTopColor: C.cardBorder }]}>
-        <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7} onPress={onLike}>
-          <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={19} color={isLiked ? '#FF3B30' : C.subText} />
-          <Text style={[styles.actionText, { color: isLiked ? '#FF3B30' : C.subText }]}>
+        <TouchableOpacity
+          style={styles.actionBtn}
+          activeOpacity={0.7}
+          onPress={onLike}
+        >
+          <Ionicons
+            name={isLiked ? "heart" : "heart-outline"}
+            size={19}
+            color={isLiked ? "#FF3B30" : C.subText}
+          />
+          <Text
+            style={[
+              styles.actionText,
+              { color: isLiked ? "#FF3B30" : C.subText },
+            ]}
+          >
             {(item.like_count ?? 0) > 0 ? String(item.like_count) : "J'aime"}
           </Text>
         </TouchableOpacity>
-        <View style={[styles.actionDivider, { backgroundColor: C.cardBorder }]} />
+        <View
+          style={[styles.actionDivider, { backgroundColor: C.cardBorder }]}
+        />
         <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
           <Ionicons name="share-social-outline" size={19} color={C.subText} />
-          <Text style={[styles.actionText, { color: C.subText }]}>Partager</Text>
+          <Text style={[styles.actionText, { color: C.subText }]}>
+            Partager
+          </Text>
         </TouchableOpacity>
-        <View style={[styles.actionDivider, { backgroundColor: C.cardBorder }]} />
-        <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7} onPress={onContact}>
+        <View
+          style={[styles.actionDivider, { backgroundColor: C.cardBorder }]}
+        />
+        <TouchableOpacity
+          style={styles.actionBtn}
+          activeOpacity={0.7}
+          onPress={onContact}
+        >
           <Ionicons name="call-outline" size={19} color={C.primary} />
-          <Text style={[styles.actionText, { color: C.primary }]}>Contacter</Text>
+          <Text style={[styles.actionText, { color: C.primary }]}>
+            Contacter
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -801,14 +1146,19 @@ function PubContactModal({
   onClose: () => void;
 }) {
   const { C } = useColors();
-  const { height: screenHeight } = Dimensions.get('window');
+  const { height: screenHeight } = Dimensions.get("window");
   const enterpriseName = pub.enterprise?.name ?? "l'entreprise";
 
-  const [contactInfo, setContactInfo] = useState<EnterpriseContact | null>(null);
+  const [contactInfo, setContactInfo] = useState<EnterpriseContact | null>(
+    null,
+  );
   const [contactLoading, setContactLoading] = useState(true);
 
   useEffect(() => {
-    if (!pub.enterprise_id) { setContactLoading(false); return; }
+    if (!pub.enterprise_id) {
+      setContactLoading(false);
+      return;
+    }
     api
       .getEnterpriseContact(pub.enterprise_id)
       .catch(() => null)
@@ -818,16 +1168,19 @@ function PubContactModal({
       });
   }, [pub.enterprise_id]);
 
-  const waNumber  = contactInfo?.whatsapp ?? null;
-  const callNumber = contactInfo?.phone1  ?? null;
-  const phone2    = contactInfo?.phone2   ?? null;
-  const gpsLoc    = contactInfo?.localisation ?? null;
+  const waNumber = contactInfo?.whatsapp ?? null;
+  const callNumber = contactInfo?.phone1 ?? null;
+  const phone2 = contactInfo?.phone2 ?? null;
+  const gpsLoc = contactInfo?.localisation ?? null;
 
   const openWhatsApp = () => {
     if (!waNumber)
-      return Alert.alert('Indisponible', 'WhatsApp non renseigné pour cette entreprise.');
-    const phone = waNumber.replace(/\D/g, '');
-    const text  = `Bonjour, j'ai vu votre publication et je souhaite plus d'informations.`;
+      return Alert.alert(
+        "Indisponible",
+        "WhatsApp non renseigné pour cette entreprise.",
+      );
+    const phone = waNumber.replace(/\D/g, "");
+    const text = `Bonjour, j'ai vu votre publication et je souhaite plus d'informations.`;
     Linking.openURL(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`);
   };
 
@@ -835,18 +1188,23 @@ function PubContactModal({
 
   const openGPS = async () => {
     if (!gpsLoc)
-      return Alert.alert('Indisponible', "Cet établissement n'a pas renseigné sa position GPS.");
-    const parts = gpsLoc.split(',').map(Number);
+      return Alert.alert(
+        "Indisponible",
+        "Cet établissement n'a pas renseigné sa position GPS.",
+      );
+    const parts = gpsLoc.split(",").map(Number);
     if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1]))
-      return Alert.alert('Erreur', 'Coordonnées GPS invalides.');
+      return Alert.alert("Erreur", "Coordonnées GPS invalides.");
     const [lat, lng] = parts;
     const mapsUrl =
-      Platform.OS === 'ios'
+      Platform.OS === "ios"
         ? `maps://maps.apple.com/?daddr=${lat},${lng}`
         : `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
     const canOpen = await Linking.canOpenURL(mapsUrl);
     Linking.openURL(
-      canOpen ? mapsUrl : `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
+      canOpen
+        ? mapsUrl
+        : `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
     );
   };
 
@@ -854,109 +1212,202 @@ function PubContactModal({
     <Modal visible animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.contactOverlay}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ width: '100%', maxHeight: screenHeight * 0.92 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ width: "100%", maxHeight: screenHeight * 0.92 }}
         >
           <View style={[styles.contactSheet, { backgroundColor: C.card }]}>
             {/* Header */}
-            <View style={[styles.contactSheetHeader, { borderBottomColor: C.cardBorder }]}>
-              <View style={[styles.contactSheetDrag, { backgroundColor: C.cardBorder }]} />
+            <View
+              style={[
+                styles.contactSheetHeader,
+                { borderBottomColor: C.cardBorder },
+              ]}
+            >
+              <View
+                style={[
+                  styles.contactSheetDrag,
+                  { backgroundColor: C.cardBorder },
+                ]}
+              />
               <Text style={[styles.contactSheetTitle, { color: C.text }]}>
                 {`Contacter ${enterpriseName}`}
               </Text>
-              <TouchableOpacity onPress={onClose} style={styles.contactSheetClose}>
+              <TouchableOpacity
+                onPress={onClose}
+                style={styles.contactSheetClose}
+              >
                 <Ionicons name="close" size={22} color={C.text} />
               </TouchableOpacity>
             </View>
 
             {contactLoading ? (
-              <View style={{ padding: 40, alignItems: 'center' }}>
+              <View style={{ padding: 40, alignItems: "center" }}>
                 <ActivityIndicator color={C.primary} />
               </View>
             ) : (
               <View style={styles.contactOptionsList}>
                 {/* WhatsApp */}
                 <TouchableOpacity
-                  style={[styles.contactOptionRow, { borderBottomColor: C.cardBorder }]}
+                  style={[
+                    styles.contactOptionRow,
+                    { borderBottomColor: C.cardBorder },
+                  ]}
                   onPress={openWhatsApp}
                   activeOpacity={0.75}
                 >
-                  <View style={[styles.contactOptionIcon, { backgroundColor: '#25D366' }]}>
+                  <View
+                    style={[
+                      styles.contactOptionIcon,
+                      { backgroundColor: "#25D366" },
+                    ]}
+                  >
                     <Ionicons name="logo-whatsapp" size={24} color="#fff" />
                   </View>
                   <View style={styles.contactOptionText}>
-                    <Text style={[styles.contactOptionLabel, { color: C.text }]}>WhatsApp</Text>
-                    <Text style={[styles.contactOptionSub, { color: C.subText }]}>
-                      {waNumber ?? 'Non disponible'}
+                    <Text
+                      style={[styles.contactOptionLabel, { color: C.text }]}
+                    >
+                      WhatsApp
+                    </Text>
+                    <Text
+                      style={[styles.contactOptionSub, { color: C.subText }]}
+                    >
+                      {waNumber ?? "Non disponible"}
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color={C.subText} />
+                  <Ionicons
+                    name="chevron-forward"
+                    size={18}
+                    color={C.subText}
+                  />
                 </TouchableOpacity>
 
                 {/* Appel principal */}
                 <TouchableOpacity
-                  style={[styles.contactOptionRow, { borderBottomColor: C.cardBorder }]}
+                  style={[
+                    styles.contactOptionRow,
+                    { borderBottomColor: C.cardBorder },
+                  ]}
                   onPress={() =>
                     callNumber
                       ? openCall(callNumber)
-                      : Alert.alert('Indisponible', 'Numéro non renseigné.')
+                      : Alert.alert("Indisponible", "Numéro non renseigné.")
                   }
                   activeOpacity={0.75}
                 >
-                  <View style={[styles.contactOptionIcon, { backgroundColor: C.price }]}>
+                  <View
+                    style={[
+                      styles.contactOptionIcon,
+                      { backgroundColor: C.price },
+                    ]}
+                  >
                     <Ionicons name="call" size={24} color="#fff" />
                   </View>
                   <View style={styles.contactOptionText}>
-                    <Text style={[styles.contactOptionLabel, { color: C.text }]}>Appel / SMS</Text>
-                    <Text style={[styles.contactOptionSub, { color: C.subText }]}>
-                      {callNumber ?? 'Non disponible'}
+                    <Text
+                      style={[styles.contactOptionLabel, { color: C.text }]}
+                    >
+                      Appel / SMS
+                    </Text>
+                    <Text
+                      style={[styles.contactOptionSub, { color: C.subText }]}
+                    >
+                      {callNumber ?? "Non disponible"}
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color={C.subText} />
+                  <Ionicons
+                    name="chevron-forward"
+                    size={18}
+                    color={C.subText}
+                  />
                 </TouchableOpacity>
 
                 {/* Téléphone 2 */}
                 {phone2 ? (
                   <TouchableOpacity
-                    style={[styles.contactOptionRow, { borderBottomColor: C.cardBorder }]}
+                    style={[
+                      styles.contactOptionRow,
+                      { borderBottomColor: C.cardBorder },
+                    ]}
                     onPress={() => openCall(phone2)}
                     activeOpacity={0.75}
                   >
-                    <View style={[styles.contactOptionIcon, { backgroundColor: C.price }]}>
+                    <View
+                      style={[
+                        styles.contactOptionIcon,
+                        { backgroundColor: C.price },
+                      ]}
+                    >
                       <Ionicons name="call-outline" size={24} color="#fff" />
                     </View>
                     <View style={styles.contactOptionText}>
-                      <Text style={[styles.contactOptionLabel, { color: C.text }]}>Téléphone 2</Text>
-                      <Text style={[styles.contactOptionSub, { color: C.subText }]}>{phone2}</Text>
+                      <Text
+                        style={[styles.contactOptionLabel, { color: C.text }]}
+                      >
+                        Téléphone 2
+                      </Text>
+                      <Text
+                        style={[styles.contactOptionSub, { color: C.subText }]}
+                      >
+                        {phone2}
+                      </Text>
                     </View>
-                    <Ionicons name="chevron-forward" size={18} color={C.subText} />
+                    <Ionicons
+                      name="chevron-forward"
+                      size={18}
+                      color={C.subText}
+                    />
                   </TouchableOpacity>
                 ) : null}
 
                 {/* Chat */}
                 <TouchableOpacity
-                  style={[styles.contactOptionRow, { borderBottomColor: C.cardBorder }]}
+                  style={[
+                    styles.contactOptionRow,
+                    { borderBottomColor: C.cardBorder },
+                  ]}
                   onPress={() => {
                     if (!pub.enterprise_id) return;
                     onClose();
                     router.push({
-                      pathname: '/chat',
+                      pathname: "/chat",
                       params: {
                         enterprise_id: pub.enterprise_id,
-                        enterprise_name: pub.enterprise?.name ?? 'Entreprise',
+                        enterprise_name: pub.enterprise?.name ?? "Entreprise",
                       },
                     } as any);
                   }}
                   activeOpacity={0.75}
                 >
-                  <View style={[styles.contactOptionIcon, { backgroundColor: C.primary }]}>
-                    <Ionicons name="chatbubble-ellipses" size={24} color="#fff" />
+                  <View
+                    style={[
+                      styles.contactOptionIcon,
+                      { backgroundColor: C.primary },
+                    ]}
+                  >
+                    <Ionicons
+                      name="chatbubble-ellipses"
+                      size={24}
+                      color="#fff"
+                    />
                   </View>
                   <View style={styles.contactOptionText}>
-                    <Text style={[styles.contactOptionLabel, { color: C.text }]}>Chat en temps réel</Text>
-                    <Text style={[styles.contactOptionSub, { color: C.subText }]}>Messagerie directe</Text>
+                    <Text
+                      style={[styles.contactOptionLabel, { color: C.text }]}
+                    >
+                      Chat en temps réel
+                    </Text>
+                    <Text
+                      style={[styles.contactOptionSub, { color: C.subText }]}
+                    >
+                      Messagerie directe
+                    </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color={C.subText} />
+                  <Ionicons
+                    name="chevron-forward"
+                    size={18}
+                    color={C.subText}
+                  />
                 </TouchableOpacity>
 
                 {/* GPS */}
@@ -965,16 +1416,31 @@ function PubContactModal({
                   onPress={openGPS}
                   activeOpacity={0.75}
                 >
-                  <View style={[styles.contactOptionIcon, { backgroundColor: C.accent }]}>
+                  <View
+                    style={[
+                      styles.contactOptionIcon,
+                      { backgroundColor: C.accent },
+                    ]}
+                  >
                     <Ionicons name="navigate" size={24} color="#fff" />
                   </View>
                   <View style={styles.contactOptionText}>
-                    <Text style={[styles.contactOptionLabel, { color: C.text }]}>Itinéraire / GPS</Text>
-                    <Text style={[styles.contactOptionSub, { color: C.subText }]}>
-                      {gpsLoc ? 'Ouvrir dans Maps' : 'Position non renseignée'}
+                    <Text
+                      style={[styles.contactOptionLabel, { color: C.text }]}
+                    >
+                      Itinéraire / GPS
+                    </Text>
+                    <Text
+                      style={[styles.contactOptionSub, { color: C.subText }]}
+                    >
+                      {gpsLoc ? "Ouvrir dans Maps" : "Position non renseignée"}
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color={C.subText} />
+                  <Ionicons
+                    name="chevron-forward"
+                    size={18}
+                    color={C.subText}
+                  />
                 </TouchableOpacity>
               </View>
             )}
@@ -988,7 +1454,14 @@ function PubContactModal({
 // ─── COMPOSANT PRINCIPAL ─────────────────────────────────────────────────────
 export default function FeedScreen() {
   const { C } = useColors();
-  const { tenant, loading: authLoading, isAuthenticated, pendingState, isSuperAdmin, logout } = useTenant();
+  const {
+    tenant,
+    loading: authLoading,
+    isAuthenticated,
+    pendingState,
+    isSuperAdmin,
+    logout,
+  } = useTenant();
 
   const [motos, setMotos] = useState<FeedMoto[]>([]);
   const [publications, setPublications] = useState<FeedPub[]>([]);
@@ -1003,8 +1476,8 @@ export default function FeedScreen() {
   const [hasMorePubs, setHasMorePubs] = useState(true);
   const loadingMoreRef = useRef(false);
 
-  const [search, setSearch] = useState('');
-  const [activeFilter, setActiveFilter] = useState<Filter>('Tout');
+  const [search, setSearch] = useState("");
+  const [activeFilter, setActiveFilter] = useState<Filter>("Tout");
   const [detailMoto, setDetailMoto] = useState<FeedMoto | null>(null);
   const [contactMoto, setContactMoto] = useState<FeedMoto | null>(null);
   const [pubContact, setPubContact] = useState<FeedPub | null>(null);
@@ -1012,9 +1485,11 @@ export default function FeedScreen() {
   const [showPin, setShowPin] = useState(false);
   const [storedPin, setStoredPin] = useState<string | null>(null);
   const [likedMotos, setLikedMotos] = useState<Set<string>>(new Set());
-  const [likedPubs, setLikedPubs]   = useState<Set<string>>(new Set());
+  const [likedPubs, setLikedPubs] = useState<Set<string>>(new Set());
 
-  useEffect(() => { fetchFeed(); }, []);
+  useEffect(() => {
+    fetchFeed();
+  }, []);
 
   useEffect(() => {
     Promise.all([
@@ -1033,18 +1508,19 @@ export default function FeedScreen() {
 
   useEffect(() => {
     let data = motos;
-    if (activeFilter !== 'Tout') {
-      const etat = activeFilter === 'Neuf' ? 'neuf' : 'occasion';
-      data = data.filter(m => m.etat?.toLowerCase() === etat);
+    if (activeFilter !== "Tout") {
+      const etat = activeFilter === "Neuf" ? "neuf" : "occasion";
+      data = data.filter((m) => m.etat?.toLowerCase() === etat);
     }
     if (search.trim()) {
       const q = search.toLowerCase();
-      data = data.filter(m =>
-        m.marque.toLowerCase().includes(q) ||
-        m.modele?.toLowerCase().includes(q) ||
-        m.type?.toLowerCase().includes(q) ||
-        m.couleur?.toLowerCase().includes(q) ||
-        m.enterprise?.name?.toLowerCase().includes(q)
+      data = data.filter(
+        (m) =>
+          m.marque.toLowerCase().includes(q) ||
+          m.modele?.toLowerCase().includes(q) ||
+          m.type?.toLowerCase().includes(q) ||
+          m.couleur?.toLowerCase().includes(q) ||
+          m.enterprise?.name?.toLowerCase().includes(q),
       );
     }
     setFiltered(data);
@@ -1052,20 +1528,23 @@ export default function FeedScreen() {
 
   // ── Fusionner motos et publications dans un seul fil chronologique ──────────
   useEffect(() => {
-    const motoItems: FeedItem[] = filtered.map(m => ({ kind: 'moto', data: m }));
+    const motoItems: FeedItem[] = filtered.map((m) => ({
+      kind: "moto",
+      data: m,
+    }));
 
     let pubItems: FeedItem[] = [];
-    if (activeFilter === 'Tout') {
+    if (activeFilter === "Tout") {
       let pubs = publications;
       if (search.trim()) {
         const q = search.toLowerCase();
         pubs = pubs.filter(
-          p =>
+          (p) =>
             p.texte?.toLowerCase().includes(q) ||
             p.enterprise?.name?.toLowerCase().includes(q),
         );
       }
-      pubItems = pubs.map(p => ({ kind: 'pub', data: p }));
+      pubItems = pubs.map((p) => ({ kind: "pub", data: p }));
     }
 
     const merged = [...motoItems, ...pubItems].sort(
@@ -1088,8 +1567,14 @@ export default function FeedScreen() {
     }
 
     // Lance les deux fetchs EN PARALLÈLE — on n'attend plus l'un pour lancer l'autre
-    const motoFetch = api.listPublicMotos({ page: 1, per_page: MOTO_PAGE_SIZE });
-    const pubFetch = api.listPublicPublications({ page: 1, per_page: PUB_PAGE_SIZE });
+    const motoFetch = api.listPublicMotos({
+      page: 1,
+      per_page: MOTO_PAGE_SIZE,
+    });
+    const pubFetch = api.listPublicPublications({
+      page: 1,
+      per_page: PUB_PAGE_SIZE,
+    });
 
     // Dès que les motos arrivent → on enlève le spinner et on affiche
     const processMotos = motoFetch
@@ -1099,7 +1584,7 @@ export default function FeedScreen() {
         setHasMoreMotos(result.current_page < result.last_page);
         setMotosPage(2);
       })
-      .catch((e) => console.error('Erreur fetchMotos:', e.message))
+      .catch((e) => console.error("Erreur fetchMotos:", e.message))
       .finally(() => setFeedLoading(false)); // Affiche les motos sans attendre les pubs
 
     // Les pubs s'insèrent dans le fil quand elles arrivent (en arrière-plan)
@@ -1110,12 +1595,12 @@ export default function FeedScreen() {
         setHasMorePubs(result.current_page < result.last_page);
         setPubsPage(2);
       })
-      .catch((e) => console.error('Erreur fetchPubs:', e.message));
+      .catch((e) => console.error("Erreur fetchPubs:", e.message));
 
     try {
       await Promise.all([processMotos, processPubs]);
     } catch (e) {
-      console.error('Exception fetchFeed:', e);
+      console.error("Exception fetchFeed:", e);
       setFeedLoading(false);
     } finally {
       setRefreshing(false);
@@ -1134,26 +1619,29 @@ export default function FeedScreen() {
               .listPublicMotos({ page: motosPage, per_page: MOTO_PAGE_SIZE })
               .then((result) => {
                 const data = (result?.data ?? []) as FeedMoto[];
-                setMotos(prev => [...prev, ...data]);
+                setMotos((prev) => [...prev, ...data]);
                 setHasMoreMotos(result.current_page < result.last_page);
-                setMotosPage(prev => prev + 1);
+                setMotosPage((prev) => prev + 1);
               })
-              .catch((e) => console.error('Erreur loadMore motos:', e.message))
+              .catch((e) => console.error("Erreur loadMore motos:", e.message))
           : Promise.resolve(),
         hasMorePubs
           ? api
-              .listPublicPublications({ page: pubsPage, per_page: PUB_PAGE_SIZE })
+              .listPublicPublications({
+                page: pubsPage,
+                per_page: PUB_PAGE_SIZE,
+              })
               .then((result) => {
                 const data = (result?.data ?? []) as FeedPub[];
-                setPublications(prev => [...prev, ...data]);
+                setPublications((prev) => [...prev, ...data]);
                 setHasMorePubs(result.current_page < result.last_page);
-                setPubsPage(prev => prev + 1);
+                setPubsPage((prev) => prev + 1);
               })
-              .catch((e) => console.error('Erreur loadMore pubs:', e.message))
+              .catch((e) => console.error("Erreur loadMore pubs:", e.message))
           : Promise.resolve(),
       ]);
     } catch (e) {
-      console.error('Exception loadMore:', e);
+      console.error("Exception loadMore:", e);
     } finally {
       loadingMoreRef.current = false;
       setLoadingMore(false);
@@ -1161,17 +1649,30 @@ export default function FeedScreen() {
   };
 
   const handleAuthRouting = async () => {
-    if (pendingState) { router.replace('/pending'); return; }
-    if (isSuperAdmin) { router.replace('/admin/enterprises'); return; }
+    if (pendingState) {
+      router.replace("/pending");
+      return;
+    }
+    if (isSuperAdmin) {
+      router.replace("/admin/enterprises");
+      return;
+    }
     if (tenant) {
-      const saved = await SecureStore.getItemAsync(`USER_PIN_${tenant.user_id}`);
+      const saved = await SecureStore.getItemAsync(
+        `USER_PIN_${tenant.user_id}`,
+      );
       setStoredPin(saved);
       if (saved) {
-        const bio = await LocalAuthentication.authenticateAsync({ promptMessage: 'Accès SenMoto' });
-        if (bio.success) { router.replace('/home'); return; }
+        const bio = await LocalAuthentication.authenticateAsync({
+          promptMessage: "Accès SenMoto",
+        });
+        if (bio.success) {
+          router.replace("/home");
+          return;
+        }
         setShowPin(true);
       } else {
-        router.replace('/home');
+        router.replace("/home");
       }
     }
   };
@@ -1180,13 +1681,16 @@ export default function FeedScreen() {
     if (!tenant) return;
     const pinKey = `USER_PIN_${tenant.user_id}`;
     if (!storedPin) {
-      if (pin.length !== 4) { Alert.alert('Erreur', '4 chiffres requis.'); return; }
+      if (pin.length !== 4) {
+        Alert.alert("Erreur", "4 chiffres requis.");
+        return;
+      }
       await SecureStore.setItemAsync(pinKey, pin);
-      router.replace('/home');
+      router.replace("/home");
     } else if (pin === storedPin) {
-      router.replace('/home');
+      router.replace("/home");
     } else {
-      Alert.alert('PIN incorrect', 'Veuillez réessayer.');
+      Alert.alert("PIN incorrect", "Veuillez réessayer.");
     }
   };
 
@@ -1197,9 +1701,13 @@ export default function FeedScreen() {
     setLikedMotos(next);
     SecureStore.setItemAsync(LIKED_MOTOS_KEY, JSON.stringify([...next]));
     const delta = isNowLiked ? 1 : -1;
-    setMotos(prev => prev.map(m =>
-      m.id === moto.id ? { ...m, like_count: Math.max(0, (m.like_count ?? 0) + delta) } : m
-    ));
+    setMotos((prev) =>
+      prev.map((m) =>
+        m.id === moto.id
+          ? { ...m, like_count: Math.max(0, (m.like_count ?? 0) + delta) }
+          : m,
+      ),
+    );
     api.likeMoto(moto.id, isNowLiked).catch(() => {});
   };
 
@@ -1210,29 +1718,46 @@ export default function FeedScreen() {
     setLikedPubs(next);
     SecureStore.setItemAsync(LIKED_PUBS_KEY, JSON.stringify([...next]));
     const delta = isNowLiked ? 1 : -1;
-    setPublications(prev => prev.map(p =>
-      p.id === pub.id ? { ...p, like_count: Math.max(0, (p.like_count ?? 0) + delta) } : p
-    ));
+    setPublications((prev) =>
+      prev.map((p) =>
+        p.id === pub.id
+          ? { ...p, like_count: Math.max(0, (p.like_count ?? 0) + delta) }
+          : p,
+      ),
+    );
     api.likePublication(pub.id, isNowLiked).catch(() => {});
   };
 
   const handleSwitchUser = async () => {
     await logout();
-    await SecureStore.deleteItemAsync('LAST_USER_ID');
+    await SecureStore.deleteItemAsync("LAST_USER_ID");
     setShowPin(false);
-    router.replace('/onboarding');
+    router.replace("/onboarding");
   };
 
   if (showPin) {
-    return <PinScreen storedPin={storedPin} onSubmit={handlePinSubmit} onSwitchUser={handleSwitchUser} />;
+    return (
+      <PinScreen
+        storedPin={storedPin}
+        onSubmit={handlePinSubmit}
+        onSwitchUser={handleSwitchUser}
+      />
+    );
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: C.bg, paddingTop: 0 }]}>
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: C.bg, paddingTop: 0 }]}
+    >
       <FeedHeader isAuthenticated={isAuthenticated} isLoading={authLoading} />
 
       {/* Barre de recherche */}
-      <View style={[styles.searchBar, { backgroundColor: C.card, borderColor: C.cardBorder }]}>
+      <View
+        style={[
+          styles.searchBar,
+          { backgroundColor: C.card, borderColor: C.cardBorder },
+        ]}
+      >
         <Ionicons name="search" size={16} color={C.subText} />
         <TextInput
           style={[styles.searchInput, { color: C.text }]}
@@ -1242,7 +1767,7 @@ export default function FeedScreen() {
           onChangeText={setSearch}
         />
         {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch('')}>
+          <TouchableOpacity onPress={() => setSearch("")}>
             <Ionicons name="close-circle" size={16} color={C.subText} />
           </TouchableOpacity>
         )}
@@ -1250,21 +1775,31 @@ export default function FeedScreen() {
 
       {/* Filtres pills */}
       <View style={styles.filtersRow}>
-        {FILTERS.map(f => (
+        {FILTERS.map((f) => (
           <TouchableOpacity
             key={f}
             style={[
               styles.filterPill,
-              { backgroundColor: activeFilter === f ? C.pillActive : C.pill, borderColor: C.cardBorder },
+              {
+                backgroundColor: activeFilter === f ? C.pillActive : C.pill,
+                borderColor: C.cardBorder,
+              },
             ]}
             onPress={() => setActiveFilter(f)}
             activeOpacity={0.8}
           >
-            <Text style={[styles.filterPillText, { color: activeFilter === f ? '#fff' : C.subText }]}>{f}</Text>
+            <Text
+              style={[
+                styles.filterPillText,
+                { color: activeFilter === f ? "#fff" : C.subText },
+              ]}
+            >
+              {f}
+            </Text>
           </TouchableOpacity>
         ))}
         <Text style={[styles.resultCount, { color: C.subText }]}>
-          {feedItems.length} résultat{feedItems.length !== 1 ? 's' : ''}
+          {feedItems.length} résultat{feedItems.length !== 1 ? "s" : ""}
         </Text>
       </View>
 
@@ -1272,12 +1807,14 @@ export default function FeedScreen() {
       {feedLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={C.primary} />
-          <Text style={[styles.loadingText, { color: C.subText }]}>Chargement des publications...</Text>
+          <Text style={[styles.loadingText, { color: C.subText }]}>
+            Chargement des publications...
+          </Text>
         </View>
       ) : (
         <FlatList
           data={feedItems}
-          keyExtractor={item => item.kind + '_' + item.data.id}
+          keyExtractor={(item) => item.kind + "_" + item.data.id}
           ListHeaderComponent={
             <TrendingSection
               motos={motos}
@@ -1286,7 +1823,7 @@ export default function FeedScreen() {
             />
           }
           renderItem={({ item }) => {
-            if (item.kind === 'moto') {
+            if (item.kind === "moto") {
               return (
                 <MotoCard
                   item={item.data}
@@ -1307,7 +1844,9 @@ export default function FeedScreen() {
             );
           }}
           ListEmptyComponent={<EmptyFeed />}
-          contentContainerStyle={feedItems.length === 0 ? styles.emptyList : styles.feedList}
+          contentContainerStyle={
+            feedItems.length === 0 ? styles.emptyList : styles.feedList
+          }
           showsVerticalScrollIndicator={false}
           onEndReached={loadMore}
           onEndReachedThreshold={0.4}
@@ -1315,10 +1854,14 @@ export default function FeedScreen() {
             loadingMore ? (
               <View style={styles.footerLoader}>
                 <ActivityIndicator size="small" color={C.primary} />
-                <Text style={[styles.footerLoaderText, { color: C.subText }]}>Chargement...</Text>
+                <Text style={[styles.footerLoaderText, { color: C.subText }]}>
+                  Chargement...
+                </Text>
               </View>
-            ) : (!hasMoreMotos && !hasMorePubs && feedItems.length > 0) ? (
-              <Text style={[styles.footerEnd, { color: C.subText }]}>— Fin du fil —</Text>
+            ) : !hasMoreMotos && !hasMorePubs && feedItems.length > 0 ? (
+              <Text style={[styles.footerEnd, { color: C.subText }]}>
+                — Fin du fil —
+              </Text>
             ) : null
           }
           refreshControl={
@@ -1329,7 +1872,11 @@ export default function FeedScreen() {
               colors={[C.primary]}
             />
           }
-          ItemSeparatorComponent={() => <View style={[styles.separator, { backgroundColor: C.separator }]} />}
+          ItemSeparatorComponent={() => (
+            <View
+              style={[styles.separator, { backgroundColor: C.separator }]}
+            />
+          )}
         />
       )}
 
@@ -1337,57 +1884,77 @@ export default function FeedScreen() {
         <MotoDetailModal
           moto={detailMoto}
           onClose={() => setDetailMoto(null)}
-          onContact={() => { const m = detailMoto; setDetailMoto(null); setContactMoto(m); }}
+          onContact={() => {
+            const m = detailMoto;
+            setDetailMoto(null);
+            setContactMoto(m);
+          }}
         />
       )}
 
       {contactMoto && (
-        <ContactModal
-          moto={contactMoto}
-          onClose={() => setContactMoto(null)}
-        />
+        <ContactModal moto={contactMoto} onClose={() => setContactMoto(null)} />
       )}
 
       {pubContact && (
-        <PubContactModal
-          pub={pubContact}
-          onClose={() => setPubContact(null)}
-        />
+        <PubContactModal pub={pubContact} onClose={() => setPubContact(null)} />
       )}
     </SafeAreaView>
   );
 }
 
 // ─── MODAL DÉTAIL MOTO ───────────────────────────────────────────────────────
-function MotoDetailModal({ moto, onClose, onContact }: { moto: FeedMoto; onClose: () => void; onContact: () => void }) {
+function MotoDetailModal({
+  moto,
+  onClose,
+  onContact,
+}: {
+  moto: FeedMoto;
+  onClose: () => void;
+  onContact: () => void;
+}) {
   const { C } = useColors();
   const imgs = [...(moto.images || [])].sort((a, b) => {
     if (a.is_principal && !b.is_principal) return -1;
     if (!a.is_principal && b.is_principal) return 1;
     return (a.position ?? 0) - (b.position ?? 0);
   });
-  const enterpriseName = moto.enterprise?.name ?? 'Entreprise';
+  const enterpriseName = moto.enterprise?.name ?? "Entreprise";
 
   const rows: { label: string; value: string }[] = [
-    moto.marque ? { label: 'Marque', value: moto.marque } : null,
-    moto.modele ? { label: 'Modèle', value: moto.modele } : null,
-    moto.type ? { label: 'Type', value: moto.type } : null,
-    moto.etat ? { label: 'État', value: moto.etat } : null,
-    moto.couleur ? { label: 'Couleur', value: moto.couleur } : null,
-    moto.cylindree ? { label: 'Cylindrée', value: moto.cylindree } : null,
-    moto.annee_fabrication ? { label: 'Année', value: String(moto.annee_fabrication) } : null,
-    moto.immatriculation ? { label: 'Immatriculation', value: moto.immatriculation } : null,
-    moto.numero_chassis ? { label: 'N° châssis', value: moto.numero_chassis } : null,
+    moto.marque ? { label: "Marque", value: moto.marque } : null,
+    moto.modele ? { label: "Modèle", value: moto.modele } : null,
+    moto.type ? { label: "Type", value: moto.type } : null,
+    moto.etat ? { label: "État", value: moto.etat } : null,
+    moto.couleur ? { label: "Couleur", value: moto.couleur } : null,
+    moto.cylindree ? { label: "Cylindrée", value: moto.cylindree } : null,
+    moto.annee_fabrication
+      ? { label: "Année", value: String(moto.annee_fabrication) }
+      : null,
+    moto.immatriculation
+      ? { label: "Immatriculation", value: moto.immatriculation }
+      : null,
+    moto.numero_chassis
+      ? { label: "N° châssis", value: moto.numero_chassis }
+      : null,
   ].filter(Boolean) as { label: string; value: string }[];
 
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={[styles.detailSafeArea, { backgroundColor: C.bg }]}>
-        <View style={[styles.detailHeader, { backgroundColor: C.headerBg, borderBottomColor: C.cardBorder }]}>
+        <View
+          style={[
+            styles.detailHeader,
+            { backgroundColor: C.headerBg, borderBottomColor: C.cardBorder },
+          ]}
+        >
           <TouchableOpacity onPress={onClose} style={styles.detailCloseBtn}>
             <Ionicons name="arrow-back" size={24} color={C.text} />
           </TouchableOpacity>
-          <Text style={[styles.detailHeaderTitle, { color: C.text }]} numberOfLines={1}>
+          <Text
+            style={[styles.detailHeaderTitle, { color: C.text }]}
+            numberOfLines={1}
+          >
             {moto.marque} {moto.modele}
           </Text>
           <TouchableOpacity onPress={onContact} style={styles.detailContactBtn}>
@@ -1395,7 +1962,10 @@ function MotoDetailModal({ moto, onClose, onContact }: { moto: FeedMoto; onClose
           </TouchableOpacity>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 40 }}
+        >
           {imgs.length > 0 ? (
             <FlatList
               data={imgs}
@@ -1404,58 +1974,132 @@ function MotoDetailModal({ moto, onClose, onContact }: { moto: FeedMoto; onClose
               showsHorizontalScrollIndicator={false}
               keyExtractor={(img, i) => img.image_uri + i}
               renderItem={({ item }) => (
-                <Image source={{ uri: item.image_uri }} style={[styles.detailFullImage, { backgroundColor: C.pill }]} resizeMode="cover" />
+                <Image
+                  source={{ uri: item.image_uri }}
+                  style={[styles.detailFullImage, { backgroundColor: C.pill }]}
+                  resizeMode="cover"
+                />
               )}
             />
           ) : (
-            <View style={[styles.detailNoImgBox, { backgroundColor: C.separator }]}>
+            <View
+              style={[styles.detailNoImgBox, { backgroundColor: C.separator }]}
+            >
               <Ionicons name="bicycle" size={72} color={C.cardBorder} />
-              <Text style={{ color: C.subText, marginTop: 10 }}>Pas de photo disponible</Text>
+              <Text style={{ color: C.subText, marginTop: 10 }}>
+                Pas de photo disponible
+              </Text>
             </View>
           )}
           {imgs.length > 1 && (
-            <Text style={[styles.swipeHint, { color: C.subText }]}>{imgs.length} photos — glissez ←→</Text>
+            <Text style={[styles.swipeHint, { color: C.subText }]}>
+              {imgs.length} photos — glissez ←→
+            </Text>
           )}
 
           <View style={styles.detailPriceRow}>
-            <Text style={[styles.detailPrice, { color: C.price }]}>{formatPrice(moto.prix_vente)}</Text>
+            <Text style={[styles.detailPrice, { color: C.price }]}>
+              {formatPrice(moto.prix_vente)}
+            </Text>
             {moto.etat && (
-              <View style={[styles.detailEtatBadge, { borderColor: moto.etat.toLowerCase() === 'neuf' ? C.price : C.accent }]}>
-                <Text style={[styles.detailEtatText, { color: moto.etat.toLowerCase() === 'neuf' ? C.price : C.accent }]}>
+              <View
+                style={[
+                  styles.detailEtatBadge,
+                  {
+                    borderColor:
+                      moto.etat.toLowerCase() === "neuf" ? C.price : C.accent,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.detailEtatText,
+                    {
+                      color:
+                        moto.etat.toLowerCase() === "neuf" ? C.price : C.accent,
+                    },
+                  ]}
+                >
                   {moto.etat.toUpperCase()}
                 </Text>
               </View>
             )}
           </View>
 
-          <View style={[styles.detailEnterpriseRow, { borderBottomColor: C.cardBorder }]}>
-            <EnterpriseAvatar name={enterpriseName} logoUrl={moto.enterprise?.logo_url} size={36} />
-            <Text style={[styles.detailEnterpriseLabel, { color: C.text }]}>{enterpriseName}</Text>
-            <Text style={[styles.detailTimeLabel, { color: C.subText }]}>{timeAgo(moto.created_at)}</Text>
+          <View
+            style={[
+              styles.detailEnterpriseRow,
+              { borderBottomColor: C.cardBorder },
+            ]}
+          >
+            <EnterpriseAvatar
+              name={enterpriseName}
+              logoUrl={moto.enterprise?.logo_url}
+              size={36}
+            />
+            <Text style={[styles.detailEnterpriseLabel, { color: C.text }]}>
+              {enterpriseName}
+            </Text>
+            <Text style={[styles.detailTimeLabel, { color: C.subText }]}>
+              {timeAgo(moto.created_at)}
+            </Text>
           </View>
 
           {moto.description ? (
             <View style={styles.detailSection}>
-              <Text style={[styles.detailSectionTitle, { color: C.subText }]}>Description</Text>
-              <Text style={[styles.detailDescText, { color: C.text }]}>{moto.description}</Text>
+              <Text style={[styles.detailSectionTitle, { color: C.subText }]}>
+                Description
+              </Text>
+              <Text style={[styles.detailDescText, { color: C.text }]}>
+                {moto.description}
+              </Text>
             </View>
           ) : null}
 
           <View style={styles.detailSection}>
-            <Text style={[styles.detailSectionTitle, { color: C.subText }]}>Caractéristiques</Text>
+            <Text style={[styles.detailSectionTitle, { color: C.subText }]}>
+              Caractéristiques
+            </Text>
             {rows.map((r, i) => (
-              <View key={i} style={[styles.detailRow, i < rows.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.cardBorder }]}>
-                <Text style={[styles.detailLabel, { color: C.subText }]}>{r.label}</Text>
-                <Text style={[styles.detailValue, { color: C.text }]}>{r.value}</Text>
+              <View
+                key={i}
+                style={[
+                  styles.detailRow,
+                  i < rows.length - 1 && {
+                    borderBottomWidth: StyleSheet.hairlineWidth,
+                    borderBottomColor: C.cardBorder,
+                  },
+                ]}
+              >
+                <Text style={[styles.detailLabel, { color: C.subText }]}>
+                  {r.label}
+                </Text>
+                <Text style={[styles.detailValue, { color: C.text }]}>
+                  {r.value}
+                </Text>
               </View>
             ))}
           </View>
         </ScrollView>
 
-        <View style={[styles.detailBottomBar, { borderTopColor: C.cardBorder, backgroundColor: C.headerBg }]}>
-          <TouchableOpacity style={[styles.detailContactBtnFull, { backgroundColor: C.primary }]} onPress={onContact} activeOpacity={0.85}>
+        <View
+          style={[
+            styles.detailBottomBar,
+            { borderTopColor: C.cardBorder, backgroundColor: C.headerBg },
+          ]}
+        >
+          <TouchableOpacity
+            style={[
+              styles.detailContactBtnFull,
+              { backgroundColor: C.primary },
+            ]}
+            onPress={onContact}
+            activeOpacity={0.85}
+          >
             <Ionicons name="call-outline" size={20} color="#fff" />
-            <Text style={styles.detailContactBtnText}>Contacter l'entreprise</Text>
+            <Text style={styles.detailContactBtnText}>
+              Contacter l'entreprise
+            </Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -1464,18 +2108,29 @@ function MotoDetailModal({ moto, onClose, onContact }: { moto: FeedMoto; onClose
 }
 
 // ─── MODAL CONTACT ENTREPRISE ────────────────────────────────────────────────
-function ContactModal({ moto, onClose }: { moto: FeedMoto; onClose: () => void }) {
+function ContactModal({
+  moto,
+  onClose,
+}: {
+  moto: FeedMoto;
+  onClose: () => void;
+}) {
   const { C } = useColors();
-  const { height: screenHeight } = Dimensions.get('window');
+  const { height: screenHeight } = Dimensions.get("window");
   const enterpriseName = moto.enterprise?.name ?? "l'entreprise";
 
   // Contacts configurés par l'admin de l'entreprise
-  const [contactInfo, setContactInfo] = useState<EnterpriseContact | null>(null);
+  const [contactInfo, setContactInfo] = useState<EnterpriseContact | null>(
+    null,
+  );
   const [contactLoading, setContactLoading] = useState(true);
 
   // Charger les contacts de l'entreprise depuis enterprise_contacts
   useEffect(() => {
-    if (!moto.enterprise_id) { setContactLoading(false); return; }
+    if (!moto.enterprise_id) {
+      setContactLoading(false);
+      return;
+    }
     api
       .getEnterpriseContact(moto.enterprise_id)
       .catch(() => null)
@@ -1492,19 +2147,31 @@ function ContactModal({ moto, onClose }: { moto: FeedMoto; onClose: () => void }
   const gpsLoc = contactInfo?.localisation ?? null;
 
   const openWhatsApp = () => {
-    if (!waNumber) return Alert.alert('Indisponible', 'Numéro WhatsApp non renseigné pour cette entreprise.');
-    const phone = waNumber.replace(/\D/g, '');
-    const motoName = [moto.marque, moto.modele, moto.type].filter(Boolean).join(' ');
-    const price = moto.prix_vente ? `${moto.prix_vente.toLocaleString('fr-FR')} FCFA` : 'Prix sur demande';
+    if (!waNumber)
+      return Alert.alert(
+        "Indisponible",
+        "Numéro WhatsApp non renseigné pour cette entreprise.",
+      );
+    const phone = waNumber.replace(/\D/g, "");
+    const motoName = [moto.marque, moto.modele, moto.type]
+      .filter(Boolean)
+      .join(" ");
+    const price = moto.prix_vente
+      ? `${moto.prix_vente.toLocaleString("fr-FR")} FCFA`
+      : "Prix sur demande";
     const details = [
       moto.etat ? `État : ${moto.etat}` : null,
       moto.couleur ? `Couleur : ${moto.couleur}` : null,
       moto.cylindree ? `Cylindrée : ${moto.cylindree}` : null,
-    ].filter(Boolean).join('\n');
-    const principalImg = moto.images?.find(i => i.is_principal) ?? moto.images?.[0];
+    ]
+      .filter(Boolean)
+      .join("\n");
+    const principalImg =
+      moto.images?.find((i) => i.is_principal) ?? moto.images?.[0];
     const imgUri = principalImg?.image_uri;
-    const imgLine = imgUri && imgUri.startsWith('http') ? `\n📸 Photo : ${imgUri}` : '';
-    const text = `Bonjour, je suis intéressé(e) par votre moto :\n\n*${motoName}*\nPrix : ${price}${details ? '\n' + details : ''}${imgLine}\n\nPouvez-vous me donner plus d'informations ?`;
+    const imgLine =
+      imgUri && imgUri.startsWith("http") ? `\n📸 Photo : ${imgUri}` : "";
+    const text = `Bonjour, je suis intéressé(e) par votre moto :\n\n*${motoName}*\nPrix : ${price}${details ? "\n" + details : ""}${imgLine}\n\nPouvez-vous me donner plus d'informations ?`;
     Linking.openURL(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`);
   };
 
@@ -1513,38 +2180,61 @@ function ContactModal({ moto, onClose }: { moto: FeedMoto; onClose: () => void }
   };
 
   const openGPS = async () => {
-    if (!gpsLoc) return Alert.alert('Indisponible', "Cet établissement n'a pas renseigné sa position GPS.");
-    const parts = gpsLoc.split(',').map(Number);
-    if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return Alert.alert('Erreur', 'Coordonnées GPS invalides.');
+    if (!gpsLoc)
+      return Alert.alert(
+        "Indisponible",
+        "Cet établissement n'a pas renseigné sa position GPS.",
+      );
+    const parts = gpsLoc.split(",").map(Number);
+    if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1]))
+      return Alert.alert("Erreur", "Coordonnées GPS invalides.");
     const [lat, lng] = parts;
-    const mapsUrl = Platform.OS === 'ios'
-      ? `maps://maps.apple.com/?daddr=${lat},${lng}`
-      : `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+    const mapsUrl =
+      Platform.OS === "ios"
+        ? `maps://maps.apple.com/?daddr=${lat},${lng}`
+        : `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
     const canOpen = await Linking.canOpenURL(mapsUrl);
-    Linking.openURL(canOpen ? mapsUrl : `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`);
+    Linking.openURL(
+      canOpen
+        ? mapsUrl
+        : `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
+    );
   };
 
   return (
     <Modal visible animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.contactOverlay}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ width: '100%', maxHeight: screenHeight * 0.92 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ width: "100%", maxHeight: screenHeight * 0.92 }}
         >
           <View style={[styles.contactSheet, { backgroundColor: C.card }]}>
             {/* Header */}
-            <View style={[styles.contactSheetHeader, { borderBottomColor: C.cardBorder }]}>
-              <View style={[styles.contactSheetDrag, { backgroundColor: C.cardBorder }]} />
+            <View
+              style={[
+                styles.contactSheetHeader,
+                { borderBottomColor: C.cardBorder },
+              ]}
+            >
+              <View
+                style={[
+                  styles.contactSheetDrag,
+                  { backgroundColor: C.cardBorder },
+                ]}
+              />
               <Text style={[styles.contactSheetTitle, { color: C.text }]}>
                 {`Contacter ${enterpriseName}`}
               </Text>
-              <TouchableOpacity onPress={onClose} style={styles.contactSheetClose}>
+              <TouchableOpacity
+                onPress={onClose}
+                style={styles.contactSheetClose}
+              >
                 <Ionicons name="close" size={22} color={C.text} />
               </TouchableOpacity>
             </View>
 
             {contactLoading ? (
-              <View style={{ padding: 40, alignItems: 'center' }}>
+              <View style={{ padding: 40, alignItems: "center" }}>
                 <ActivityIndicator color={C.primary} />
               </View>
             ) : (
@@ -1552,85 +2242,176 @@ function ContactModal({ moto, onClose }: { moto: FeedMoto; onClose: () => void }
               <View style={styles.contactOptionsList}>
                 {/* WhatsApp */}
                 <TouchableOpacity
-                  style={[styles.contactOptionRow, { borderBottomColor: C.cardBorder }]}
+                  style={[
+                    styles.contactOptionRow,
+                    { borderBottomColor: C.cardBorder },
+                  ]}
                   onPress={openWhatsApp}
                   activeOpacity={0.75}
                 >
-                  <View style={[styles.contactOptionIcon, { backgroundColor: '#25D366' }]}>
+                  <View
+                    style={[
+                      styles.contactOptionIcon,
+                      { backgroundColor: "#25D366" },
+                    ]}
+                  >
                     <Ionicons name="logo-whatsapp" size={24} color="#fff" />
                   </View>
                   <View style={styles.contactOptionText}>
-                    <Text style={[styles.contactOptionLabel, { color: C.text }]}>WhatsApp</Text>
-                    <Text style={[styles.contactOptionSub, { color: C.subText }]}>{waNumber ?? 'Non disponible'}</Text>
+                    <Text
+                      style={[styles.contactOptionLabel, { color: C.text }]}
+                    >
+                      WhatsApp
+                    </Text>
+                    <Text
+                      style={[styles.contactOptionSub, { color: C.subText }]}
+                    >
+                      {waNumber ?? "Non disponible"}
+                    </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color={C.subText} />
+                  <Ionicons
+                    name="chevron-forward"
+                    size={18}
+                    color={C.subText}
+                  />
                 </TouchableOpacity>
 
                 {/* Appel principal */}
                 <TouchableOpacity
-                  style={[styles.contactOptionRow, { borderBottomColor: C.cardBorder }]}
-                  onPress={() => callNumber ? openCall(callNumber) : Alert.alert('Indisponible', 'Numéro non renseigné.')}
+                  style={[
+                    styles.contactOptionRow,
+                    { borderBottomColor: C.cardBorder },
+                  ]}
+                  onPress={() =>
+                    callNumber
+                      ? openCall(callNumber)
+                      : Alert.alert("Indisponible", "Numéro non renseigné.")
+                  }
                   activeOpacity={0.75}
                 >
-                  <View style={[styles.contactOptionIcon, { backgroundColor: C.price }]}>
+                  <View
+                    style={[
+                      styles.contactOptionIcon,
+                      { backgroundColor: C.price },
+                    ]}
+                  >
                     <Ionicons name="call" size={24} color="#fff" />
                   </View>
                   <View style={styles.contactOptionText}>
-                    <Text style={[styles.contactOptionLabel, { color: C.text }]}>Appel / SMS</Text>
-                    <Text style={[styles.contactOptionSub, { color: C.subText }]}>{callNumber ?? 'Non disponible'}</Text>
+                    <Text
+                      style={[styles.contactOptionLabel, { color: C.text }]}
+                    >
+                      Appel / SMS
+                    </Text>
+                    <Text
+                      style={[styles.contactOptionSub, { color: C.subText }]}
+                    >
+                      {callNumber ?? "Non disponible"}
+                    </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color={C.subText} />
+                  <Ionicons
+                    name="chevron-forward"
+                    size={18}
+                    color={C.subText}
+                  />
                 </TouchableOpacity>
 
                 {/* Appel secondaire (si renseigné) */}
                 {phone2 ? (
                   <TouchableOpacity
-                    style={[styles.contactOptionRow, { borderBottomColor: C.cardBorder }]}
+                    style={[
+                      styles.contactOptionRow,
+                      { borderBottomColor: C.cardBorder },
+                    ]}
                     onPress={() => openCall(phone2)}
                     activeOpacity={0.75}
                   >
-                    <View style={[styles.contactOptionIcon, { backgroundColor: C.price }]}>
+                    <View
+                      style={[
+                        styles.contactOptionIcon,
+                        { backgroundColor: C.price },
+                      ]}
+                    >
                       <Ionicons name="call-outline" size={24} color="#fff" />
                     </View>
                     <View style={styles.contactOptionText}>
-                      <Text style={[styles.contactOptionLabel, { color: C.text }]}>Téléphone 2</Text>
-                      <Text style={[styles.contactOptionSub, { color: C.subText }]}>{phone2}</Text>
+                      <Text
+                        style={[styles.contactOptionLabel, { color: C.text }]}
+                      >
+                        Téléphone 2
+                      </Text>
+                      <Text
+                        style={[styles.contactOptionSub, { color: C.subText }]}
+                      >
+                        {phone2}
+                      </Text>
                     </View>
-                    <Ionicons name="chevron-forward" size={18} color={C.subText} />
+                    <Ionicons
+                      name="chevron-forward"
+                      size={18}
+                      color={C.subText}
+                    />
                   </TouchableOpacity>
                 ) : null}
 
                 {/* Chat */}
                 <TouchableOpacity
-                  style={[styles.contactOptionRow, { borderBottomColor: C.cardBorder }]}
+                  style={[
+                    styles.contactOptionRow,
+                    { borderBottomColor: C.cardBorder },
+                  ]}
                   onPress={() => {
                     if (!moto.enterprise_id) return;
                     const principalImg =
-                      moto.images?.find((i) => i.is_principal) ?? moto.images?.[0];
+                      moto.images?.find((i) => i.is_principal) ??
+                      moto.images?.[0];
                     onClose();
                     router.push({
-                      pathname: '/chat',
+                      pathname: "/chat",
                       params: {
                         enterprise_id: moto.enterprise_id,
-                        enterprise_name: moto.enterprise?.name ?? 'Entreprise',
+                        enterprise_name: moto.enterprise?.name ?? "Entreprise",
                         moto_name: `${moto.marque} ${moto.modele}`.trim(),
-                        moto_price: moto.prix_vente ? String(moto.prix_vente) : '',
-                        moto_etat: moto.etat ?? '',
-                        moto_image: principalImg?.image_uri ?? '',
-                        moto_couleur: moto.couleur ?? '',
+                        moto_price: moto.prix_vente
+                          ? String(moto.prix_vente)
+                          : "",
+                        moto_etat: moto.etat ?? "",
+                        moto_image: principalImg?.image_uri ?? "",
+                        moto_couleur: moto.couleur ?? "",
                       },
                     } as any);
                   }}
                   activeOpacity={0.75}
                 >
-                  <View style={[styles.contactOptionIcon, { backgroundColor: C.primary }]}>
-                    <Ionicons name="chatbubble-ellipses" size={24} color="#fff" />
+                  <View
+                    style={[
+                      styles.contactOptionIcon,
+                      { backgroundColor: C.primary },
+                    ]}
+                  >
+                    <Ionicons
+                      name="chatbubble-ellipses"
+                      size={24}
+                      color="#fff"
+                    />
                   </View>
                   <View style={styles.contactOptionText}>
-                    <Text style={[styles.contactOptionLabel, { color: C.text }]}>Chat en temps réel</Text>
-                    <Text style={[styles.contactOptionSub, { color: C.subText }]}>Messagerie directe</Text>
+                    <Text
+                      style={[styles.contactOptionLabel, { color: C.text }]}
+                    >
+                      Chat en temps réel
+                    </Text>
+                    <Text
+                      style={[styles.contactOptionSub, { color: C.subText }]}
+                    >
+                      Messagerie directe
+                    </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color={C.subText} />
+                  <Ionicons
+                    name="chevron-forward"
+                    size={18}
+                    color={C.subText}
+                  />
                 </TouchableOpacity>
 
                 {/* GPS */}
@@ -1639,16 +2420,31 @@ function ContactModal({ moto, onClose }: { moto: FeedMoto; onClose: () => void }
                   onPress={openGPS}
                   activeOpacity={0.75}
                 >
-                  <View style={[styles.contactOptionIcon, { backgroundColor: C.accent }]}>
+                  <View
+                    style={[
+                      styles.contactOptionIcon,
+                      { backgroundColor: C.accent },
+                    ]}
+                  >
                     <Ionicons name="navigate" size={24} color="#fff" />
                   </View>
                   <View style={styles.contactOptionText}>
-                    <Text style={[styles.contactOptionLabel, { color: C.text }]}>Itinéraire / GPS</Text>
-                    <Text style={[styles.contactOptionSub, { color: C.subText }]}>
-                      {gpsLoc ? 'Ouvrir dans Maps' : 'Position non renseignée'}
+                    <Text
+                      style={[styles.contactOptionLabel, { color: C.text }]}
+                    >
+                      Itinéraire / GPS
+                    </Text>
+                    <Text
+                      style={[styles.contactOptionSub, { color: C.subText }]}
+                    >
+                      {gpsLoc ? "Ouvrir dans Maps" : "Position non renseignée"}
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color={C.subText} />
+                  <Ionicons
+                    name="chevron-forward"
+                    size={18}
+                    color={C.subText}
+                  />
                 </TouchableOpacity>
               </View>
             )}
@@ -1664,172 +2460,363 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
 
   videoMuteBadge: {
-    position: 'absolute',
+    position: "absolute",
     right: 10,
     bottom: 10,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: "rgba(0,0,0,0.55)",
     borderRadius: 16,
     width: 32,
     height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   feedHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  feedHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  feedHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  feedHeaderLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
+  feedHeaderRight: { flexDirection: "row", alignItems: "center", gap: 8 },
   logoCircle: {
-    width: 38, height: 38, borderRadius: 19,
-    justifyContent: 'center', alignItems: 'center',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  appName: { fontSize: 17, fontWeight: '800', letterSpacing: 0.3 },
+  appName: { fontSize: 17, fontWeight: "800", letterSpacing: 0.3 },
   appTagline: { fontSize: 11, marginTop: 1 },
   themeBtn: {
-    width: 34, height: 34, borderRadius: 17,
-    justifyContent: 'center', alignItems: 'center',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: "center",
+    alignItems: "center",
   },
   loginBtn: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
   },
-  loginBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  loginBtnText: { color: "#fff", fontWeight: "700", fontSize: 13 },
 
   searchBar: {
-    flexDirection: 'row', alignItems: 'center',
-    marginHorizontal: 14, marginVertical: 10,
-    paddingHorizontal: 12, paddingVertical: 9,
-    borderRadius: 22, borderWidth: StyleSheet.hairlineWidth, gap: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 14,
+    marginVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: 8,
   },
   searchInput: { flex: 1, fontSize: 14 },
 
   filtersRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 14, paddingBottom: 10, gap: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingBottom: 10,
+    gap: 8,
   },
   filterPill: {
-    paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
     borderWidth: 1,
   },
-  filterPillText: { fontSize: 13, fontWeight: '600' },
-  resultCount: { marginLeft: 'auto', fontSize: 12 },
+  filterPillText: { fontSize: 13, fontWeight: "600" },
+  resultCount: { marginLeft: "auto", fontSize: 12 },
 
   feedList: { paddingBottom: 30, paddingTop: 4 },
   emptyList: { flex: 1 },
   separator: { height: 8 },
 
-  footerLoader: { paddingVertical: 24, alignItems: 'center', gap: 8 },
+  footerLoader: { paddingVertical: 24, alignItems: "center", gap: 8 },
   footerLoaderText: { fontSize: 12 },
-  footerEnd: { textAlign: 'center', fontSize: 12, paddingVertical: 20 },
+  footerEnd: { textAlign: "center", fontSize: 12, paddingVertical: 20 },
 
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 14 },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 14,
+  },
   loadingText: { fontSize: 14 },
 
   card: {
-    marginHorizontal: 10, borderRadius: 14, overflow: 'hidden',
+    marginHorizontal: 10,
+    borderRadius: 14,
+    overflow: "hidden",
     borderWidth: StyleSheet.hairlineWidth,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15, shadowRadius: 4, elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', padding: 13, gap: 10 },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 13,
+    gap: 10,
+  },
   cardHeaderText: { flex: 1 },
-  enterpriseName: { fontWeight: '700', fontSize: 14 },
-  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
+  enterpriseName: { fontWeight: "700", fontSize: 14 },
+  cardMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    marginTop: 2,
+  },
   cardTime: { fontSize: 11 },
-  etatBadge: { borderWidth: 1, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
-  etatBadgeText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
-  motoImage: { width: '100%', height: width * 0.55 },
+  etatBadge: {
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  etatBadgeText: { fontSize: 10, fontWeight: "700", letterSpacing: 0.5 },
+  motoImage: { width: "100%", height: width * 0.55 },
   motoImagePlaceholder: {
-    width: '100%', height: width * 0.45,
-    justifyContent: 'center', alignItems: 'center',
+    width: "100%",
+    height: width * 0.45,
+    justifyContent: "center",
+    alignItems: "center",
   },
   cardBody: { padding: 13 },
-  motoTitle: { fontSize: 17, fontWeight: '700', marginBottom: 7 },
-  motoTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
-  tag: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 10 },
+  motoTitle: { fontSize: 17, fontWeight: "700", marginBottom: 7 },
+  motoTags: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginBottom: 10,
+  },
+  tag: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
   tagText: { fontSize: 12 },
-  price: { fontSize: 16, fontWeight: '800' },
-  cardActions: { flexDirection: 'row', borderTopWidth: StyleSheet.hairlineWidth },
-  actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 11, gap: 6 },
-  actionText: { fontSize: 13, fontWeight: '600' },
+  price: { fontSize: 16, fontWeight: "800" },
+  cardActions: {
+    flexDirection: "row",
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 11,
+    gap: 6,
+  },
+  actionText: { fontSize: 13, fontWeight: "600" },
   actionDivider: { width: StyleSheet.hairlineWidth, marginVertical: 8 },
 
-  avatarFallback: { justifyContent: 'center', alignItems: 'center' },
-  avatarText: { color: '#fff', fontWeight: '800' },
+  avatarFallback: { justifyContent: "center", alignItems: "center" },
+  avatarText: { color: "#fff", fontWeight: "800" },
 
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 80, gap: 14 },
-  emptyTitle: { fontSize: 18, fontWeight: '700' },
-  emptyText: { fontSize: 14, textAlign: 'center', lineHeight: 22 },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingTop: 80,
+    gap: 14,
+  },
+  emptyTitle: { fontSize: 18, fontWeight: "700" },
+  emptyText: { fontSize: 14, textAlign: "center", lineHeight: 22 },
 
-  pinContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  pinContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
   pinCard: {
-    width: '100%', borderRadius: 22, padding: 30, alignItems: 'center',
+    width: "100%",
+    borderRadius: 22,
+    padding: 30,
+    alignItems: "center",
     borderWidth: StyleSheet.hairlineWidth,
   },
-  pinTitle: { fontSize: 20, fontWeight: '700', textAlign: 'center', marginBottom: 8 },
-  pinSubtitle: { fontSize: 14, textAlign: 'center', marginBottom: 24 },
-  pinInput: {
-    width: '100%', borderWidth: 1.5, borderRadius: 14, padding: 15,
-    textAlign: 'center', letterSpacing: 14, fontSize: 26, marginBottom: 18,
+  pinTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 8,
   },
-  pinSubmitBtn: { width: '100%', padding: 15, borderRadius: 14, alignItems: 'center' },
-  pinSubmitText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  pinSubtitle: { fontSize: 14, textAlign: "center", marginBottom: 24 },
+  pinInput: {
+    width: "100%",
+    borderWidth: 1.5,
+    borderRadius: 14,
+    padding: 15,
+    textAlign: "center",
+    letterSpacing: 14,
+    fontSize: 26,
+    marginBottom: 18,
+  },
+  pinSubmitBtn: {
+    width: "100%",
+    padding: 15,
+    borderRadius: 14,
+    alignItems: "center",
+  },
+  pinSubmitText: { color: "#fff", fontSize: 16, fontWeight: "700" },
 
   // Détail moto
   detailSafeArea: { flex: 1 },
   detailHeader: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 14, paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth, gap: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 10,
   },
   detailCloseBtn: { padding: 4 },
-  detailHeaderTitle: { flex: 1, fontSize: 16, fontWeight: '700' },
+  detailHeaderTitle: { flex: 1, fontSize: 16, fontWeight: "700" },
   detailContactBtn: { padding: 4 },
   detailFullImage: { width, height: width * 0.75 },
-  detailNoImgBox: { height: width * 0.6, justifyContent: 'center', alignItems: 'center' },
-  swipeHint: { textAlign: 'center', fontSize: 11, marginTop: 6, fontStyle: 'italic' },
-  detailPriceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 },
-  detailPrice: { fontSize: 22, fontWeight: '800' },
-  detailEtatBadge: { borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
-  detailEtatText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
-  detailEnterpriseRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingBottom: 14, borderBottomWidth: StyleSheet.hairlineWidth },
-  detailEnterpriseLabel: { flex: 1, fontWeight: '700', fontSize: 14 },
+  detailNoImgBox: {
+    height: width * 0.6,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  swipeHint: {
+    textAlign: "center",
+    fontSize: 11,
+    marginTop: 6,
+    fontStyle: "italic",
+  },
+  detailPriceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  detailPrice: { fontSize: 22, fontWeight: "800" },
+  detailEtatBadge: {
+    borderWidth: 1.5,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  detailEtatText: { fontSize: 12, fontWeight: "800", letterSpacing: 0.5 },
+  detailEnterpriseRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  detailEnterpriseLabel: { flex: 1, fontWeight: "700", fontSize: 14 },
   detailTimeLabel: { fontSize: 12 },
   detailSection: { paddingHorizontal: 16, paddingTop: 16 },
-  detailSectionTitle: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 },
+  detailSectionTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 10,
+  },
   detailDescText: { fontSize: 14, lineHeight: 22 },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 11 },
+  detailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 11,
+  },
   detailLabel: { fontSize: 14 },
-  detailValue: { fontSize: 14, fontWeight: '600', textAlign: 'right', flex: 1, marginLeft: 12 },
-  detailBottomBar: { paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: StyleSheet.hairlineWidth },
-  detailContactBtnFull: { borderRadius: 14, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  detailContactBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  detailValue: {
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "right",
+    flex: 1,
+    marginLeft: 12,
+  },
+  detailBottomBar: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  detailContactBtnFull: {
+    borderRadius: 14,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  detailContactBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
 
   // Contact modal
-  contactOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  contactSheet: { borderTopLeftRadius: 22, borderTopRightRadius: 22, overflow: 'hidden' },
+  contactOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "flex-end",
+  },
+  contactSheet: {
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    overflow: "hidden",
+  },
   contactSheetHeader: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth, gap: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 10,
   },
-  contactSheetDrag: { position: 'absolute', top: 8, left: '50%', marginLeft: -20, width: 40, height: 4, borderRadius: 2 },
-  contactSheetTitle: { flex: 1, fontSize: 15, fontWeight: '700', textAlign: 'center' },
+  contactSheetDrag: {
+    position: "absolute",
+    top: 8,
+    left: "50%",
+    marginLeft: -20,
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+  },
+  contactSheetTitle: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "700",
+    textAlign: "center",
+  },
   contactSheetClose: { padding: 4 },
-  contactOptionsList: { paddingHorizontal: 16, paddingVertical: 8, paddingBottom: 32 },
-  contactOptionRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth,
+  contactOptionsList: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    paddingBottom: 32,
   },
-  contactOptionIcon: { width: 46, height: 46, borderRadius: 13, justifyContent: 'center', alignItems: 'center' },
+  contactOptionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  contactOptionIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 13,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   contactOptionText: { flex: 1 },
-  contactOptionLabel: { fontSize: 15, fontWeight: '600' },
+  contactOptionLabel: { fontSize: 15, fontWeight: "600" },
   contactOptionSub: { fontSize: 12, marginTop: 2 },
-
 });

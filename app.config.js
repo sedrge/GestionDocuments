@@ -2,6 +2,7 @@ module.exports = {
   expo: {
     name: "SenMoto",
     slug: "docvault",
+    owner: "sedrge",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/SenMoto.png",
@@ -21,12 +22,6 @@ module.exports = {
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
       package: "com.senmoto.app",
-      // Compte EAS basculé sur @sedrges (quota @sedrge épuisé, voir mémoire) :
-      // "appVersionSource" repassé à "local" (le nouveau projet ne connaît
-      // pas l'historique de versionCode). Play Store exige un versionCode
-      // strictement supérieur au dernier publié (16) — à incrémenter à la
-      // main à chaque nouveau build tant qu'on est sur ce compte.
-      versionCode: 17,
       googleServicesFile:
         process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
       permissions: ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "CAMERA"],
@@ -100,14 +95,14 @@ module.exports = {
       policy: "fingerprint",
     },
     updates: {
-      url: "https://u.expo.dev/d989071f-86f4-40b9-a604-cfd2c516ea8d",
+      url: "https://u.expo.dev/9cf8bec5-40f6-42c8-ad79-6d2e50cba58d",
     },
     extra: {
       // Backend Laravel hébergé sur o2switch.
       laravelApiUrl: "https://senmoto-api.seninovagroup.com/api",
       router: {},
       eas: {
-        projectId: "d989071f-86f4-40b9-a604-cfd2c516ea8d",
+        projectId: "9cf8bec5-40f6-42c8-ad79-6d2e50cba58d",
       },
     },
   },

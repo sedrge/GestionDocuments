@@ -11,13 +11,12 @@ import * as Sharing from "expo-sharing";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
-import Pdf from "react-native-pdf";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 import { api, getToken } from "../../lib/api";
@@ -88,7 +87,9 @@ export default function DocumentViewerScreen() {
       setToken(t);
 
       if (isImage) {
-        const dataUri = await fetchAuthImageDataUri(api.documentDownloadUrl(id));
+        const dataUri = await fetchAuthImageDataUri(
+          api.documentDownloadUrl(id),
+        );
         if (!mounted) return;
         if (!dataUri) setError("Impossible de charger l'image.");
         setImageDataUri(dataUri);
@@ -127,7 +128,10 @@ export default function DocumentViewerScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.headerBtn}
+        >
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>
@@ -149,27 +153,39 @@ export default function DocumentViewerScreen() {
       <View style={styles.content}>
         {isPdf ? (
           token ? (
-            <Pdf
+            <WebView
               source={{
                 uri: api.documentDownloadUrl(id),
                 headers: { Authorization: `Bearer ${token}` },
-                cache: true,
               }}
               style={styles.pdf}
+              originWhitelist={["*"]}
               onError={() => setError("Impossible d'afficher ce PDF.")}
             />
           ) : (
-            <ActivityIndicator color="#fff" size="large" style={styles.centered} />
+            <ActivityIndicator
+              color="#fff"
+              size="large"
+              style={styles.centered}
+            />
           )
         ) : isVideo ? (
           token ? (
             <VideoDocument uri={api.documentDownloadUrl(id)} token={token} />
           ) : (
-            <ActivityIndicator color="#fff" size="large" style={styles.centered} />
+            <ActivityIndicator
+              color="#fff"
+              size="large"
+              style={styles.centered}
+            />
           )
         ) : isImage ? (
           loading ? (
-            <ActivityIndicator color="#fff" size="large" style={styles.centered} />
+            <ActivityIndicator
+              color="#fff"
+              size="large"
+              style={styles.centered}
+            />
           ) : imageDataUri ? (
             <WebView
               originWhitelist={["*"]}

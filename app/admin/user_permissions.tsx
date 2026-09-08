@@ -1,19 +1,19 @@
-import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTenant } from '../../context/TenantContext';
-import { api } from '../../lib/api';
+    ActivityIndicator,
+    Alert,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useTenant } from "../../context/TenantContext";
+import { api } from "../../lib/api";
 
 // ─── Définition de tous les éléments de menu contrôlables ────────────────────
 
@@ -26,48 +26,88 @@ type MenuSection = {
 
 const MENU_SECTIONS: MenuSection[] = [
   {
-    id: 'fichier',
-    label: 'Fichier',
-    icon: 'folder-outline',
+    id: "fichier",
+    label: "Fichier",
+    icon: "folder-outline",
     items: [
-      { key: 'fichier.nouveau_dossier',  label: 'Nouveau Dossier',   icon: 'folder-outline' },
-      { key: 'fichier.importer_fichier', label: 'Importer Fichier',  icon: 'document-attach-outline' },
-      { key: 'fichier.prendre_photo',    label: 'Prendre Photo',     icon: 'camera-outline' },
-      { key: 'fichier.filmer_video',     label: 'Filmer Vidéo',      icon: 'videocam-outline' },
-      { key: 'fichier.registre',         label: 'Registre',          icon: 'clipboard-outline' },
-      { key: 'fichier.decharge',         label: 'Décharge',          icon: 'document-text-outline' },
+      {
+        key: "fichier.nouveau_dossier",
+        label: "Nouveau Dossier",
+        icon: "folder-outline",
+      },
+      {
+        key: "fichier.importer_fichier",
+        label: "Importer Fichier",
+        icon: "document-attach-outline",
+      },
+      {
+        key: "fichier.prendre_photo",
+        label: "Prendre Photo",
+        icon: "camera-outline",
+      },
+      {
+        key: "fichier.filmer_video",
+        label: "Filmer Vidéo",
+        icon: "videocam-outline",
+      },
+      { key: "fichier.registre", label: "Registre", icon: "clipboard-outline" },
+      {
+        key: "fichier.decharge",
+        label: "Décharge",
+        icon: "document-text-outline",
+      },
     ],
   },
   {
-    id: 'gestion',
-    label: 'Gestion',
-    icon: 'settings-outline',
+    id: "gestion",
+    label: "Gestion",
+    icon: "settings-outline",
     items: [
-      { key: 'gestion.moto',         label: 'Moto',        icon: 'bicycle-outline' },
-      { key: 'gestion.catalogue',    label: 'Catalogue',   icon: 'albums-outline' },
-      { key: 'gestion.vente',        label: 'Vente',       icon: 'clipboard-outline' },
-      { key: 'gestion.recu',         label: 'Réçu',        icon: 'receipt-outline' },
-      { key: 'gestion.rendez_vous',  label: 'Rendez-Vous', icon: 'calendar-outline' },
+      { key: "gestion.moto", label: "Moto", icon: "bicycle-outline" },
+      { key: "gestion.catalogue", label: "Catalogue", icon: "albums-outline" },
+      { key: "gestion.vente", label: "Vente", icon: "clipboard-outline" },
+      { key: "gestion.recu", label: "Réçu", icon: "receipt-outline" },
+      {
+        key: "gestion.rendez_vous",
+        label: "Rendez-Vous",
+        icon: "calendar-outline",
+      },
     ],
   },
   {
-    id: 'parametres',
-    label: 'Paramètres',
-    icon: 'cog-outline',
+    id: "parametres",
+    label: "Paramètres",
+    icon: "cog-outline",
     items: [
-      { key: 'parametres.logo',   label: 'Changer le Logo',   icon: 'image-outline' },
-      { key: 'parametres.entete', label: 'Entête facture',    icon: 'business-outline' },
-      { key: 'parametres.pin',    label: 'Changer le PIN',    icon: 'keypad-outline' },
+      {
+        key: "parametres.logo",
+        label: "Changer le Logo",
+        icon: "image-outline",
+      },
+      {
+        key: "parametres.entete",
+        label: "Entête facture",
+        icon: "business-outline",
+      },
+      {
+        key: "parametres.pin",
+        label: "Changer le PIN",
+        icon: "keypad-outline",
+      },
     ],
   },
   {
-    id: 'affichage',
-    label: 'Affichage',
-    icon: 'eye-outline',
+    id: "affichage",
+    label: "Affichage",
+    icon: "eye-outline",
     items: [
-      { key: 'affichage.list',    label: 'Vue Liste',    icon: 'list-outline' },
-      { key: 'affichage.details', label: 'Vue Détails',  icon: 'reorder-four-outline' },
-      { key: 'affichage.grid',    label: 'Vue Grille',   icon: 'grid-outline' },
+      { key: "affichage.list", label: "Vue Liste", icon: "list-outline" },
+      {
+        key: "affichage.details",
+        label: "Vue Détails",
+        icon: "reorder-four-outline",
+      },
+      { key: "affichage.grid", label: "Vue Grille", icon: "grid-outline" },
     ],
   },
 ];
@@ -79,23 +119,13 @@ const ALL_KEYS = MENU_SECTIONS.flatMap((s) => s.items.map((i) => i.key));
 // défaut : l'utilisateur ne voit que ce qu'il a lui-même créé tant que l'admin
 // n'a pas explicitement activé le partage pour une ressource donnée.
 const DATA_VISIBILITY_ITEMS: { key: string; label: string; icon: string }[] = [
-  { key: 'documents', label: 'Documents',  icon: 'document-attach-outline' },
-  { key: 'registres', label: 'Registres',  icon: 'clipboard-outline' },
-  { key: 'decharges', label: 'Décharges',  icon: 'document-text-outline' },
-  { key: 'recus',     label: 'Reçus',      icon: 'receipt-outline' },
-  { key: 'motos',     label: 'Motos',      icon: 'bicycle-outline' },
+  { key: "documents", label: "Documents", icon: "document-attach-outline" },
+  { key: "registres", label: "Registres", icon: "clipboard-outline" },
+  { key: "decharges", label: "Décharges", icon: "document-text-outline" },
+  { key: "recus", label: "Reçus", icon: "receipt-outline" },
+  { key: "motos", label: "Motos", icon: "bicycle-outline" },
 ];
 const DATA_VISIBILITY_KEYS = DATA_VISIBILITY_ITEMS.map((i) => i.key);
-
-const theme = {
-  bg:      '#F2F2F7',
-  card:    '#FFFFFF',
-  text:    '#1C1C1E',
-  subText: '#8E8E93',
-  primary: '#007AFF',
-  border:  '#E5E5EA',
-  success: '#34C759',
-};
 
 export default function UserPermissionsScreen() {
   const { userId, userName, userEmail } = useLocalSearchParams<{
@@ -104,14 +134,15 @@ export default function UserPermissionsScreen() {
     userEmail: string;
   }>();
   const { tenant, isEnterpriseAdmin } = useTenant();
+  const { theme } = useTheme();
 
   // Map key → is_enabled (true = visible)
   const [permissions, setPermissions] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(ALL_KEYS.map((k) => [k, true]))
+    Object.fromEntries(ALL_KEYS.map((k) => [k, true])),
   );
   // Map resource_key → is_enabled (false = fermé par défaut)
-  const [dataVisibility, setDataVisibility] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(DATA_VISIBILITY_KEYS.map((k) => [k, false]))
+  const [dataVisibility, setDataVisibility] = useState<Record<string, boolean>>(
+    () => Object.fromEntries(DATA_VISIBILITY_KEYS.map((k) => [k, false])),
   );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -133,7 +164,7 @@ export default function UserPermissionsScreen() {
       setHasCustomPerms(true);
       // Partir d'une base "tout désactivé" puis activer selon les entrées
       const map: Record<string, boolean> = Object.fromEntries(
-        ALL_KEYS.map((k) => [k, false])
+        ALL_KEYS.map((k) => [k, false]),
       );
       data.forEach((row: any) => {
         if (row.menu_key in map) map[row.menu_key] = row.is_enabled;
@@ -153,7 +184,7 @@ export default function UserPermissionsScreen() {
       .catch(() => []);
 
     const map: Record<string, boolean> = Object.fromEntries(
-      DATA_VISIBILITY_KEYS.map((k) => [k, false])
+      DATA_VISIBILITY_KEYS.map((k) => [k, false]),
     );
     (data ?? []).forEach((row: any) => {
       if (row.resource_key in map) map[row.resource_key] = row.is_enabled;
@@ -173,7 +204,9 @@ export default function UserPermissionsScreen() {
   const toggleSection = (section: MenuSection) => {
     const allOn = section.items.every((i) => permissions[i.key]);
     const updated = { ...permissions };
-    section.items.forEach((i) => { updated[i.key] = !allOn; });
+    section.items.forEach((i) => {
+      updated[i.key] = !allOn;
+    });
     setPermissions(updated);
     if (!hasCustomPerms) setHasCustomPerms(true);
   };
@@ -183,13 +216,21 @@ export default function UserPermissionsScreen() {
     setSaving(true);
 
     try {
-      await api.updateUserMenuPermissions(tenant.enterprise_id, userId, permissions);
-      await api.updateDataVisibilityPermissions(tenant.enterprise_id, userId, dataVisibility);
-      Alert.alert('Succès', 'Permissions mises à jour.', [
-        { text: 'OK', onPress: () => router.back() },
+      await api.updateUserMenuPermissions(
+        tenant.enterprise_id,
+        userId,
+        permissions,
+      );
+      await api.updateDataVisibilityPermissions(
+        tenant.enterprise_id,
+        userId,
+        dataVisibility,
+      );
+      Alert.alert("Succès", "Permissions mises à jour.", [
+        { text: "OK", onPress: () => router.back() },
       ]);
     } catch (error: any) {
-      Alert.alert('Erreur', error.message);
+      Alert.alert("Erreur", error.message);
     } finally {
       setSaving(false);
     }
@@ -197,23 +238,29 @@ export default function UserPermissionsScreen() {
 
   const handleReset = () => {
     Alert.alert(
-      'Réinitialiser',
-      'Supprimer toutes les restrictions pour cet utilisateur (il verra tout le menu, mais aucune donnée d\'équipe) ?',
+      "Réinitialiser",
+      "Supprimer toutes les restrictions pour cet utilisateur (il verra tout le menu, mais aucune donnée d'équipe) ?",
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: "Annuler", style: "cancel" },
         {
-          text: 'Réinitialiser',
-          style: 'destructive',
+          text: "Réinitialiser",
+          style: "destructive",
           onPress: async () => {
             if (!userId || !tenant?.enterprise_id) return;
-            await api.deleteUserMenuPermissions(tenant.enterprise_id, userId).catch(() => {});
-            await api.deleteDataVisibilityPermissions(tenant.enterprise_id, userId).catch(() => {});
+            await api
+              .deleteUserMenuPermissions(tenant.enterprise_id, userId)
+              .catch(() => {});
+            await api
+              .deleteDataVisibilityPermissions(tenant.enterprise_id, userId)
+              .catch(() => {});
             setHasCustomPerms(false);
             setPermissions(Object.fromEntries(ALL_KEYS.map((k) => [k, true])));
-            setDataVisibility(Object.fromEntries(DATA_VISIBILITY_KEYS.map((k) => [k, false])));
+            setDataVisibility(
+              Object.fromEntries(DATA_VISIBILITY_KEYS.map((k) => [k, false])),
+            );
           },
         },
-      ]
+      ],
     );
   };
 
@@ -225,19 +272,24 @@ export default function UserPermissionsScreen() {
     );
   }
 
-  const displayName = userName || userEmail || 'Utilisateur';
+  const displayName = userName || userEmail || "Utilisateur";
   const enabledCount = Object.values(permissions).filter(Boolean).length;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 14 }}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{ marginRight: 14 }}
+        >
           <Ionicons name="arrow-back" size={24} color={theme.primary} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Permissions du menu</Text>
-          <Text style={styles.headerSub} numberOfLines={1}>{displayName}</Text>
+          <Text style={styles.headerSub} numberOfLines={1}>
+            {displayName}
+          </Text>
         </View>
         {hasCustomPerms && (
           <TouchableOpacity onPress={handleReset} style={{ padding: 4 }}>
@@ -254,15 +306,21 @@ export default function UserPermissionsScreen() {
         <>
           {/* ── Info banner ─────────────────────────────────────────────── */}
           <View style={styles.infoBanner}>
-            <Ionicons name="information-circle-outline" size={16} color={theme.primary} />
+            <Ionicons
+              name="information-circle-outline"
+              size={16}
+              color={theme.primary}
+            />
             <Text style={styles.infoText}>
               {hasCustomPerms
                 ? `Restrictions actives · ${enabledCount}/${ALL_KEYS.length} éléments visibles`
-                : 'Aucune restriction · l\'utilisateur voit tout le menu'}
+                : "Aucune restriction · l'utilisateur voit tout le menu"}
             </Text>
           </View>
 
-          <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 100 }}>
+          <ScrollView
+            contentContainerStyle={{ padding: 14, paddingBottom: 100 }}
+          >
             {MENU_SECTIONS.map((section) => {
               const allOn = section.items.every((i) => permissions[i.key]);
               const someOn = section.items.some((i) => permissions[i.key]);
@@ -275,18 +333,26 @@ export default function UserPermissionsScreen() {
                     onPress={() => toggleSection(section)}
                     activeOpacity={0.7}
                   >
-                    <Ionicons name={section.icon as any} size={18} color={theme.primary} />
+                    <Ionicons
+                      name={section.icon as any}
+                      size={18}
+                      color={theme.primary}
+                    />
                     <Text style={styles.sectionTitle}>{section.label}</Text>
                     <View style={styles.sectionBadge}>
                       <Text style={styles.sectionBadgeText}>
-                        {section.items.filter((i) => permissions[i.key]).length}/{section.items.length}
+                        {section.items.filter((i) => permissions[i.key]).length}
+                        /{section.items.length}
                       </Text>
                     </View>
                     <Switch
                       value={allOn}
                       onValueChange={() => toggleSection(section)}
-                      trackColor={{ false: '#E5E5EA', true: theme.success + '88' }}
-                      thumbColor={allOn ? theme.success : '#ccc'}
+                      trackColor={{
+                        false: "#E5E5EA",
+                        true: theme.success + "88",
+                      }}
+                      thumbColor={allOn ? theme.success : "#ccc"}
                     />
                   </TouchableOpacity>
 
@@ -296,18 +362,20 @@ export default function UserPermissionsScreen() {
                       key={item.key}
                       style={[
                         styles.itemRow,
-                        idx === section.items.length - 1 && { borderBottomWidth: 0 },
+                        idx === section.items.length - 1 && {
+                          borderBottomWidth: 0,
+                        },
                       ]}
                     >
                       <Ionicons
                         name={item.icon as any}
                         size={16}
-                        color={permissions[item.key] ? theme.text : '#ccc'}
+                        color={permissions[item.key] ? theme.text : "#ccc"}
                       />
                       <Text
                         style={[
                           styles.itemLabel,
-                          !permissions[item.key] && { color: '#ccc' },
+                          !permissions[item.key] && { color: "#ccc" },
                         ]}
                       >
                         {item.label}
@@ -315,8 +383,13 @@ export default function UserPermissionsScreen() {
                       <Switch
                         value={permissions[item.key]}
                         onValueChange={() => toggleKey(item.key)}
-                        trackColor={{ false: '#E5E5EA', true: theme.primary + '66' }}
-                        thumbColor={permissions[item.key] ? theme.primary : '#ccc'}
+                        trackColor={{
+                          false: "#E5E5EA",
+                          true: theme.primary + "66",
+                        }}
+                        thumbColor={
+                          permissions[item.key] ? theme.primary : "#ccc"
+                        }
                       />
                     </View>
                   ))}
@@ -326,19 +399,35 @@ export default function UserPermissionsScreen() {
 
             {/* ── Visibilité des données créées par l'équipe ──────────────── */}
             <View style={styles.sectionCard}>
-              <View style={[styles.sectionHeader, { backgroundColor: '#FFF9EC' }]}>
-                <Ionicons name="people-outline" size={18} color={theme.primary} />
-                <Text style={styles.sectionTitle}>Visibilité des données d'équipe</Text>
+              <View
+                style={[styles.sectionHeader, { backgroundColor: "#FFF9EC" }]}
+              >
+                <Ionicons
+                  name="people-outline"
+                  size={18}
+                  color={theme.primary}
+                />
+                <Text style={styles.sectionTitle}>
+                  Visibilité des données d'équipe
+                </Text>
                 <View style={styles.sectionBadge}>
                   <Text style={styles.sectionBadgeText}>
-                    {Object.values(dataVisibility).filter(Boolean).length}/{DATA_VISIBILITY_ITEMS.length}
+                    {Object.values(dataVisibility).filter(Boolean).length}/
+                    {DATA_VISIBILITY_ITEMS.length}
                   </Text>
                 </View>
               </View>
-              <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 4 }}>
+              <View
+                style={{
+                  paddingHorizontal: 16,
+                  paddingTop: 10,
+                  paddingBottom: 4,
+                }}
+              >
                 <Text style={{ fontSize: 12, color: theme.subText }}>
-                  Par défaut, cet utilisateur ne voit que ce qu'il a lui-même créé. Activez ci-dessous
-                  ce qu'il peut voir en plus, créé par les autres membres de l'entreprise.
+                  Par défaut, cet utilisateur ne voit que ce qu'il a lui-même
+                  créé. Activez ci-dessous ce qu'il peut voir en plus, créé par
+                  les autres membres de l'entreprise.
                 </Text>
               </View>
               {DATA_VISIBILITY_ITEMS.map((item, idx) => (
@@ -346,18 +435,20 @@ export default function UserPermissionsScreen() {
                   key={item.key}
                   style={[
                     styles.itemRow,
-                    idx === DATA_VISIBILITY_ITEMS.length - 1 && { borderBottomWidth: 0 },
+                    idx === DATA_VISIBILITY_ITEMS.length - 1 && {
+                      borderBottomWidth: 0,
+                    },
                   ]}
                 >
                   <Ionicons
                     name={item.icon as any}
                     size={16}
-                    color={dataVisibility[item.key] ? theme.text : '#ccc'}
+                    color={dataVisibility[item.key] ? theme.text : "#ccc"}
                   />
                   <Text
                     style={[
                       styles.itemLabel,
-                      !dataVisibility[item.key] && { color: '#ccc' },
+                      !dataVisibility[item.key] && { color: "#ccc" },
                     ]}
                   >
                     {item.label}
@@ -365,8 +456,13 @@ export default function UserPermissionsScreen() {
                   <Switch
                     value={dataVisibility[item.key]}
                     onValueChange={() => toggleDataVisibilityKey(item.key)}
-                    trackColor={{ false: '#E5E5EA', true: theme.primary + '66' }}
-                    thumbColor={dataVisibility[item.key] ? theme.primary : '#ccc'}
+                    trackColor={{
+                      false: "#E5E5EA",
+                      true: theme.primary + "66",
+                    }}
+                    thumbColor={
+                      dataVisibility[item.key] ? theme.primary : "#ccc"
+                    }
                   />
                 </View>
               ))}
@@ -386,7 +482,9 @@ export default function UserPermissionsScreen() {
               ) : (
                 <>
                   <Ionicons name="checkmark-circle" size={20} color="#fff" />
-                  <Text style={styles.saveBtnText}>Enregistrer les permissions</Text>
+                  <Text style={styles.saveBtnText}>
+                    Enregistrer les permissions
+                  </Text>
                 </>
               )}
             </TouchableOpacity>
@@ -399,89 +497,89 @@ export default function UserPermissionsScreen() {
 
 const styles = StyleSheet.create({
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: "#E5E5EA",
   },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1C1C1E' },
-  headerSub:   { fontSize: 12, color: '#8E8E93', marginTop: 1 },
-  centered:    { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: "#1C1C1E" },
+  headerSub: { fontSize: 12, color: "#8E8E93", marginTop: 1 },
+  centered: { flex: 1, justifyContent: "center", alignItems: "center" },
 
   infoBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EAF4FF',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EAF4FF",
     paddingHorizontal: 16,
     paddingVertical: 10,
     gap: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#C9E2FF',
+    borderBottomColor: "#C9E2FF",
   },
-  infoText: { fontSize: 13, color: '#007AFF', flex: 1 },
+  infoText: { fontSize: 13, color: "#007AFF", flex: 1 },
 
   sectionCard: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 14,
     marginBottom: 12,
-    overflow: 'hidden',
+    overflow: "hidden",
     elevation: 1,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
     shadowRadius: 3,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: "#F0F0F0",
     gap: 10,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: "#FAFAFA",
   },
-  sectionTitle: { flex: 1, fontSize: 15, fontWeight: '700', color: '#1C1C1E' },
+  sectionTitle: { flex: 1, fontSize: 15, fontWeight: "700", color: "#1C1C1E" },
   sectionBadge: {
-    backgroundColor: '#E5E5EA',
+    backgroundColor: "#E5E5EA",
     borderRadius: 10,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
-  sectionBadgeText: { fontSize: 11, fontWeight: '600', color: '#555' },
+  sectionBadgeText: { fontSize: 11, fontWeight: "600", color: "#555" },
 
   itemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 13,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: "#F0F0F0",
     gap: 12,
   },
-  itemLabel: { flex: 1, fontSize: 14, color: '#1C1C1E' },
+  itemLabel: { flex: 1, fontSize: 14, color: "#1C1C1E" },
 
   saveBar: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E5E5EA',
+    borderTopColor: "#E5E5EA",
   },
   saveBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#007AFF',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#007AFF",
     borderRadius: 14,
     paddingVertical: 15,
     gap: 8,
   },
-  saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  saveBtnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
 });

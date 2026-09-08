@@ -4,27 +4,27 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTenant } from "../context/TenantContext";
 import { api } from "../lib/api";
 import {
-  RendezVousLite,
-  diffRdvFields,
-  notifyRdvModification,
-  scheduleRdvReminders,
+    RendezVousLite,
+    diffRdvFields,
+    notifyRdvModification,
+    scheduleRdvReminders,
 } from "../lib/notifications";
 
 type Statut = "en_attente" | "reporte" | "annule" | "termine";
@@ -107,7 +107,9 @@ export default function RendezVousForm() {
     if (params.lieu) {
       setLieu(String(params.lieu));
     } else if (tenant?.enterprise_id) {
-      const parametres = await api.getEnterpriseSettings(tenant.enterprise_id).catch(() => null);
+      const parametres = await api
+        .getEnterpriseSettings(tenant.enterprise_id)
+        .catch(() => null);
       if (parametres?.nom_entreprise) setLieu(parametres.nom_entreprise);
     }
   };
@@ -232,144 +234,149 @@ export default function RendezVousForm() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#f9f9f9" }}>
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: "#f9f9f9" }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={100}
-    >
-      <Stack.Screen
-        options={{ title: id ? "Modifier le rendez-vous" : "Nouveau rendez-vous" }}
-      />
-
-      <ScrollView
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView
+        style={{ flex: 1, backgroundColor: "#f9f9f9" }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={100}
       >
-        {/* Date et heure */}
-        <Text style={styles.sectionTitle}>DATE & HEURE</Text>
-        <View style={{ flexDirection: "row", gap: 10 }}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.label}>Date (JJ/MM/AAAA) *</Text>
-            <TextInput
-              value={dateRdv}
-              onChangeText={(t) => {
-                let v = t.replace(/[^0-9]/g, "");
-                if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2);
-                if (v.length > 5) v = v.slice(0, 5) + "/" + v.slice(5);
-                setDateRdv(v.slice(0, 10));
-              }}
-              style={styles.input}
-              placeholder="31/12/2026"
-              keyboardType="numeric"
-              maxLength={10}
-            />
+        <Stack.Screen
+          options={{
+            title: id ? "Modifier le rendez-vous" : "Nouveau rendez-vous",
+          }}
+        />
+
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Date et heure */}
+          <Text style={styles.sectionTitle}>DATE & HEURE</Text>
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Date (JJ/MM/AAAA) *</Text>
+              <TextInput
+                value={dateRdv}
+                onChangeText={(t) => {
+                  let v = t.replace(/[^0-9]/g, "");
+                  if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2);
+                  if (v.length > 5) v = v.slice(0, 5) + "/" + v.slice(5);
+                  setDateRdv(v.slice(0, 10));
+                }}
+                style={styles.input}
+                placeholder="31/12/2026"
+                keyboardType="numeric"
+                maxLength={10}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Heure (HH:MM)</Text>
+              <TextInput
+                value={heureRdv}
+                onChangeText={setHeureRdv}
+                style={styles.input}
+                placeholder="14:30"
+              />
+            </View>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.label}>Heure (HH:MM)</Text>
-            <TextInput
-              value={heureRdv}
-              onChangeText={setHeureRdv}
-              style={styles.input}
-              placeholder="14:30"
-            />
-          </View>
-        </View>
 
-        {/* Client */}
-        <Text style={styles.sectionTitle}>CLIENT</Text>
-        <Text style={styles.label}>Nom & Prénom du client *</Text>
-        <TextInput
-          value={nomPrenom}
-          onChangeText={setNomPrenom}
-          style={styles.input}
-          placeholder="Ex: Jean Dupont"
-        />
+          {/* Client */}
+          <Text style={styles.sectionTitle}>CLIENT</Text>
+          <Text style={styles.label}>Nom & Prénom du client *</Text>
+          <TextInput
+            value={nomPrenom}
+            onChangeText={setNomPrenom}
+            style={styles.input}
+            placeholder="Ex: Awa Ouédraogo"
+          />
 
-        <Text style={styles.label}>Téléphone du client</Text>
-        <TextInput
-          value={telephone}
-          onChangeText={setTelephone}
-          style={styles.input}
-          keyboardType="phone-pad"
-          placeholder="Ex: +226 70 00 00 00"
-        />
+          <Text style={styles.label}>Téléphone du client</Text>
+          <TextInput
+            value={telephone}
+            onChangeText={setTelephone}
+            style={styles.input}
+            keyboardType="phone-pad"
+            placeholder="Ex: +226 70 00 00 00"
+          />
 
-        {/* Lieu et motif */}
-        <Text style={styles.sectionTitle}>RENDEZ-VOUS</Text>
-        <Text style={styles.label}>Lieu du rendez-vous</Text>
-        <TextInput
-          value={lieu}
-          onChangeText={setLieu}
-          style={styles.input}
-          placeholder="Ex: Siège de l'entreprise"
-        />
+          {/* Lieu et motif */}
+          <Text style={styles.sectionTitle}>RENDEZ-VOUS</Text>
+          <Text style={styles.label}>Lieu du rendez-vous</Text>
+          <TextInput
+            value={lieu}
+            onChangeText={setLieu}
+            style={styles.input}
+            placeholder="Ex: Siège de l'entreprise"
+          />
 
-        <Text style={styles.label}>Motif *</Text>
-        <TextInput
-          value={motif}
-          onChangeText={setMotif}
-          style={styles.input}
-          placeholder="Ex: Récupération de moto"
-        />
+          <Text style={styles.label}>Motif *</Text>
+          <TextInput
+            value={motif}
+            onChangeText={setMotif}
+            style={styles.input}
+            placeholder="Ex: Récupération de moto"
+          />
 
-        <Text style={styles.label}>Description / Notes</Text>
-        <TextInput
-          value={description}
-          onChangeText={setDescription}
-          style={[styles.input, { minHeight: 80 }]}
-          placeholder="Détails additionnels..."
-          multiline
-        />
+          <Text style={styles.label}>Description / Notes</Text>
+          <TextInput
+            value={description}
+            onChangeText={setDescription}
+            style={[styles.input, { minHeight: 80 }]}
+            placeholder="Détails additionnels..."
+            multiline
+          />
 
-        {/* Statut */}
-        <Text style={styles.sectionTitle}>STATUT</Text>
-        <View style={styles.statutRow}>
-          {STATUTS.map((s) => {
-            const active = statut === s.value;
-            return (
-              <TouchableOpacity
-                key={s.value}
-                onPress={() => setStatut(s.value)}
-                style={[
-                  styles.statutChip,
-                  active && { backgroundColor: s.color, borderColor: s.color },
-                ]}
-              >
-                <Text
+          {/* Statut */}
+          <Text style={styles.sectionTitle}>STATUT</Text>
+          <View style={styles.statutRow}>
+            {STATUTS.map((s) => {
+              const active = statut === s.value;
+              return (
+                <TouchableOpacity
+                  key={s.value}
+                  onPress={() => setStatut(s.value)}
                   style={[
-                    styles.statutChipText,
-                    active && { color: "#fff", fontWeight: "700" },
+                    styles.statutChip,
+                    active && {
+                      backgroundColor: s.color,
+                      borderColor: s.color,
+                    },
                   ]}
                 >
-                  {s.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {registreId ? (
-          <View style={styles.linkBox}>
-            <Ionicons name="link-outline" size={14} color="#5856D6" />
-            <Text style={styles.linkText}>Lié à un registre</Text>
+                  <Text
+                    style={[
+                      styles.statutChipText,
+                      active && { color: "#fff", fontWeight: "700" },
+                    ]}
+                  >
+                    {s.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-        ) : null}
 
-        <TouchableOpacity
-          onPress={handleSave}
-          disabled={saving}
-          style={[styles.saveBtn, saving && { opacity: 0.6 }]}
-        >
-          <Text style={styles.saveBtnText}>
-            {saving
-              ? "Enregistrement..."
-              : id
-              ? "METTRE À JOUR"
-              : "ENREGISTRER LE RENDEZ-VOUS"}
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          {registreId ? (
+            <View style={styles.linkBox}>
+              <Ionicons name="link-outline" size={14} color="#5856D6" />
+              <Text style={styles.linkText}>Lié à un registre</Text>
+            </View>
+          ) : null}
+
+          <TouchableOpacity
+            onPress={handleSave}
+            disabled={saving}
+            style={[styles.saveBtn, saving && { opacity: 0.6 }]}
+          >
+            <Text style={styles.saveBtnText}>
+              {saving
+                ? "Enregistrement..."
+                : id
+                  ? "METTRE À JOUR"
+                  : "ENREGISTRER LE RENDEZ-VOUS"}
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

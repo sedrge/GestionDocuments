@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
-import { Platform } from 'react-native';
-import * as Updates from 'expo-updates';
-import * as ExpoInAppUpdates from 'expo-in-app-updates';
+import * as Updates from "expo-updates";
+import { useEffect, useState } from "react";
+import { Platform } from "react-native";
 
 /**
  * Deux mécanismes complémentaires, tous les deux non bloquants :
@@ -19,7 +18,7 @@ export function useAppUpdates() {
   const [jsUpdateReady, setJsUpdateReady] = useState(false);
 
   useEffect(() => {
-    if (__DEV__ || Platform.OS === 'web') return;
+    if (__DEV__ || Platform.OS === "web") return;
 
     (async () => {
       try {
@@ -33,20 +32,6 @@ export function useAppUpdates() {
         // continue de fonctionner sur le bundle déjà installé.
       }
     })();
-
-    if (Platform.OS === 'android') {
-      (async () => {
-        try {
-          const { updateAvailable, flexibleAllowed } = await ExpoInAppUpdates.checkForUpdate();
-          if (updateAvailable && flexibleAllowed !== false) {
-            await ExpoInAppUpdates.startUpdate(false);
-          }
-        } catch {
-          // Play Store/Play Services indisponible (build de test, émulateur
-          // sans Play Store, etc.) : pas grave, on ignore.
-        }
-      })();
-    }
   }, []);
 
   return {

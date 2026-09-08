@@ -6,18 +6,17 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
-import { useTheme } from "../../context/ThemeContext";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import PasswordInput from "../../components/PasswordInput";
 import { useTenant } from "../../context/TenantContext";
+import { useTheme } from "../../context/ThemeContext";
 import { api } from "../../lib/api";
 
 export default function LoginScreen() {
@@ -108,7 +107,7 @@ export default function LoginScreen() {
           onChangeText={setEmail}
         />
 
-        <TextInput
+        <PasswordInput
           style={[
             styles.input,
             {
@@ -119,7 +118,6 @@ export default function LoginScreen() {
           ]}
           placeholder="Mot de passe"
           placeholderTextColor={theme.subText}
-          secureTextEntry
           value={password}
           onChangeText={setPassword}
         />
@@ -149,6 +147,15 @@ export default function LoginScreen() {
             </Text>
           </TouchableOpacity>
         )}
+
+        <TouchableOpacity
+          onPress={() =>
+            router.push({ pathname: "/auth/forgot-password" } as never)
+          }
+          style={{ marginTop: 16 }}
+        >
+          <Text style={{ color: theme.primary }}>Mot de passe oublié ?</Text>
+        </TouchableOpacity>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
