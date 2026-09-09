@@ -261,9 +261,10 @@ export async function setSubscriptionGatedFeatures(
 export async function getSebPayOperators(
   enterpriseId: string,
   country: string,
+  plan: SubscriptionPlan = "monthly",
 ): Promise<{ success: boolean; operators: SebPayOperator[]; error?: string }> {
   try {
-    const data = await api.getSebPayOperators(enterpriseId, country);
+    const data = await api.getSebPayOperators(enterpriseId, country, plan);
     return {
       success: true,
       operators: asArray(data?.operators ?? data) as SebPayOperator[],

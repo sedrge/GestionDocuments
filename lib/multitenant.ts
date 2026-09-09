@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { localUriToFormFile } from "./formUpload";
 
 /**
  * Crée une nouvelle entreprise
@@ -16,41 +17,19 @@ export async function createEnterprise(params: {
   longitude?: number;
 }) {
   try {
-    let payload: FormData | Record<string, string>;
+    let payload: FormData | Record<string, string | undefined>;
 
-    if (params.logoUrl) {
-      const formData = new FormData();
-      formData.append("name", params.name);
-      if (params.phone) formData.append("phone", params.phone);
-      if (params.email) formData.append("email", params.email);
-      if (params.adminFullName)
-        formData.append("admin_full_name", params.adminFullName);
-      formData.append("admin_email", params.adminEmail);
-      if (params.adminPhone) formData.append("admin_phone", params.adminPhone);
-      formData.append("admin_password", params.adminPassword);
-      if (params.latitude !== undefined)
-        formData.append("latitude", params.latitude.toString());
-      if (params.longitude !== undefined)
-        formData.append("longitude", params.longitude.toString());
-      formData.append("logo", {
-        uri: params.logoUrl,
-        name: "logo.jpg",
-        type: "image/jpeg",
-      } as any);
-      payload = formData;
-    } else {
-      payload = {
-        name: params.name,
-        phone: params.phone,
-        email: params.email,
-        admin_full_name: params.adminFullName,
-        admin_email: params.adminEmail,
-        admin_phone: params.adminPhone,
-        admin_password: params.adminPassword,
-        latitude: params.latitude?.toString(),
-        longitude: params.longitude?.toString(),
-      };
-    }
+    payload = {
+      name: params.name,
+      phone: params.phone,
+      email: params.email,
+      admin_full_name: params.adminFullName,
+      admin_email: params.adminEmail,
+      admin_phone: params.adminPhone,
+      admin_password: params.adminPassword,
+      latitude: params.latitude?.toString(),
+      longitude: params.longitude?.toString(),
+    };
 
     const result = await api.createEnterprise(payload);
 
@@ -66,6 +45,20 @@ export async function createEnterprise(params: {
       success: false,
       error: error.message,
     };
+  }
+}
+
+export async function uploadEnterpriseLogo(
+  enterpriseId: string,
+  logoUri: string,
+): Promise<{ success: boolean; enterprise?: any; error?: string }> {
+  try {
+    const form = new FormData();
+    form.append("logo", localUriToFormFile(logoUri, "logo") as any);
+    const data = await api.uploadEnterpriseLogo(enterpriseId, form);
+    return { success: true, enterprise: data?.enterprise ?? data };
+  } catch (error: any) {
+    return { success: false, error: error.message };
   }
 }
 

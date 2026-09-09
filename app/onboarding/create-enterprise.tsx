@@ -2,7 +2,6 @@ import MapPickerModal, { LocationResult } from "@/components/MapPickerModal";
 import PasswordInput from "@/components/PasswordInput";
 import { useTheme } from "@/context/ThemeContext";
 import { createEnterprise } from "@/lib/multitenant";
-import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
@@ -20,7 +19,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function CreateEnterpriseScreen() {
   const { theme } = useTheme();
   const [loading, setLoading] = useState(false);
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [location, setLocation] = useState<LocationResult | null>(null);
   const [showMapPicker, setShowMapPicker] = useState(false);
 
@@ -34,23 +32,6 @@ export default function CreateEnterpriseScreen() {
     adminPassword: "",
     adminPasswordConfirm: "",
   });
-
-  const handlePickLogo = async () => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        setLogoUrl(result.assets[0].uri);
-      }
-    } catch (error) {
-      Alert.alert("Erreur", "Impossible de charger l'image");
-    }
-  };
 
   const handleSubmit = async () => {
     // Seuls l'email et le mot de passe de l'admin sont obligatoires
@@ -81,7 +62,6 @@ export default function CreateEnterpriseScreen() {
         name: formData.enterpriseName.trim(),
         phone: formData.enterprisePhone.trim() || undefined,
         email: formData.enterpriseEmail.trim() || undefined,
-        logoUrl: logoUrl || undefined,
         adminFullName: formData.adminFullName.trim() || undefined,
         adminEmail: formData.adminEmail.trim(),
         adminPhone: formData.adminPhone.trim() || undefined,
@@ -209,18 +189,6 @@ export default function CreateEnterpriseScreen() {
               setFormData({ ...formData, enterpriseEmail: text })
             }
           />
-
-          <Text style={[styles.label, { color: theme.text }]}>
-            Logo (optionnel)
-          </Text>
-          <TouchableOpacity
-            style={[styles.logoButton, { backgroundColor: theme.primary }]}
-            onPress={handlePickLogo}
-          >
-            <Text style={styles.buttonText}>
-              {logoUrl ? "✓ Logo sélectionné" : "Choisir un logo"}
-            </Text>
-          </TouchableOpacity>
 
           <Text style={[styles.label, { color: theme.text }]}>
             Localisation de la boutique (optionnel)

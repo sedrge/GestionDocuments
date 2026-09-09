@@ -3,7 +3,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { Stack, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -18,10 +18,11 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { AuthImage } from "../components/AuthImage";
 import { useTenant } from "../context/TenantContext";
 import { api } from "../lib/api";
 import { localUriToFormFile } from "../lib/formUpload";
-import { AuthImage } from "../components/AuthImage";
+import { uploadEnterpriseLogo } from "../lib/multitenant";
 
 // Génère un préfixe à partir du nom de l'entreprise.
 // Ex: "Fortune Service" -> "FS"  /  "Fortune Service Pro" -> "FSP"
@@ -84,7 +85,10 @@ export default function ParametresEntrepriseScreen() {
         setHasExistingLogo(!!data.logo_uri);
       }
     } catch (e: any) {
-      Alert.alert("Erreur", e.message || "Impossible de charger les paramètres.");
+      Alert.alert(
+        "Erreur",
+        e.message || "Impossible de charger les paramètres.",
+      );
     }
     setLoading(false);
   };
@@ -159,6 +163,19 @@ export default function ParametresEntrepriseScreen() {
 
     try {
       await api.updateEnterpriseSettings(form, tenant.enterprise_id);
+      if (newLogoUri) {
+        const logoResult = await uploadEnterpriseLogo(
+          tenant.enterprise_id,
+          newLogoUri,
+        );
+        if (!logoResult.success) {
+          return Alert.alert(
+            "Logo non enregistré",
+            logoResult.error ||
+              "Les paramètres ont été enregistrés, mais le logo de l'entreprise n'a pas pu être mis à jour.",
+          );
+        }
+      }
       Alert.alert("Succès", "Paramètres enregistrés.");
       router.back();
     } catch (e: any) {
@@ -179,195 +196,203 @@ export default function ParametresEntrepriseScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#f9f9f9" }}>
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: "#f9f9f9" }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={100}
-    >
-      <Stack.Screen options={{ title: "Paramètres entreprise" }} />
-
-      <ScrollView
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView
+        style={{ flex: 1, backgroundColor: "#f9f9f9" }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={100}
       >
-        {/* Aperçu */}
-        <View style={styles.previewCard}>
-          <Text style={styles.previewTitle}>Aperçu de l'entête</Text>
-          <View style={styles.previewHeader}>
+        <Stack.Screen options={{ title: "Paramètres entreprise" }} />
+
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Aperçu */}
+          <View style={styles.previewCard}>
+            <Text style={styles.previewTitle}>Aperçu de l'entête</Text>
+            <View style={styles.previewHeader}>
+              {newLogoUri ? (
+                <Image
+                  source={{ uri: newLogoUri }}
+                  style={styles.previewLogo}
+                  resizeMode="contain"
+                />
+              ) : hasExistingLogo ? (
+                <AuthImage
+                  uri={api.enterpriseLogoUrl(tenant?.enterprise_id ?? "")}
+                  style={styles.previewLogo}
+                  resizeMode="contain"
+                />
+              ) : (
+                <View style={styles.previewLogoEmpty}>
+                  <Ionicons name="image-outline" size={28} color="#aaa" />
+                </View>
+              )}
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={styles.previewNom} numberOfLines={1}>
+                  {nomEntreprise || "Nom de l'entreprise"}
+                </Text>
+                {!!sousTitre && (
+                  <Text style={styles.previewSousTitre}>{sousTitre}</Text>
+                )}
+                {!!telephone && (
+                  <Text style={styles.previewLigne}>Tél: {telephone}</Text>
+                )}
+                {!!adresse && (
+                  <Text style={styles.previewLigne}>{adresse}</Text>
+                )}
+                {!!localisation && (
+                  <Text style={styles.previewLigne}>{localisation}</Text>
+                )}
+              </View>
+            </View>
+            <View style={styles.previewFactureBox}>
+              <Text style={styles.previewFactureLabel}>FACTURE N°</Text>
+              <Text style={styles.previewFactureNum}>
+                {prefixFacture || "XX"}_00001_{new Date().getFullYear()}
+              </Text>
+            </View>
+          </View>
+
+          {/* Logo / image */}
+          <Text style={styles.sectionTitle}>LOGO / IMAGE D'ENTÊTE</Text>
+          <TouchableOpacity
+            style={styles.logoZone}
+            onPress={pickLogo}
+            activeOpacity={0.7}
+          >
             {newLogoUri ? (
               <Image
                 source={{ uri: newLogoUri }}
-                style={styles.previewLogo}
+                style={styles.logoPreview}
                 resizeMode="contain"
               />
             ) : hasExistingLogo ? (
               <AuthImage
                 uri={api.enterpriseLogoUrl(tenant?.enterprise_id ?? "")}
-                style={styles.previewLogo}
+                style={styles.logoPreview}
                 resizeMode="contain"
               />
             ) : (
-              <View style={styles.previewLogoEmpty}>
-                <Ionicons name="image-outline" size={28} color="#aaa" />
+              <View style={styles.logoEmpty}>
+                <Ionicons name="camera-outline" size={36} color="#999" />
+                <Text style={styles.logoEmptyText}>
+                  Toucher pour ajouter une image
+                </Text>
               </View>
             )}
-            <View style={{ flex: 1, marginLeft: 10 }}>
-              <Text style={styles.previewNom} numberOfLines={1}>
-                {nomEntreprise || "Nom de l'entreprise"}
-              </Text>
-              {!!sousTitre && (
-                <Text style={styles.previewSousTitre}>{sousTitre}</Text>
-              )}
-              {!!telephone && (
-                <Text style={styles.previewLigne}>Tél: {telephone}</Text>
-              )}
-              {!!adresse && <Text style={styles.previewLigne}>{adresse}</Text>}
-              {!!localisation && (
-                <Text style={styles.previewLigne}>{localisation}</Text>
-              )}
-            </View>
-          </View>
-          <View style={styles.previewFactureBox}>
-            <Text style={styles.previewFactureLabel}>FACTURE N°</Text>
-            <Text style={styles.previewFactureNum}>
-              {prefixFacture || "XX"}_00001_{new Date().getFullYear()}
-            </Text>
-          </View>
-        </View>
+          </TouchableOpacity>
 
-        {/* Logo / image */}
-        <Text style={styles.sectionTitle}>LOGO / IMAGE D'ENTÊTE</Text>
-        <TouchableOpacity
-          style={styles.logoZone}
-          onPress={pickLogo}
-          activeOpacity={0.7}
-        >
-          {newLogoUri ? (
-            <Image
-              source={{ uri: newLogoUri }}
-              style={styles.logoPreview}
-              resizeMode="contain"
-            />
-          ) : hasExistingLogo ? (
-            <AuthImage
-              uri={api.enterpriseLogoUrl(tenant?.enterprise_id ?? "")}
-              style={styles.logoPreview}
-              resizeMode="contain"
-            />
-          ) : (
-            <View style={styles.logoEmpty}>
-              <Ionicons name="camera-outline" size={36} color="#999" />
-              <Text style={styles.logoEmptyText}>
-                Toucher pour ajouter une image
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
+          {/* Identité */}
+          <Text style={styles.sectionTitle}>IDENTITÉ</Text>
+          <Text style={styles.label}>Nom de l'entreprise *</Text>
+          <TextInput
+            value={nomEntreprise}
+            onChangeText={handleNomChange}
+            style={styles.input}
+            placeholder="Ex: Fortune Service"
+          />
 
-        {/* Identité */}
-        <Text style={styles.sectionTitle}>IDENTITÉ</Text>
-        <Text style={styles.label}>Nom de l'entreprise *</Text>
-        <TextInput
-          value={nomEntreprise}
-          onChangeText={handleNomChange}
-          style={styles.input}
-          placeholder="Ex: Fortune Service"
-        />
-
-        <Text style={styles.label}>Préfixe facture (généré auto)</Text>
-        <TextInput
-          value={prefixFacture}
-          onChangeText={handlePrefixChange}
-          style={styles.input}
-          placeholder="Ex: FS"
-          autoCapitalize="characters"
-        />
-        <Text style={styles.hint}>
-          Format du numéro: {prefixFacture || "XX"}_00001_
-          {new Date().getFullYear()}. Réinitialisé chaque 1er janvier.
-        </Text>
-
-        <Text style={styles.label}>Sous-titre / Activité</Text>
-        <TextInput
-          value={sousTitre}
-          onChangeText={setSousTitre}
-          style={styles.input}
-          placeholder="Ex: Vente de motos et Ordinateurs"
-        />
-
-        <Text style={styles.label}>Articles en vente</Text>
-        <TextInput
-          value={articlesVente}
-          onChangeText={setArticlesVente}
-          style={[styles.input, { minHeight: 70 }]}
-          placeholder="Ex: Motos, Scooters, Ordinateurs, ..."
-          multiline
-        />
-
-        {/* Contact */}
-        <Text style={styles.sectionTitle}>CONTACTS & ADRESSE</Text>
-        <Text style={styles.label}>Téléphone(s)</Text>
-        <TextInput
-          value={telephone}
-          onChangeText={setTelephone}
-          style={styles.input}
-          placeholder="Ex: +226 77 91 94 70 / 61 31 81 65"
-        />
-
-        <Text style={styles.label}>Adresse</Text>
-        <TextInput
-          value={adresse}
-          onChangeText={setAdresse}
-          style={styles.input}
-          placeholder="Ex: Sis à Bilbalogho vers le Fespaco / Ouagadougou - BF"
-        />
-
-        <Text style={styles.label}>Localisation (optionnel)</Text>
-        <TextInput
-          value={localisation}
-          onChangeText={setLocalisation}
-          style={styles.input}
-          placeholder="Ex: Coordonnées GPS, repère..."
-        />
-
-        <TouchableOpacity
-          onPress={handleSave}
-          disabled={saving}
-          style={[styles.saveBtn, saving && { opacity: 0.6 }]}
-        >
-          <Text style={styles.saveBtnText}>
-            {saving ? "Enregistrement..." : "ENREGISTRER"}
+          <Text style={styles.label}>Préfixe facture (généré auto)</Text>
+          <TextInput
+            value={prefixFacture}
+            onChangeText={handlePrefixChange}
+            style={styles.input}
+            placeholder="Ex: FS"
+            autoCapitalize="characters"
+          />
+          <Text style={styles.hint}>
+            Format du numéro: {prefixFacture || "XX"}_00001_
+            {new Date().getFullYear()}. Réinitialisé chaque 1er janvier.
           </Text>
-        </TouchableOpacity>
 
-        {/* Ressources */}
-        <TouchableOpacity
-          onPress={() => router.push("/ressources")}
-          style={styles.ressourcesBtn}
-        >
-          <View style={styles.ressourcesBtnContent}>
-            <Ionicons name="cloud-download-outline" size={20} color="#4ECDC4" />
-            <Text style={styles.ressourcesBtnText}>Ressources Consommées</Text>
-            <Ionicons name="chevron-forward" size={20} color="#999" />
-          </View>
-        </TouchableOpacity>
+          <Text style={styles.label}>Sous-titre / Activité</Text>
+          <TextInput
+            value={sousTitre}
+            onChangeText={setSousTitre}
+            style={styles.input}
+            placeholder="Ex: Vente de motos et Ordinateurs"
+          />
 
-        {/* Abonnement — réservé à l'administrateur de l'entreprise, seul
-            habilité à consulter et régler l'abonnement. */}
-        {isEnterpriseAdmin && (
+          <Text style={styles.label}>Articles en vente</Text>
+          <TextInput
+            value={articlesVente}
+            onChangeText={setArticlesVente}
+            style={[styles.input, { minHeight: 70 }]}
+            placeholder="Ex: Motos, Scooters, Ordinateurs, ..."
+            multiline
+          />
+
+          {/* Contact */}
+          <Text style={styles.sectionTitle}>CONTACTS & ADRESSE</Text>
+          <Text style={styles.label}>Téléphone(s)</Text>
+          <TextInput
+            value={telephone}
+            onChangeText={setTelephone}
+            style={styles.input}
+            placeholder="Ex: +226 77 91 94 70 / 61 31 81 65"
+          />
+
+          <Text style={styles.label}>Adresse</Text>
+          <TextInput
+            value={adresse}
+            onChangeText={setAdresse}
+            style={styles.input}
+            placeholder="Ex: Sis à Bilbalogho vers le Fespaco / Ouagadougou - BF"
+          />
+
+          <Text style={styles.label}>Localisation (optionnel)</Text>
+          <TextInput
+            value={localisation}
+            onChangeText={setLocalisation}
+            style={styles.input}
+            placeholder="Ex: Coordonnées GPS, repère..."
+          />
+
           <TouchableOpacity
-            onPress={() => router.push("/abonnement")}
-            style={[styles.ressourcesBtn, { borderColor: "#30B0C7" }]}
+            onPress={handleSave}
+            disabled={saving}
+            style={[styles.saveBtn, saving && { opacity: 0.6 }]}
+          >
+            <Text style={styles.saveBtnText}>
+              {saving ? "Enregistrement..." : "ENREGISTRER"}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Ressources */}
+          <TouchableOpacity
+            onPress={() => router.push("/ressources")}
+            style={styles.ressourcesBtn}
           >
             <View style={styles.ressourcesBtnContent}>
-              <Ionicons name="pricetag-outline" size={20} color="#30B0C7" />
-              <Text style={styles.ressourcesBtnText}>Abonnement</Text>
+              <Ionicons
+                name="cloud-download-outline"
+                size={20}
+                color="#4ECDC4"
+              />
+              <Text style={styles.ressourcesBtnText}>
+                Ressources Consommées
+              </Text>
               <Ionicons name="chevron-forward" size={20} color="#999" />
             </View>
           </TouchableOpacity>
-        )}
-      </ScrollView>
-    </KeyboardAvoidingView>
+
+          {/* Abonnement — réservé à l'administrateur de l'entreprise, seul
+            habilité à consulter et régler l'abonnement. */}
+          {isEnterpriseAdmin && (
+            <TouchableOpacity
+              onPress={() => router.push("/abonnement")}
+              style={[styles.ressourcesBtn, { borderColor: "#30B0C7" }]}
+            >
+              <View style={styles.ressourcesBtnContent}>
+                <Ionicons name="pricetag-outline" size={20} color="#30B0C7" />
+                <Text style={styles.ressourcesBtnText}>Abonnement</Text>
+                <Ionicons name="chevron-forward" size={20} color="#999" />
+              </View>
+            </TouchableOpacity>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

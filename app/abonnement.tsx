@@ -12,7 +12,9 @@
 //    n'est qu'un confort d'affichage.
 
 import { Ionicons } from "@expo/vector-icons";
+import * as Linking from "expo-linking";
 import { router } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import { useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
@@ -70,6 +72,7 @@ const PAYMENT_STATUS_LABELS: Record<SubscriptionPayment["status"], string> = {
 /** Polling léger : 5 s pendant ~2 min, puis on laisse la notification faire foi. */
 const POLL_INTERVAL_MS = 5000;
 const POLL_MAX_ATTEMPTS = 24;
+const OTP_DRAFT_PREFIX = "sebpay_otp_draft_";
 
 const formatAmount = (amount: number | null | undefined): string =>
   amount == null ? "—" : Number(amount).toLocaleString("fr-FR");
@@ -124,6 +127,7 @@ export default function AbonnementScreen() {
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [otpDraftRestored, setOtpDraftRestored] = useState(false);
 
   // Attente de confirmation
   const [pendingPaymentId, setPendingPaymentId] = useState<string | null>(null);
@@ -180,8 +184,7 @@ export default function AbonnementScreen() {
       );
     }
     setOperatorsLoading(true);
-    setSelectedOperator(null);
-    const result = await getSebPayOperators(enterpriseId, code);
+    const result = await getSebPayOperators(enterpriseId, code, plan);
     setOperatorsLoading(false);
     if (!result.success) {
       setOperators([]);
@@ -191,6 +194,13 @@ export default function AbonnementScreen() {
       );
     }
     setOperators(result.operators);
+    if (selectedOperator) {
+      const currentCode = operatorCode(selectedOperator);
+      const refreshedOperator = result.operators.find(
+        (operator) => operatorCode(operator) === currentCode,
+      );
+      setSelectedOperator(refreshedOperator ?? null);
+    }
     if (result.operators.length === 0) {
       Alert.alert(
         "Aucun opérateur",
@@ -209,6 +219,61 @@ export default function AbonnementScreen() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enterpriseId]);
+
+  useEffect(() => {
+    if (!enterpriseId) return;
+
+    const restoreOtpDraft = async () => {
+      try {
+        const raw = await SecureStore.getItemAsync(
+          `${OTP_DRAFT_PREFIX}${enterpriseId}`,
+        );
+        if (!raw) return;
+        const draft = JSON.parse(raw);
+        if (draft.plan === "monthly" || draft.plan === "annual")
+          setPlan(draft.plan);
+        if (draft.country) setCountry(draft.country);
+        if (draft.phone) setPhone(draft.phone);
+        if (draft.otp) setOtp(draft.otp);
+        if (draft.operator) {
+          setSelectedOperator(draft.operator);
+          setOperators([draft.operator]);
+        }
+        setShowForm(true);
+      } catch {
+        await SecureStore.deleteItemAsync(`${OTP_DRAFT_PREFIX}${enterpriseId}`);
+      } finally {
+        setOtpDraftRestored(true);
+      }
+    };
+
+    restoreOtpDraft();
+  }, [enterpriseId]);
+
+  useEffect(() => {
+    if (!enterpriseId || !otpDraftRestored || !showForm || !selectedOperator)
+      return;
+
+    SecureStore.setItemAsync(
+      `${OTP_DRAFT_PREFIX}${enterpriseId}`,
+      JSON.stringify({
+        plan,
+        country,
+        phone,
+        otp,
+        operator: selectedOperator,
+      }),
+    );
+  }, [
+    country,
+    enterpriseId,
+    otp,
+    otpDraftRestored,
+    phone,
+    plan,
+    selectedOperator,
+    showForm,
+  ]);
 
   const otpRequired = !!selectedOperator?.otp_required;
 
@@ -272,6 +337,7 @@ export default function AbonnementScreen() {
 
     setShowForm(false);
     setOtp("");
+    await SecureStore.deleteItemAsync(`${OTP_DRAFT_PREFIX}${enterpriseId}`);
     if (result.paymentId) {
       setPendingPaymentId(result.paymentId);
       startPolling(result.paymentId);
@@ -285,6 +351,17 @@ export default function AbonnementScreen() {
     if (pollTimer.current) clearTimeout(pollTimer.current);
     setPendingPaymentId(null);
     setPendingStatus(null);
+  };
+
+  const openOtpUssd = async () => {
+    const ussdCode = selectedOperator?.ussd_code;
+    if (!ussdCode) return;
+    const canOpen = await Linking.canOpenURL(`tel:${ussdCode}`);
+    if (canOpen) {
+      await Linking.openURL(`tel:${ussdCode}`);
+    } else {
+      Alert.alert("Code USSD", `Composez ${ussdCode} sur votre téléphone.`);
+    }
   };
 
   // ── Accès réservé ───────────────────────────────────────────────────────────
@@ -824,6 +901,29 @@ export default function AbonnementScreen() {
                       sur votre téléphone pour générer un code, puis
                       saisissez-le ci-dessous.
                     </Text>
+                    <TouchableOpacity
+                      style={[
+                        styles.secondaryBtn,
+                        { borderColor: theme.warning, marginTop: 10 },
+                      ]}
+                      onPress={openOtpUssd}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons
+                        name="phone-portrait-outline"
+                        size={17}
+                        color={theme.warning}
+                      />
+                      <Text
+                        style={{
+                          color: theme.warning,
+                          fontWeight: "700",
+                          fontSize: 14,
+                        }}
+                      >
+                        Ouvrir le code USSD
+                      </Text>
+                    </TouchableOpacity>
                     <TextInput
                       style={[
                         styles.input,
@@ -883,7 +983,12 @@ export default function AbonnementScreen() {
 
                 <TouchableOpacity
                   style={[styles.secondaryBtn, { borderColor: theme.border }]}
-                  onPress={() => setShowForm(false)}
+                  onPress={async () => {
+                    setShowForm(false);
+                    await SecureStore.deleteItemAsync(
+                      `${OTP_DRAFT_PREFIX}${enterpriseId}`,
+                    );
+                  }}
                   activeOpacity={0.8}
                 >
                   <Text
