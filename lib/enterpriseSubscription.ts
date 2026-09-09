@@ -1,10 +1,10 @@
-import { api } from './api';
+import { api } from "./api";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-export type SubscriptionPlan = 'monthly' | 'annual';
-export type SubscriptionStatus = 'active' | 'expired' | 'cancelled';
-export type PaymentMode = 'manual' | 'sebpay';
+export type SubscriptionPlan = "monthly" | "annual";
+export type SubscriptionStatus = "active" | "expired" | "cancelled";
+export type PaymentMode = "manual" | "sebpay";
 
 export type EnterpriseSubscription = {
   id: string;
@@ -30,12 +30,12 @@ export type EnterpriseSubscription = {
 export type SubscriptionPayment = {
   id: string;
   enterprise_id: string;
-  source: 'manual' | 'sebpay';
+  source: "manual" | "sebpay";
   plan: SubscriptionPlan;
   amount: string | number;
   period_start: string | null;
   period_end: string | null;
-  status: 'pending' | 'completed' | 'failed';
+  status: "pending" | "completed" | "failed";
   external_reference: string | null;
   sebpay_transaction_id: string | null;
   recorded_by_user_id: string | null;
@@ -55,6 +55,7 @@ export type PlanPrice = {
  * `operatorLabel()`.
  */
 export type SebPayOperator = {
+  id?: number;
   code?: string;
   slug?: string;
   name?: string;
@@ -62,10 +63,12 @@ export type SebPayOperator = {
   country?: string;
   otp_required?: boolean;
   ussd_code?: string | null;
+  active?: boolean;
+  sort_order?: number;
 };
 
 export const operatorCode = (op: SebPayOperator): string =>
-  op.code ?? op.slug ?? op.name ?? '';
+  op.code ?? op.slug ?? op.name ?? "";
 
 export const operatorLabel = (op: SebPayOperator): string =>
   op.label ?? op.name ?? operatorCode(op);
@@ -89,7 +92,9 @@ export async function getEnterpriseSubscription(enterpriseId: string): Promise<{
   try {
     const data = await api.getEnterpriseSubscription(enterpriseId);
     // L'entreprise peut ne pas encore avoir de ligne d'abonnement.
-    const subscription = (data?.subscription ?? data ?? null) as EnterpriseSubscription | null;
+    const subscription = (data?.subscription ??
+      data ??
+      null) as EnterpriseSubscription | null;
     return { success: true, subscription };
   } catch (err: any) {
     return { success: false, subscription: null, error: err.message };
@@ -99,10 +104,17 @@ export async function getEnterpriseSubscription(enterpriseId: string): Promise<{
 export async function updateEnterpriseSubscription(
   enterpriseId: string,
   payload: Partial<EnterpriseSubscription>,
-): Promise<{ success: boolean; subscription?: EnterpriseSubscription; error?: string }> {
+): Promise<{
+  success: boolean;
+  subscription?: EnterpriseSubscription;
+  error?: string;
+}> {
   try {
     const data = await api.updateEnterpriseSubscription(enterpriseId, payload);
-    return { success: true, subscription: (data?.subscription ?? data) as EnterpriseSubscription };
+    return {
+      success: true,
+      subscription: (data?.subscription ?? data) as EnterpriseSubscription,
+    };
   } catch (err: any) {
     return { success: false, error: err.message };
   }
@@ -121,10 +133,20 @@ export async function markEnterpriseSubscriptionPaid(
     period_end?: string | null;
     note?: string | null;
   },
-): Promise<{ success: boolean; subscription?: EnterpriseSubscription; error?: string }> {
+): Promise<{
+  success: boolean;
+  subscription?: EnterpriseSubscription;
+  error?: string;
+}> {
   try {
-    const data = await api.markEnterpriseSubscriptionPaid(enterpriseId, payload);
-    return { success: true, subscription: (data?.subscription ?? undefined) as EnterpriseSubscription };
+    const data = await api.markEnterpriseSubscriptionPaid(
+      enterpriseId,
+      payload,
+    );
+    return {
+      success: true,
+      subscription: (data?.subscription ?? undefined) as EnterpriseSubscription,
+    };
   } catch (err: any) {
     return { success: false, error: err.message };
   }
@@ -140,12 +162,15 @@ export async function getEnterpriseSubscriptionPayments(
   error?: string;
 }> {
   try {
-    const data = await api.getEnterpriseSubscriptionPayments(enterpriseId, { page });
+    const data = await api.getEnterpriseSubscriptionPayments(enterpriseId, {
+      page,
+    });
     const payments = asArray(data) as SubscriptionPayment[];
     // Pagination Laravel : `current_page` / `last_page` quand la réponse est
     // un paginator, sinon on considère qu'il n'y a qu'une page.
     const hasMore =
-      typeof data?.current_page === 'number' && typeof data?.last_page === 'number'
+      typeof data?.current_page === "number" &&
+      typeof data?.last_page === "number"
         ? data.current_page < data.last_page
         : false;
     return { success: true, payments, hasMore };
@@ -165,17 +190,21 @@ export async function getSubscriptionPlanPrices(): Promise<{
   prices: Record<SubscriptionPlan, number | null>;
   error?: string;
 }> {
-  const empty: Record<SubscriptionPlan, number | null> = { monthly: null, annual: null };
+  const empty: Record<SubscriptionPlan, number | null> = {
+    monthly: null,
+    annual: null,
+  };
   try {
     const data = await api.getSubscriptionPlanPrices();
     const prices = { ...empty };
     asArray(data?.prices ?? data).forEach((row: any) => {
-      if (row?.plan === 'monthly' || row?.plan === 'annual') {
+      if (row?.plan === "monthly" || row?.plan === "annual") {
         prices[row.plan as SubscriptionPlan] = Number(row.amount);
       }
     });
     // Variante "map" : { prices: { monthly: 5000, annual: 50000 } }
-    const map = data?.prices && !Array.isArray(data.prices) ? data.prices : null;
+    const map =
+      data?.prices && !Array.isArray(data.prices) ? data.prices : null;
     if (map) {
       if (map.monthly != null) prices.monthly = Number(map.monthly);
       if (map.annual != null) prices.annual = Number(map.annual);
@@ -208,7 +237,7 @@ export async function getSubscriptionGatedFeatures(): Promise<{
   try {
     const data = await api.getSubscriptionGatedFeatures();
     const featureKeys = asArray(data?.feature_keys ?? data)
-      .map((row: any) => (typeof row === 'string' ? row : row?.feature_key))
+      .map((row: any) => (typeof row === "string" ? row : row?.feature_key))
       .filter(Boolean) as string[];
     return { success: true, featureKeys };
   } catch (err: any) {
@@ -235,9 +264,66 @@ export async function getSebPayOperators(
 ): Promise<{ success: boolean; operators: SebPayOperator[]; error?: string }> {
   try {
     const data = await api.getSebPayOperators(enterpriseId, country);
-    return { success: true, operators: asArray(data?.operators ?? data) as SebPayOperator[] };
+    return {
+      success: true,
+      operators: asArray(data?.operators ?? data) as SebPayOperator[],
+    };
   } catch (err: any) {
     return { success: false, operators: [], error: err.message };
+  }
+}
+
+export async function getSebPayOperatorCatalog(): Promise<{
+  success: boolean;
+  operators: SebPayOperator[];
+  error?: string;
+}> {
+  try {
+    const data = await api.getSebPayOperatorCatalog();
+    return { success: true, operators: asArray(data) as SebPayOperator[] };
+  } catch (err: any) {
+    return { success: false, operators: [], error: err.message };
+  }
+}
+
+export async function createSebPayOperator(payload: {
+  country: string;
+  code: string;
+  label: string;
+  active: boolean;
+  otp_required: boolean;
+  ussd_code?: string | null;
+  sort_order: number;
+}): Promise<{ success: boolean; operator?: SebPayOperator; error?: string }> {
+  try {
+    return { success: true, operator: await api.createSebPayOperator(payload) };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function updateSebPayOperator(
+  id: number,
+  payload: Partial<SebPayOperator>,
+): Promise<{ success: boolean; operator?: SebPayOperator; error?: string }> {
+  try {
+    return {
+      success: true,
+      operator: await api.updateSebPayOperator(id, payload),
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function deleteSebPayOperator(
+  id: number,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await api.deleteSebPayOperator(id);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
   }
 }
 
@@ -282,11 +368,14 @@ export async function getSubscriptionPaymentStatus(
 ): Promise<{
   success: boolean;
   payment: SubscriptionPayment | null;
-  status?: SubscriptionPayment['status'];
+  status?: SubscriptionPayment["status"];
   error?: string;
 }> {
   try {
-    const data = await api.getSubscriptionPaymentStatus(enterpriseId, paymentId);
+    const data = await api.getSubscriptionPaymentStatus(
+      enterpriseId,
+      paymentId,
+    );
     const payment = (data?.payment ?? data) as SubscriptionPayment;
     return { success: true, payment, status: payment?.status };
   } catch (err: any) {
@@ -296,7 +385,7 @@ export async function getSubscriptionPaymentStatus(
 
 // ── Supplément frais SebPay (config globale, super-admin) ─────────────────────
 
-export type SurchargeMode = 'fixed' | 'percentage';
+export type SurchargeMode = "fixed" | "percentage";
 
 export type SebPaySurchargeConfig = {
   mode: SurchargeMode;
@@ -308,10 +397,13 @@ export async function getSebPaySurchargeConfig(): Promise<{
   config: SebPaySurchargeConfig;
   error?: string;
 }> {
-  const empty: SebPaySurchargeConfig = { mode: 'percentage', value: 0 };
+  const empty: SebPaySurchargeConfig = { mode: "percentage", value: 0 };
   try {
     const data = await api.getSebPaySurchargeConfig();
-    return { success: true, config: { mode: data?.mode ?? 'percentage', value: data?.value ?? 0 } };
+    return {
+      success: true,
+      config: { mode: data?.mode ?? "percentage", value: data?.value ?? 0 },
+    };
   } catch (err: any) {
     return { success: false, config: empty, error: err.message };
   }
@@ -330,7 +422,7 @@ export async function setSebPaySurchargeConfig(
 
 // ── Décaissements SebPay (retraits du wallet du concepteur, super-admin) ──────
 
-export type SebPayPayoutStatus = 'pending' | 'approved' | 'rejected';
+export type SebPayPayoutStatus = "pending" | "approved" | "rejected";
 
 export type SebPayPayout = {
   id: string;
@@ -354,7 +446,10 @@ export async function getSebPayPayoutOperators(
 ): Promise<{ success: boolean; operators: SebPayOperator[]; error?: string }> {
   try {
     const data = await api.getSebPayPayoutOperators(country);
-    return { success: true, operators: asArray(data?.operators ?? data) as SebPayOperator[] };
+    return {
+      success: true,
+      operators: asArray(data?.operators ?? data) as SebPayOperator[],
+    };
   } catch (err: any) {
     return { success: false, operators: [], error: err.message };
   }

@@ -7,50 +7,70 @@
 //    fin du délai de grâce quand une entreprise a `auto_cutoff_enabled=true`
 //    (`subscription_gated_features`). Vide = aucune coupure automatique.
 
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTenant } from '../../context/TenantContext';
-import { useTheme } from '../../context/ThemeContext';
-import { ALL_FEATURE_KEYS, FEATURE_SECTIONS, FeatureSection } from '../../lib/enterpriseFeatures';
+    ActivityIndicator,
+    Alert,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useTenant } from "../../context/TenantContext";
+import { useTheme } from "../../context/ThemeContext";
 import {
-  getSebPaySurchargeConfig,
-  getSubscriptionGatedFeatures,
-  getSubscriptionPlanPrices,
-  setSebPaySurchargeConfig,
-  setSubscriptionGatedFeatures,
-  setSubscriptionPlanPrices,
-  SurchargeMode,
-} from '../../lib/enterpriseSubscription';
+    ALL_FEATURE_KEYS,
+    FEATURE_SECTIONS,
+    FeatureSection,
+} from "../../lib/enterpriseFeatures";
+import {
+    createSebPayOperator,
+    deleteSebPayOperator,
+    getSebPayOperatorCatalog,
+    getSebPaySurchargeConfig,
+    getSubscriptionGatedFeatures,
+    getSubscriptionPlanPrices,
+    operatorLabel,
+    SebPayOperator,
+    setSebPaySurchargeConfig,
+    setSubscriptionGatedFeatures,
+    setSubscriptionPlanPrices,
+    SurchargeMode,
+    updateSebPayOperator,
+} from "../../lib/enterpriseSubscription";
 
 export default function SubscriptionConfigScreen() {
   const { isSuperAdmin } = useTenant();
   const { theme: rawTheme } = useTheme();
   const theme = {
     ...rawTheme,
-    success: '#34C759',
-    danger: '#FF3B30',
-    warning: '#FF9F0A',
+    success: "#34C759",
+    danger: "#FF3B30",
+    warning: "#FF9F0A",
   };
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [monthly, setMonthly] = useState('');
-  const [annual, setAnnual] = useState('');
-  const [surchargeMode, setSurchargeMode] = useState<SurchargeMode>('percentage');
-  const [surchargeValue, setSurchargeValue] = useState('');
+  const [monthly, setMonthly] = useState("");
+  const [annual, setAnnual] = useState("");
+  const [surchargeMode, setSurchargeMode] =
+    useState<SurchargeMode>("percentage");
+  const [surchargeValue, setSurchargeValue] = useState("");
+  const [operators, setOperators] = useState<SebPayOperator[]>([]);
+  const [operatorId, setOperatorId] = useState<number | null>(null);
+  const [operatorCountry, setOperatorCountry] = useState("BF");
+  const [operatorCodeValue, setOperatorCodeValue] = useState("");
+  const [operatorLabelValue, setOperatorLabelValue] = useState("");
+  const [operatorUssd, setOperatorUssd] = useState("");
+  const [operatorOtp, setOperatorOtp] = useState(false);
+  const [operatorActive, setOperatorActive] = useState(true);
+  const [operatorOrder, setOperatorOrder] = useState("0");
   const [gated, setGated] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(ALL_FEATURE_KEYS.map((k) => [k, false])),
   );
@@ -60,10 +80,18 @@ export default function SubscriptionConfigScreen() {
 
     const priceResult = await getSubscriptionPlanPrices();
     if (priceResult.success) {
-      setMonthly(priceResult.prices.monthly == null ? '' : String(priceResult.prices.monthly));
-      setAnnual(priceResult.prices.annual == null ? '' : String(priceResult.prices.annual));
+      setMonthly(
+        priceResult.prices.monthly == null
+          ? ""
+          : String(priceResult.prices.monthly),
+      );
+      setAnnual(
+        priceResult.prices.annual == null
+          ? ""
+          : String(priceResult.prices.annual),
+      );
     } else {
-      Alert.alert('Erreur', priceResult.error ?? 'Tarifs indisponibles.');
+      Alert.alert("Erreur", priceResult.error ?? "Tarifs indisponibles.");
     }
 
     const gatedResult = await getSubscriptionGatedFeatures();
@@ -74,16 +102,30 @@ export default function SubscriptionConfigScreen() {
       });
       setGated(base);
     } else {
-      Alert.alert('Erreur', gatedResult.error ?? 'Fonctionnalités premium indisponibles.');
+      Alert.alert(
+        "Erreur",
+        gatedResult.error ?? "Fonctionnalités premium indisponibles.",
+      );
     }
 
     const surchargeResult = await getSebPaySurchargeConfig();
     if (surchargeResult.success) {
       setSurchargeMode(surchargeResult.config.mode);
-      setSurchargeValue(String(surchargeResult.config.value ?? ''));
+      setSurchargeValue(String(surchargeResult.config.value ?? ""));
     } else {
-      Alert.alert('Erreur', surchargeResult.error ?? 'Supplément SebPay indisponible.');
+      Alert.alert(
+        "Erreur",
+        surchargeResult.error ?? "Supplément SebPay indisponible.",
+      );
     }
+
+    const operatorsResult = await getSebPayOperatorCatalog();
+    if (operatorsResult.success) setOperators(operatorsResult.operators);
+    else
+      Alert.alert(
+        "Erreur",
+        operatorsResult.error ?? "Opérateurs SebPay indisponibles.",
+      );
 
     setLoading(false);
   };
@@ -109,17 +151,106 @@ export default function SubscriptionConfigScreen() {
     setGated(updated);
   };
 
+  const resetOperatorForm = () => {
+    setOperatorId(null);
+    setOperatorCountry("BF");
+    setOperatorCodeValue("");
+    setOperatorLabelValue("");
+    setOperatorUssd("");
+    setOperatorOtp(false);
+    setOperatorActive(true);
+    setOperatorOrder("0");
+  };
+
+  const editOperator = (operator: SebPayOperator) => {
+    setOperatorId(operator.id ?? null);
+    setOperatorCountry(operator.country ?? "BF");
+    setOperatorCodeValue(operator.code ?? "");
+    setOperatorLabelValue(operatorLabel(operator));
+    setOperatorUssd(operator.ussd_code ?? "");
+    setOperatorOtp(!!operator.otp_required);
+    setOperatorActive(operator.active !== false);
+    setOperatorOrder(String(operator.sort_order ?? 0));
+  };
+
+  const saveOperator = async () => {
+    const payload = {
+      country: operatorCountry.trim().toUpperCase(),
+      code: operatorCodeValue.trim(),
+      label: operatorLabelValue.trim(),
+      active: operatorActive,
+      otp_required: operatorOtp,
+      ussd_code: operatorUssd.trim() || null,
+      sort_order: Number(operatorOrder) || 0,
+    };
+    if (payload.country.length !== 2 || !payload.code || !payload.label) {
+      return Alert.alert(
+        "Opérateur invalide",
+        "Pays, code SebPay et nom sont obligatoires.",
+      );
+    }
+    setSaving(true);
+    const result = operatorId
+      ? await updateSebPayOperator(operatorId, payload)
+      : await createSebPayOperator(payload);
+    setSaving(false);
+    if (!result.success)
+      return Alert.alert("Erreur", result.error ?? "Échec de la sauvegarde.");
+    const refreshed = await getSebPayOperatorCatalog();
+    if (refreshed.success) setOperators(refreshed.operators);
+    resetOperatorForm();
+  };
+
+  const removeOperator = (operator: SebPayOperator) => {
+    if (!operator.id) return;
+    Alert.alert(
+      "Supprimer cet opérateur ?",
+      `${operatorLabel(operator)} ne sera plus proposé aux entreprises.`,
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Supprimer",
+          style: "destructive",
+          onPress: async () => {
+            const result = await deleteSebPayOperator(operator.id!);
+            if (!result.success)
+              return Alert.alert(
+                "Erreur",
+                result.error ?? "Suppression impossible.",
+              );
+            setOperators((current) =>
+              current.filter((item) => item.id !== operator.id),
+            );
+            if (operatorId === operator.id) resetOperatorForm();
+          },
+        },
+      ],
+    );
+  };
+
   const handleSave = async () => {
-    const parsedMonthly = monthly.trim() === '' ? 0 : Number(monthly);
-    const parsedAnnual = annual.trim() === '' ? 0 : Number(annual);
+    const parsedMonthly = monthly.trim() === "" ? 0 : Number(monthly);
+    const parsedAnnual = annual.trim() === "" ? 0 : Number(annual);
 
-    const parsedSurcharge = surchargeValue.trim() === '' ? 0 : Number(surchargeValue);
+    const parsedSurcharge =
+      surchargeValue.trim() === "" ? 0 : Number(surchargeValue);
 
-    if (!Number.isFinite(parsedMonthly) || parsedMonthly < 0 || !Number.isFinite(parsedAnnual) || parsedAnnual < 0) {
-      return Alert.alert('Tarif invalide', 'Indiquez des montants positifs (en XOF).');
+    if (
+      !Number.isFinite(parsedMonthly) ||
+      parsedMonthly < 0 ||
+      !Number.isFinite(parsedAnnual) ||
+      parsedAnnual < 0
+    ) {
+      return Alert.alert(
+        "Tarif invalide",
+        "Indiquez des montants positifs (en XOF).",
+      );
     }
     if (!Number.isFinite(parsedSurcharge) || parsedSurcharge < 0) {
-      return Alert.alert('Supplément invalide', 'Indiquez une valeur positive.');
+      return Alert.alert(
+        "Supplément invalide",
+        "Indiquez une valeur positive.",
+      );
     }
 
     setSaving(true);
@@ -130,14 +261,20 @@ export default function SubscriptionConfigScreen() {
     });
     if (!priceResult.success) {
       setSaving(false);
-      return Alert.alert('Erreur', priceResult.error ?? 'Échec de la sauvegarde des tarifs.');
+      return Alert.alert(
+        "Erreur",
+        priceResult.error ?? "Échec de la sauvegarde des tarifs.",
+      );
     }
 
     const featureKeys = ALL_FEATURE_KEYS.filter((k) => gated[k]);
     const gatedResult = await setSubscriptionGatedFeatures(featureKeys);
     if (!gatedResult.success) {
       setSaving(false);
-      return Alert.alert('Erreur', gatedResult.error ?? 'Échec de la sauvegarde des fonctionnalités.');
+      return Alert.alert(
+        "Erreur",
+        gatedResult.error ?? "Échec de la sauvegarde des fonctionnalités.",
+      );
     }
 
     const surchargeResult = await setSebPaySurchargeConfig({
@@ -146,11 +283,14 @@ export default function SubscriptionConfigScreen() {
     });
     setSaving(false);
     if (!surchargeResult.success) {
-      return Alert.alert('Erreur', surchargeResult.error ?? 'Échec de la sauvegarde du supplément SebPay.');
+      return Alert.alert(
+        "Erreur",
+        surchargeResult.error ?? "Échec de la sauvegarde du supplément SebPay.",
+      );
     }
 
-    Alert.alert('Succès', 'Configuration des abonnements mise à jour.', [
-      { text: 'OK', onPress: () => router.back() },
+    Alert.alert("Succès", "Configuration des abonnements mise à jour.", [
+      { text: "OK", onPress: () => router.back() },
     ]);
   };
 
@@ -158,7 +298,9 @@ export default function SubscriptionConfigScreen() {
     return (
       <View style={[styles.centered, { backgroundColor: theme.bg }]}>
         <Ionicons name="lock-closed" size={48} color={theme.subText} />
-        <Text style={{ color: theme.subText, marginTop: 12 }}>Accès refusé</Text>
+        <Text style={{ color: theme.subText, marginTop: 12 }}>
+          Accès refusé
+        </Text>
       </View>
     );
   }
@@ -168,13 +310,26 @@ export default function SubscriptionConfigScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       {/* ── Header ── */}
-      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 14 }}>
+      <View
+        style={[
+          styles.header,
+          { backgroundColor: theme.card, borderBottomColor: theme.border },
+        ]}
+      >
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{ marginRight: 14 }}
+        >
           <Ionicons name="arrow-back" size={24} color={theme.primary} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.headerTitle, { color: theme.text }]}>Abonnements</Text>
-          <Text style={[styles.headerSub, { color: theme.subText }]} numberOfLines={1}>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>
+            Abonnements
+          </Text>
+          <Text
+            style={[styles.headerSub, { color: theme.subText }]}
+            numberOfLines={1}
+          >
             Tarifs & fonctionnalités premium
           </Text>
         </View>
@@ -184,13 +339,20 @@ export default function SubscriptionConfigScreen() {
       <View
         style={[
           styles.infoBand,
-          { backgroundColor: theme.warning + '1A', borderBottomColor: theme.warning + '33' },
+          {
+            backgroundColor: theme.warning + "1A",
+            borderBottomColor: theme.warning + "33",
+          },
         ]}
       >
-        <Ionicons name="information-circle-outline" size={15} color={theme.warning} />
+        <Ionicons
+          name="information-circle-outline"
+          size={15}
+          color={theme.warning}
+        />
         <Text style={[styles.infoText, { color: theme.warning }]}>
           {gatedCount === 0
-            ? 'Aucune fonctionnalité premium · aucune coupure automatique'
+            ? "Aucune fonctionnalité premium · aucune coupure automatique"
             : `${gatedCount} fonctionnalité(s) coupée(s) automatiquement après le délai de grâce`}
         </Text>
       </View>
@@ -201,23 +363,57 @@ export default function SubscriptionConfigScreen() {
         </View>
       ) : (
         <>
-          <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 110 }}>
+          <ScrollView
+            contentContainerStyle={{ padding: 14, paddingBottom: 110 }}
+          >
             {/* ── Tarifs ── */}
-            <View style={[styles.sectionCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-              <View style={[styles.sectionHeader, { backgroundColor: theme.nav, borderBottomColor: theme.border }]}>
-                <Ionicons name="pricetag-outline" size={18} color={theme.primary} />
-                <Text style={[styles.sectionTitle, { color: theme.text }]}>Tarifs</Text>
+            <View
+              style={[
+                styles.sectionCard,
+                { backgroundColor: theme.card, borderColor: theme.border },
+              ]}
+            >
+              <View
+                style={[
+                  styles.sectionHeader,
+                  {
+                    backgroundColor: theme.nav,
+                    borderBottomColor: theme.border,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="pricetag-outline"
+                  size={18}
+                  color={theme.primary}
+                />
+                <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                  Tarifs
+                </Text>
               </View>
 
-              <View style={[styles.fieldRow, { borderBottomColor: theme.border }]}>
+              <View
+                style={[styles.fieldRow, { borderBottomColor: theme.border }]}
+              >
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.itemLabel, { color: theme.text }]}>Abonnement mensuel</Text>
-                  <Text style={[styles.itemDesc, { color: theme.subText }]}>Montant en XOF par mois</Text>
+                  <Text style={[styles.itemLabel, { color: theme.text }]}>
+                    Abonnement mensuel
+                  </Text>
+                  <Text style={[styles.itemDesc, { color: theme.subText }]}>
+                    Montant en XOF par mois
+                  </Text>
                 </View>
                 <TextInput
-                  style={[styles.input, { color: theme.text, borderColor: theme.border, backgroundColor: theme.bg }]}
+                  style={[
+                    styles.input,
+                    {
+                      color: theme.text,
+                      borderColor: theme.border,
+                      backgroundColor: theme.bg,
+                    },
+                  ]}
                   value={monthly}
-                  onChangeText={(t) => setMonthly(t.replace(/[^0-9]/g, ''))}
+                  onChangeText={(t) => setMonthly(t.replace(/[^0-9]/g, ""))}
                   keyboardType="number-pad"
                   placeholder="0"
                   placeholderTextColor={theme.subText}
@@ -226,13 +422,24 @@ export default function SubscriptionConfigScreen() {
 
               <View style={[styles.fieldRow, { borderBottomWidth: 0 }]}>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.itemLabel, { color: theme.text }]}>Abonnement annuel</Text>
-                  <Text style={[styles.itemDesc, { color: theme.subText }]}>Montant en XOF par an</Text>
+                  <Text style={[styles.itemLabel, { color: theme.text }]}>
+                    Abonnement annuel
+                  </Text>
+                  <Text style={[styles.itemDesc, { color: theme.subText }]}>
+                    Montant en XOF par an
+                  </Text>
                 </View>
                 <TextInput
-                  style={[styles.input, { color: theme.text, borderColor: theme.border, backgroundColor: theme.bg }]}
+                  style={[
+                    styles.input,
+                    {
+                      color: theme.text,
+                      borderColor: theme.border,
+                      backgroundColor: theme.bg,
+                    },
+                  ]}
                   value={annual}
-                  onChangeText={(t) => setAnnual(t.replace(/[^0-9]/g, ''))}
+                  onChangeText={(t) => setAnnual(t.replace(/[^0-9]/g, ""))}
                   keyboardType="number-pad"
                   placeholder="0"
                   placeholderTextColor={theme.subText}
@@ -241,31 +448,65 @@ export default function SubscriptionConfigScreen() {
             </View>
 
             {/* ── Supplément frais SebPay ── */}
-            <View style={[styles.sectionCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-              <View style={[styles.sectionHeader, { backgroundColor: theme.nav, borderBottomColor: theme.border }]}>
+            <View
+              style={[
+                styles.sectionCard,
+                { backgroundColor: theme.card, borderColor: theme.border },
+              ]}
+            >
+              <View
+                style={[
+                  styles.sectionHeader,
+                  {
+                    backgroundColor: theme.nav,
+                    borderBottomColor: theme.border,
+                  },
+                ]}
+              >
                 <Ionicons name="cash-outline" size={18} color={theme.primary} />
-                <Text style={[styles.sectionTitle, { color: theme.text }]}>Supplément frais SebPay</Text>
+                <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                  Supplément frais SebPay
+                </Text>
               </View>
               <View style={{ padding: 12 }}>
-                <Text style={[styles.itemDesc, { color: theme.subText, marginTop: 0, marginBottom: 10 }]}>
-                  Ajouté au prix de l&apos;abonnement lors d&apos;un paiement SebPay, pour compenser
-                  la commission prélevée par SebPay (sinon absorbée sur ce que vous recevez).
+                <Text
+                  style={[
+                    styles.itemDesc,
+                    { color: theme.subText, marginTop: 0, marginBottom: 10 },
+                  ]}
+                >
+                  Ajouté au prix de l&apos;abonnement lors d&apos;un paiement
+                  SebPay, pour compenser la commission prélevée par SebPay
+                  (sinon absorbée sur ce que vous recevez).
                 </Text>
-                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
-                  {(['percentage', 'fixed'] as SurchargeMode[]).map((m) => (
+                <View
+                  style={{ flexDirection: "row", gap: 8, marginBottom: 10 }}
+                >
+                  {(["percentage", "fixed"] as SurchargeMode[]).map((m) => (
                     <TouchableOpacity
                       key={m}
                       style={[
                         styles.modeBtn,
                         {
-                          borderColor: surchargeMode === m ? theme.primary : theme.border,
-                          backgroundColor: surchargeMode === m ? theme.primary + '1A' : 'transparent',
+                          borderColor:
+                            surchargeMode === m ? theme.primary : theme.border,
+                          backgroundColor:
+                            surchargeMode === m
+                              ? theme.primary + "1A"
+                              : "transparent",
                         },
                       ]}
                       onPress={() => setSurchargeMode(m)}
                     >
-                      <Text style={{ color: surchargeMode === m ? theme.primary : theme.subText, fontSize: 13, fontWeight: '600' }}>
-                        {m === 'percentage' ? 'Pourcentage' : 'Fixe'}
+                      <Text
+                        style={{
+                          color:
+                            surchargeMode === m ? theme.primary : theme.subText,
+                          fontSize: 13,
+                          fontWeight: "600",
+                        }}
+                      >
+                        {m === "percentage" ? "Pourcentage" : "Fixe"}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -273,16 +514,29 @@ export default function SubscriptionConfigScreen() {
                 <View style={styles.fieldRow}>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.itemLabel, { color: theme.text }]}>
-                      {surchargeMode === 'percentage' ? 'Pourcentage' : 'Montant fixe'}
+                      {surchargeMode === "percentage"
+                        ? "Pourcentage"
+                        : "Montant fixe"}
                     </Text>
                     <Text style={[styles.itemDesc, { color: theme.subText }]}>
-                      {surchargeMode === 'percentage' ? 'Ex: 1.5 pour 1.5%' : 'Ex: 200 pour 200 XOF'}
+                      {surchargeMode === "percentage"
+                        ? "Ex: 1.5 pour 1.5%"
+                        : "Ex: 200 pour 200 XOF"}
                     </Text>
                   </View>
                   <TextInput
-                    style={[styles.input, { color: theme.text, borderColor: theme.border, backgroundColor: theme.bg }]}
+                    style={[
+                      styles.input,
+                      {
+                        color: theme.text,
+                        borderColor: theme.border,
+                        backgroundColor: theme.bg,
+                      },
+                    ]}
                     value={surchargeValue}
-                    onChangeText={(t) => setSurchargeValue(t.replace(/[^0-9.]/g, ''))}
+                    onChangeText={(t) =>
+                      setSurchargeValue(t.replace(/[^0-9.]/g, ""))
+                    }
                     keyboardType="decimal-pad"
                     placeholder="0"
                     placeholderTextColor={theme.subText}
@@ -291,40 +545,277 @@ export default function SubscriptionConfigScreen() {
               </View>
             </View>
 
+            {/* ── Opérateurs Mobile Money ── */}
+            <View
+              style={[
+                styles.sectionCard,
+                { backgroundColor: theme.card, borderColor: theme.border },
+              ]}
+            >
+              <View
+                style={[
+                  styles.sectionHeader,
+                  {
+                    backgroundColor: theme.nav,
+                    borderBottomColor: theme.border,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="phone-portrait-outline"
+                  size={18}
+                  color={theme.primary}
+                />
+                <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                  Opérateurs Mobile Money
+                </Text>
+              </View>
+              <View style={{ padding: 12 }}>
+                <Text
+                  style={[
+                    styles.itemDesc,
+                    { color: theme.subText, marginTop: 0, marginBottom: 10 },
+                  ]}
+                >
+                  Ajoutez les opérateurs autorisés. Le code doit être exactement
+                  celui attendu par SebPay.
+                </Text>
+                <View style={styles.operatorFormRow}>
+                  <TextInput
+                    style={[
+                      styles.smallInput,
+                      {
+                        color: theme.text,
+                        borderColor: theme.border,
+                        backgroundColor: theme.bg,
+                      },
+                    ]}
+                    value={operatorCountry}
+                    onChangeText={(value) =>
+                      setOperatorCountry(value.toUpperCase())
+                    }
+                    placeholder="Pays"
+                    maxLength={2}
+                    placeholderTextColor={theme.subText}
+                  />
+                  <TextInput
+                    style={[
+                      styles.formInput,
+                      {
+                        color: theme.text,
+                        borderColor: theme.border,
+                        backgroundColor: theme.bg,
+                      },
+                    ]}
+                    value={operatorCodeValue}
+                    onChangeText={setOperatorCodeValue}
+                    placeholder="Code SebPay"
+                    placeholderTextColor={theme.subText}
+                  />
+                  <TextInput
+                    style={[
+                      styles.formInput,
+                      {
+                        color: theme.text,
+                        borderColor: theme.border,
+                        backgroundColor: theme.bg,
+                      },
+                    ]}
+                    value={operatorLabelValue}
+                    onChangeText={setOperatorLabelValue}
+                    placeholder="Nom affiché"
+                    placeholderTextColor={theme.subText}
+                  />
+                </View>
+                <View style={styles.operatorFormRow}>
+                  <TextInput
+                    style={[
+                      styles.formInput,
+                      {
+                        color: theme.text,
+                        borderColor: theme.border,
+                        backgroundColor: theme.bg,
+                      },
+                    ]}
+                    value={operatorUssd}
+                    onChangeText={setOperatorUssd}
+                    placeholder="Code USSD (optionnel)"
+                    placeholderTextColor={theme.subText}
+                  />
+                  <TextInput
+                    style={[
+                      styles.smallInput,
+                      {
+                        color: theme.text,
+                        borderColor: theme.border,
+                        backgroundColor: theme.bg,
+                      },
+                    ]}
+                    value={operatorOrder}
+                    onChangeText={setOperatorOrder}
+                    keyboardType="number-pad"
+                    placeholder="Ordre"
+                    placeholderTextColor={theme.subText}
+                  />
+                  <TouchableOpacity
+                    style={styles.inlineToggle}
+                    onPress={() => setOperatorOtp(!operatorOtp)}
+                  >
+                    <Switch
+                      value={operatorOtp}
+                      onValueChange={setOperatorOtp}
+                    />
+                    <Text style={{ color: theme.text }}>OTP</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.inlineToggle}
+                    onPress={() => setOperatorActive(!operatorActive)}
+                  >
+                    <Switch
+                      value={operatorActive}
+                      onValueChange={setOperatorActive}
+                    />
+                    <Text style={{ color: theme.text }}>Actif</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.operatorActions}>
+                  {operatorId && (
+                    <TouchableOpacity
+                      style={[styles.modeBtn, { borderColor: theme.border }]}
+                      onPress={resetOperatorForm}
+                    >
+                      <Text style={{ color: theme.subText }}>Annuler</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity
+                    style={[
+                      styles.saveOperatorBtn,
+                      { backgroundColor: theme.primary },
+                    ]}
+                    onPress={saveOperator}
+                    disabled={saving}
+                  >
+                    <Text style={{ color: "#fff", fontWeight: "700" }}>
+                      {operatorId ? "Modifier" : "Ajouter"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                {operators.map((operator) => (
+                  <View
+                    key={operator.id ?? `${operator.country}-${operator.code}`}
+                    style={[
+                      styles.operatorListRow,
+                      { borderTopColor: theme.border },
+                    ]}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.itemLabel, { color: theme.text }]}>
+                        {operatorLabel(operator)} · {operator.country}
+                      </Text>
+                      <Text style={[styles.itemDesc, { color: theme.subText }]}>
+                        {operator.code} ·{" "}
+                        {operator.active === false ? "Inactif" : "Actif"}
+                        {operator.otp_required ? " · OTP" : ""}
+                      </Text>
+                    </View>
+                    <TouchableOpacity onPress={() => editOperator(operator)}>
+                      <Ionicons
+                        name="create-outline"
+                        size={20}
+                        color={theme.primary}
+                      />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => removeOperator(operator)}
+                      style={{ marginLeft: 14 }}
+                    >
+                      <Ionicons
+                        name="trash-outline"
+                        size={20}
+                        color={theme.danger}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            </View>
+
             {/* ── Fonctionnalités Premium ── */}
-            <View style={[styles.noticeCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-              <Ionicons name="lock-closed-outline" size={16} color={theme.subText} />
-              <Text style={[styles.itemDesc, { color: theme.subText, flex: 1, marginTop: 0 }]}>
-                Les fonctionnalités cochées ci-dessous sont désactivées automatiquement pour une
-                entreprise dont l&apos;abonnement est expiré depuis plus que son délai de grâce
-                (uniquement si sa coupure automatique est activée). Elles sont réactivées dès
+            <View
+              style={[
+                styles.noticeCard,
+                { backgroundColor: theme.card, borderColor: theme.border },
+              ]}
+            >
+              <Ionicons
+                name="lock-closed-outline"
+                size={16}
+                color={theme.subText}
+              />
+              <Text
+                style={[
+                  styles.itemDesc,
+                  { color: theme.subText, flex: 1, marginTop: 0 },
+                ]}
+              >
+                Les fonctionnalités cochées ci-dessous sont désactivées
+                automatiquement pour une entreprise dont l&apos;abonnement est
+                expiré depuis plus que son délai de grâce (uniquement si sa
+                coupure automatique est activée). Elles sont réactivées dès
                 réception du paiement.
               </Text>
             </View>
 
             {FEATURE_SECTIONS.map((section) => {
               const allOn = section.items.every((i) => gated[i.key]);
-              const gatedInSection = section.items.filter((i) => gated[i.key]).length;
+              const gatedInSection = section.items.filter(
+                (i) => gated[i.key],
+              ).length;
 
               return (
-                <View key={section.id} style={[styles.sectionCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                <View
+                  key={section.id}
+                  style={[
+                    styles.sectionCard,
+                    { backgroundColor: theme.card, borderColor: theme.border },
+                  ]}
+                >
                   <TouchableOpacity
-                    style={[styles.sectionHeader, { backgroundColor: theme.nav, borderBottomColor: theme.border }]}
+                    style={[
+                      styles.sectionHeader,
+                      {
+                        backgroundColor: theme.nav,
+                        borderBottomColor: theme.border,
+                      },
+                    ]}
                     onPress={() => toggleSection(section)}
                     activeOpacity={0.7}
                   >
-                    <Ionicons name={section.icon as any} size={18} color={theme.primary} />
-                    <Text style={[styles.sectionTitle, { color: theme.text }]}>{section.label}</Text>
-                    <View style={[styles.badge, { backgroundColor: theme.border }]}>
-                      <Text style={[styles.badgeText, { color: theme.subText }]}>
+                    <Ionicons
+                      name={section.icon as any}
+                      size={18}
+                      color={theme.primary}
+                    />
+                    <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                      {section.label}
+                    </Text>
+                    <View
+                      style={[styles.badge, { backgroundColor: theme.border }]}
+                    >
+                      <Text
+                        style={[styles.badgeText, { color: theme.subText }]}
+                      >
                         {gatedInSection}/{section.items.length}
                       </Text>
                     </View>
                     <Switch
                       value={allOn}
                       onValueChange={() => toggleSection(section)}
-                      trackColor={{ false: '#38383A', true: theme.warning + '66' }}
-                      thumbColor={allOn ? theme.warning : '#555'}
+                      trackColor={{
+                        false: "#38383A",
+                        true: theme.warning + "66",
+                      }}
+                      thumbColor={allOn ? theme.warning : "#555"}
                     />
                   </TouchableOpacity>
 
@@ -342,26 +833,37 @@ export default function SubscriptionConfigScreen() {
                         <Ionicons
                           name={item.icon as any}
                           size={16}
-                          color={gated[item.key] ? theme.warning : theme.subText}
+                          color={
+                            gated[item.key] ? theme.warning : theme.subText
+                          }
                         />
                         <View style={{ flex: 1 }}>
                           <Text
                             style={[
                               styles.itemLabel,
-                              { color: gated[item.key] ? theme.text : theme.subText },
+                              {
+                                color: gated[item.key]
+                                  ? theme.text
+                                  : theme.subText,
+                              },
                             ]}
                           >
                             {item.label}
                           </Text>
-                          <Text style={[styles.itemDesc, { color: theme.subText }]}>
+                          <Text
+                            style={[styles.itemDesc, { color: theme.subText }]}
+                          >
                             {item.description}
                           </Text>
                         </View>
                         <Switch
                           value={!!gated[item.key]}
                           onValueChange={() => toggleKey(item.key)}
-                          trackColor={{ false: '#38383A', true: theme.primary + '55' }}
-                          thumbColor={gated[item.key] ? theme.primary : '#555'}
+                          trackColor={{
+                            false: "#38383A",
+                            true: theme.primary + "55",
+                          }}
+                          thumbColor={gated[item.key] ? theme.primary : "#555"}
                         />
                       </View>
                     );
@@ -372,9 +874,17 @@ export default function SubscriptionConfigScreen() {
           </ScrollView>
 
           {/* ── Bouton Enregistrer ── */}
-          <View style={[styles.saveBar, { backgroundColor: theme.card, borderTopColor: theme.border }]}>
+          <View
+            style={[
+              styles.saveBar,
+              { backgroundColor: theme.card, borderTopColor: theme.border },
+            ]}
+          >
             <TouchableOpacity
-              style={[styles.saveBtn, { backgroundColor: theme.primary, opacity: saving ? 0.7 : 1 }]}
+              style={[
+                styles.saveBtn,
+                { backgroundColor: theme.primary, opacity: saving ? 0.7 : 1 },
+              ]}
               onPress={handleSave}
               disabled={saving}
               activeOpacity={0.8}
@@ -384,7 +894,9 @@ export default function SubscriptionConfigScreen() {
               ) : (
                 <>
                   <Ionicons name="save-outline" size={20} color="#fff" />
-                  <Text style={styles.saveBtnText}>Enregistrer la configuration</Text>
+                  <Text style={styles.saveBtnText}>
+                    Enregistrer la configuration
+                  </Text>
                 </>
               )}
             </TouchableOpacity>
@@ -398,40 +910,82 @@ export default function SubscriptionConfigScreen() {
 const styles = StyleSheet.create({
   modeBtn: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
   },
+  operatorFormRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  smallInput: {
+    width: 72,
+    minHeight: 42,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+  },
+  formInput: {
+    flex: 1,
+    minHeight: 42,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+  },
+  inlineToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  operatorActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 8,
+    marginBottom: 8,
+  },
+  saveOperatorBtn: {
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  operatorListRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 11,
+  },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  headerTitle: { fontSize: 18, fontWeight: '700' },
+  headerTitle: { fontSize: 18, fontWeight: "700" },
   headerSub: { fontSize: 12, marginTop: 1 },
   infoBand: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 10,
     gap: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   infoText: { fontSize: 13, flex: 1 },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  centered: { flex: 1, justifyContent: "center", alignItems: "center" },
 
   sectionCard: {
     borderRadius: 14,
     marginBottom: 12,
-    overflow: 'hidden',
+    overflow: "hidden",
     borderWidth: StyleSheet.hairlineWidth,
   },
   noticeCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     gap: 10,
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
@@ -439,20 +993,20 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
     gap: 10,
   },
-  sectionTitle: { flex: 1, fontSize: 15, fontWeight: '700' },
+  sectionTitle: { flex: 1, fontSize: 15, fontWeight: "700" },
   badge: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
-  badgeText: { fontSize: 11, fontWeight: '600' },
+  badgeText: { fontSize: 11, fontWeight: "600" },
 
   fieldRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 13,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -465,22 +1019,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 7,
     fontSize: 13,
-    textAlign: 'right',
+    textAlign: "right",
   },
 
   itemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 13,
     borderBottomWidth: StyleSheet.hairlineWidth,
     gap: 12,
   },
-  itemLabel: { fontSize: 14, fontWeight: '500' },
+  itemLabel: { fontSize: 14, fontWeight: "500" },
   itemDesc: { fontSize: 11, marginTop: 2 },
 
   saveBar: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
@@ -488,12 +1042,12 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   saveBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: 14,
     paddingVertical: 15,
     gap: 10,
   },
-  saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  saveBtnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
 });
