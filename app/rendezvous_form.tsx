@@ -20,12 +20,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTenant } from "../context/TenantContext";
 import { api } from "../lib/api";
-import {
-    RendezVousLite,
-    diffRdvFields,
-    notifyRdvModification,
-    scheduleRdvReminders,
-} from "../lib/notifications";
 
 type Statut = "en_attente" | "reporte" | "annule" | "termine";
 
@@ -85,17 +79,6 @@ export default function RendezVousForm() {
   const [statut, setStatut] = useState<Statut>("en_attente");
   const [registreId, setRegistreId] = useState<string | null>(null);
 
-  // Snapshot pour détecter les modifications (uniquement en mode édition)
-  const [originalRdv, setOriginalRdv] = useState<RendezVousLite | null>(null);
-
-  useEffect(() => {
-    if (id) {
-      fetchRDV();
-    } else {
-      preFillFromParams();
-    }
-  }, [id]);
-
   const preFillFromParams = async () => {
     // Préremplissage depuis le registre
     if (params.nomPrenom) setNomPrenom(String(params.nomPrenom));
@@ -135,19 +118,16 @@ export default function RendezVousForm() {
     setStatut((data.statut as Statut) || "en_attente");
     setRegistreId(data.registre_id || null);
 
-    // Mémorise l'état avant édition pour pouvoir diff au save
-    setOriginalRdv({
-      id: data.id,
-      date_rdv: data.date_rdv,
-      heure_rdv: data.heure_rdv,
-      lieu: data.lieu,
-      nom_prenom: data.nom_prenom,
-      telephone: data.telephone,
-      motif: data.motif,
-      description: data.description,
-    });
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (id) {
+      fetchRDV();
+    } else {
+      preFillFromParams();
+    }
+  }, [id]);
 
   const handleSave = async () => {
     if (!nomPrenom.trim()) {
@@ -174,49 +154,17 @@ export default function RendezVousForm() {
       registre_id: registreId,
     };
 
-    let savedId: string | undefined = id;
     try {
       if (id) {
         await api.updateRendezVous(id, payload);
       } else {
-        const created = await api.createRendezVous(payload);
-        savedId = created?.id;
+        await api.createRendezVous(payload);
       }
     } catch (e: any) {
       setSaving(false);
       Alert.alert("Erreur", e.message);
       return;
     }
-
-    // --- NOTIFICATIONS ---------------------------------------------------
-    try {
-      const afterLite: RendezVousLite = {
-        id: savedId || "",
-        date_rdv: payload.date_rdv,
-        heure_rdv: payload.heure_rdv,
-        lieu: payload.lieu,
-        nom_prenom: payload.nom_prenom,
-        telephone: payload.telephone,
-        motif: payload.motif,
-        description: payload.description,
-      };
-
-      // Si modification : on identifie les champs qui ont changé
-      if (id && originalRdv) {
-        const changed = diffRdvFields(originalRdv, afterLite);
-        if (changed.length > 0) {
-          await notifyRdvModification(afterLite, changed);
-        }
-      }
-
-      // Toujours (re)programmer les rappels J-3 / J-2 / Jour-J
-      if (savedId) {
-        await scheduleRdvReminders(afterLite);
-      }
-    } catch (e: any) {
-      console.warn("[rendezvous_form] notifications failed:", e?.message);
-    }
-    // ---------------------------------------------------------------------
 
     setSaving(false);
     Alert.alert("Succès", "Rendez-vous enregistré.");

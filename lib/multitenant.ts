@@ -176,6 +176,15 @@ export async function deleteEnterprise(enterpriseId: string) {
   }
 }
 
+export async function regenerateEnterpriseCode(enterpriseId: string) {
+  try {
+    const data = await api.regenerateEnterpriseCode(enterpriseId);
+    return { success: true, code: data.code, enterprise: data.enterprise };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
 /**
  * Récupère les users en attente d'activation pour une entreprise
  */

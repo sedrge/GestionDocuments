@@ -44,6 +44,10 @@ export default function ChatScreen() {
     moto_etat,
     moto_image,
     moto_couleur,
+    context_type,
+    context_id,
+    context_title,
+    context_image_url,
   } = useLocalSearchParams<{
     enterprise_id: string;
     enterprise_name: string;
@@ -52,6 +56,10 @@ export default function ChatScreen() {
     moto_etat?: string;
     moto_image?: string;
     moto_couleur?: string;
+    context_type?: "moto" | "publication";
+    context_id?: string;
+    context_title?: string;
+    context_image_url?: string;
   }>();
   const insets = useSafeAreaInsets();
 
@@ -167,6 +175,10 @@ export default function ChatScreen() {
         client_name: clientName.trim(),
         client_phone: clientPhone.trim() || null,
         initial_message: introMsg,
+        context_type: context_type || (moto_name ? "moto" : undefined),
+        context_id: context_id || undefined,
+        context_title: context_title || moto_name || undefined,
+        context_image_url: context_image_url || moto_image || undefined,
       });
     } catch {
       setLoading(false);

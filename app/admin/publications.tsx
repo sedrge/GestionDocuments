@@ -2,31 +2,31 @@ import { Ionicons } from "@expo/vector-icons";
 import { File, UploadType } from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import * as Linking from "expo-linking";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Image,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Image,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { api, getToken } from "../../lib/api";
-import { localUriToFormFile } from "../../lib/formUpload";
-import { useTenant } from "../../context/TenantContext";
-import { useTheme } from "../../context/ThemeContext";
 import { FeatureGate } from "../../components/FeatureGate";
 import { useFeatureFlags } from "../../context/FeatureFlagsContext";
+import { useTenant } from "../../context/TenantContext";
+import { useTheme } from "../../context/ThemeContext";
+import { api, getToken } from "../../lib/api";
+import { localUriToFormFile } from "../../lib/formUpload";
 
 type Publication = {
   id: string;
@@ -109,11 +109,17 @@ function buildPromoText(motos: MotoLite[], mode: AutoMode): string {
   const lines: string[] = [];
   const n = motos.length;
   if (mode === "nouvelle") {
-    lines.push(`🆕 Nouveautés ! ${n} moto${n > 1 ? "s" : ""} fraîchement arrivée${n > 1 ? "s" : ""} en stock :`);
+    lines.push(
+      `🆕 Nouveautés ! ${n} moto${n > 1 ? "s" : ""} fraîchement arrivée${n > 1 ? "s" : ""} en stock :`,
+    );
   } else if (mode === "ancienne") {
-    lines.push(`⏳ Offre spéciale sur ${n} moto${n > 1 ? "s" : ""} en stock depuis un moment, à saisir vite :`);
+    lines.push(
+      `⏳ Offre spéciale sur ${n} moto${n > 1 ? "s" : ""} en stock depuis un moment, à saisir vite :`,
+    );
   } else {
-    lines.push(`🔥 Sélection du jour : ${n} moto${n > 1 ? "s" : ""} disponible${n > 1 ? "s" : ""} chez nous :`);
+    lines.push(
+      `🔥 Sélection du jour : ${n} moto${n > 1 ? "s" : ""} disponible${n > 1 ? "s" : ""} chez nous :`,
+    );
   }
 
   const MAX_ITEM_LINES = 7; // header(1) + items(<=7) + note(<=1) + CTA(1) = <=10
@@ -121,12 +127,16 @@ function buildPromoText(motos: MotoLite[], mode: AutoMode): string {
   for (const m of shown) {
     const nom = [m.marque, m.modele].filter(Boolean).join(" ") || "Moto";
     const etat = m.etat ? ` (${m.etat})` : "";
-    const prix = m.prix_vente ? ` — ${m.prix_vente.toLocaleString("fr-FR")} FCFA` : "";
+    const prix = m.prix_vente
+      ? ` — ${m.prix_vente.toLocaleString("fr-FR")} FCFA`
+      : "";
     lines.push(`• ${nom}${etat}${prix}`);
   }
   const remaining = n - shown.length;
   if (remaining > 0) {
-    lines.push(`… et ${remaining} autre${remaining > 1 ? "s" : ""} modèle${remaining > 1 ? "s" : ""} disponible${remaining > 1 ? "s" : ""} !`);
+    lines.push(
+      `… et ${remaining} autre${remaining > 1 ? "s" : ""} modèle${remaining > 1 ? "s" : ""} disponible${remaining > 1 ? "s" : ""} !`,
+    );
   }
   lines.push("📲 Contactez-nous vite, stock limité !");
   return lines.slice(0, 10).join("\n");
@@ -145,7 +155,9 @@ function timeAgo(dateStr: string): string {
 }
 
 function isPublicationScheduled(pub: Publication): boolean {
-  return !!pub.scheduled_at && new Date(pub.scheduled_at).getTime() > Date.now();
+  return (
+    !!pub.scheduled_at && new Date(pub.scheduled_at).getTime() > Date.now()
+  );
 }
 
 function formatScheduleLabel(dateStr: string): string {
@@ -199,10 +211,22 @@ function parseScheduledDateTime(dateStr: string, timeStr: string): Date | null {
     minute = parseInt(timeMatch[2], 10);
   }
 
-  if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59) return null;
+  if (
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31 ||
+    hour > 23 ||
+    minute > 59
+  )
+    return null;
 
   const date = new Date(year, month - 1, day, hour, minute, 0, 0);
-  if (date.getDate() !== day || date.getMonth() !== month - 1 || date.getFullYear() !== year) {
+  if (
+    date.getDate() !== day ||
+    date.getMonth() !== month - 1 ||
+    date.getFullYear() !== year
+  ) {
     return null; // ex : 31/02 qui déborde sur mars
   }
   return date;
@@ -220,7 +244,7 @@ async function uploadVideoPublication(
   videoUri: string,
   selectedPlatforms: string[],
   scheduledAt: string | null,
-  enterpriseId: string
+  enterpriseId: string,
 ): Promise<Publication> {
   const ext = videoUri.split(".").pop()?.toLowerCase().split("?")[0] || "mp4";
   const mimeType = ext === "mov" ? "video/quicktime" : "video/mp4";
@@ -260,6 +284,9 @@ async function uploadVideoPublication(
 
 function AdminPublicationsContent() {
   const { theme } = useTheme();
+  const { publication_id } = useLocalSearchParams<{
+    publication_id?: string;
+  }>();
   const { tenant } = useTenant();
   const { isFeatureEnabled } = useFeatureFlags();
   const autoGenEnabled = isFeatureEnabled("publications.auto");
@@ -267,11 +294,15 @@ function AdminPublicationsContent() {
   const fbEnabled = isFeatureEnabled("publications.facebook");
   const tiktokEnabled = isFeatureEnabled("publications.tiktok");
   const [publications, setPublications] = useState<Publication[]>([]);
-  const [tiktokStatus, setTiktokStatus] = useState<Record<string, TikTokStatus>>({});
+  const [tiktokStatus, setTiktokStatus] = useState<
+    Record<string, TikTokStatus>
+  >({});
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [publishingFbId, setPublishingFbId] = useState<string | null>(null);
-  const [publishingTiktokId, setPublishingTiktokId] = useState<string | null>(null);
+  const [publishingTiktokId, setPublishingTiktokId] = useState<string | null>(
+    null,
+  );
   const [fbConnected, setFbConnected] = useState(false);
   const [tiktokConnected, setTiktokConnected] = useState(false);
 
@@ -281,8 +312,12 @@ function AdminPublicationsContent() {
   const [formVideo, setFormVideo] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [selectedPlatforms, setSelectedPlatforms] = useState<SocialPlatform[]>([]);
-  const [autoSelectedPlatforms, setAutoSelectedPlatforms] = useState<SocialPlatform[]>([]);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<SocialPlatform[]>(
+    [],
+  );
+  const [autoSelectedPlatforms, setAutoSelectedPlatforms] = useState<
+    SocialPlatform[]
+  >([]);
 
   // Programmation (publication manuelle)
   const [publishMode, setPublishMode] = useState<PublishMode>("now");
@@ -307,8 +342,14 @@ function AdminPublicationsContent() {
     }
     try {
       const result = await api.listPublications(tenant.enterprise_id);
-      const pubs = ((result?.data ?? result ?? []) as Publication[]);
+      const pubs = (result?.data ?? result ?? []) as Publication[];
       setPublications(pubs);
+      if (
+        publication_id &&
+        pubs.some((publication) => publication.id === publication_id)
+      ) {
+        setExpandedIds((previous) => new Set(previous).add(publication_id));
+      }
 
       const statusMap: Record<string, TikTokStatus> = {};
       pubs.forEach((p) => {
@@ -323,10 +364,13 @@ function AdminPublicationsContent() {
       });
       setTiktokStatus(statusMap);
     } catch (e: any) {
-      Alert.alert("Erreur", e.message || "Impossible de charger les publications.");
+      Alert.alert(
+        "Erreur",
+        e.message || "Impossible de charger les publications.",
+      );
     }
     setLoading(false);
-  }, [tenant?.enterprise_id]);
+  }, [publication_id, tenant]);
 
   const fetchConnections = useCallback(async () => {
     if (!tenant?.enterprise_id) return;
@@ -337,28 +381,33 @@ function AdminPublicationsContent() {
     } catch {
       // Non bloquant : l'écran reste utilisable sans les boutons de connexion.
     }
-  }, [tenant?.enterprise_id]);
+  }, [tenant]);
 
   useFocusEffect(
     useCallback(() => {
       fetchPublications();
       fetchConnections();
-    }, [fetchPublications, fetchConnections])
+    }, [fetchPublications, fetchConnections]),
   );
 
   const togglePlatform = (
     platform: SocialPlatform,
-    setter: React.Dispatch<React.SetStateAction<SocialPlatform[]>>
+    setter: React.Dispatch<React.SetStateAction<SocialPlatform[]>>,
   ) => {
     setter((prev) =>
-      prev.includes(platform) ? prev.filter((p) => p !== platform) : [...prev, platform]
+      prev.includes(platform)
+        ? prev.filter((p) => p !== platform)
+        : [...prev, platform],
     );
   };
 
   // Construit un message récapitulatif "Facebook : publié ✓ / erreur" à partir
   // d'une publication fraîchement créée (le serveur a déjà tenté la diffusion
   // immédiate de façon synchrone, pas besoin d'un second appel réseau).
-  const summarizeDispatchResults = (pub: Publication, platforms: SocialPlatform[]): string[] => {
+  const summarizeDispatchResults = (
+    pub: Publication,
+    platforms: SocialPlatform[],
+  ): string[] => {
     return platforms.map((platform) => {
       const label = platform === "facebook" ? "Facebook" : "TikTok";
       if (platform === "facebook") {
@@ -366,7 +415,9 @@ function AdminPublicationsContent() {
           ? `${label} : publié ✓`
           : `${label} : ${pub.fb_publish_error || "échec de la publication."}`;
       }
-      const status = pub.platform_statuses?.find((s) => s.platform === "tiktok");
+      const status = pub.platform_statuses?.find(
+        (s) => s.platform === "tiktok",
+      );
       return status?.status === "published"
         ? `${label} : publié ✓`
         : `${label} : ${status?.error_message || "échec de la publication."}`;
@@ -418,7 +469,10 @@ function AdminPublicationsContent() {
 
   const handleSave = async () => {
     if (!formText.trim() && formImages.length === 0 && !formVideo) {
-      return Alert.alert("Publication vide", "Ajoutez du texte, des images ou une vidéo.");
+      return Alert.alert(
+        "Publication vide",
+        "Ajoutez du texte, des images ou une vidéo.",
+      );
     }
     if (!tenant?.enterprise_id) return;
 
@@ -428,11 +482,14 @@ function AdminPublicationsContent() {
       if (!parsed) {
         return Alert.alert(
           "Date invalide",
-          "Vérifiez la date (JJ/MM/AAAA) et l'heure (HH:MM) de programmation."
+          "Vérifiez la date (JJ/MM/AAAA) et l'heure (HH:MM) de programmation.",
         );
       }
       if (parsed.getTime() <= Date.now()) {
-        return Alert.alert("Date passée", "Choisissez une date et une heure dans le futur.");
+        return Alert.alert(
+          "Date passée",
+          "Choisissez une date et une heure dans le futur.",
+        );
       }
       scheduledAt = parsed.toISOString();
     }
@@ -451,7 +508,7 @@ function AdminPublicationsContent() {
           formVideo,
           selectedPlatforms,
           scheduledAt,
-          tenant.enterprise_id
+          tenant.enterprise_id,
         );
       } else {
         const form = new FormData();
@@ -460,7 +517,9 @@ function AdminPublicationsContent() {
         formImages.forEach((uri, i) => {
           form.append("images[]", localUriToFormFile(uri, `pub_${i}`) as any);
         });
-        selectedPlatforms.forEach((p) => form.append("selected_platforms[]", p));
+        selectedPlatforms.forEach((p) =>
+          form.append("selected_platforms[]", p),
+        );
         if (scheduledAt) form.append("scheduled_at", scheduledAt);
         created = await api.createPublication(form);
       }
@@ -468,7 +527,10 @@ function AdminPublicationsContent() {
       resetForm();
       fetchPublications();
       if (publishMode === "now" && platformsToPush.length > 0) {
-        Alert.alert("Diffusion sur les réseaux", summarizeDispatchResults(created, platformsToPush).join("\n"));
+        Alert.alert(
+          "Diffusion sur les réseaux",
+          summarizeDispatchResults(created, platformsToPush).join("\n"),
+        );
       }
     } catch (e: any) {
       Alert.alert("Erreur", e.message || "Échec de l'enregistrement.");
@@ -494,7 +556,7 @@ function AdminPublicationsContent() {
             fetchPublications();
           },
         },
-      ]
+      ],
     );
   };
 
@@ -509,9 +571,14 @@ function AdminPublicationsContent() {
           onPress: async () => {
             setPublishingFbId(pub.id);
             try {
-              const updated: Publication = await api.publishPublicationToPlatform(pub.id, "facebook");
+              const updated: Publication =
+                await api.publishPublicationToPlatform(pub.id, "facebook");
               if (updated.fb_publish_status === "error") {
-                Alert.alert("Erreur", updated.fb_publish_error || "Échec de la publication Facebook.");
+                Alert.alert(
+                  "Erreur",
+                  updated.fb_publish_error ||
+                    "Échec de la publication Facebook.",
+                );
               }
             } catch (e: any) {
               Alert.alert("Erreur", e.message);
@@ -520,7 +587,7 @@ function AdminPublicationsContent() {
             fetchPublications();
           },
         },
-      ]
+      ],
     );
   };
 
@@ -535,10 +602,16 @@ function AdminPublicationsContent() {
           onPress: async () => {
             setPublishingTiktokId(pub.id);
             try {
-              const updated: Publication = await api.publishPublicationToPlatform(pub.id, "tiktok");
-              const status = updated.platform_statuses?.find((s) => s.platform === "tiktok");
+              const updated: Publication =
+                await api.publishPublicationToPlatform(pub.id, "tiktok");
+              const status = updated.platform_statuses?.find(
+                (s) => s.platform === "tiktok",
+              );
               if (status?.status === "error") {
-                Alert.alert("Erreur", status.error_message || "Échec de la publication TikTok.");
+                Alert.alert(
+                  "Erreur",
+                  status.error_message || "Échec de la publication TikTok.",
+                );
               }
             } catch (e: any) {
               Alert.alert("Erreur", e.message);
@@ -547,7 +620,7 @@ function AdminPublicationsContent() {
             fetchPublications();
           },
         },
-      ]
+      ],
     );
   };
 
@@ -595,21 +668,28 @@ function AdminPublicationsContent() {
 
     let scheduledAt: string | null = null;
     if (scheduleEnabled && autoPublishMode === "schedule") {
-      const parsedSchedule = parseScheduledDateTime(autoScheduleDate, autoScheduleTime);
+      const parsedSchedule = parseScheduledDateTime(
+        autoScheduleDate,
+        autoScheduleTime,
+      );
       if (!parsedSchedule) {
         return Alert.alert(
           "Date invalide",
-          "Vérifiez la date (JJ/MM/AAAA) et l'heure (HH:MM) de programmation."
+          "Vérifiez la date (JJ/MM/AAAA) et l'heure (HH:MM) de programmation.",
         );
       }
       if (parsedSchedule.getTime() <= Date.now()) {
-        return Alert.alert("Date passée", "Choisissez une date et une heure dans le futur.");
+        return Alert.alert(
+          "Date passée",
+          "Choisissez une date et une heure dans le futur.",
+        );
       }
       scheduledAt = parsedSchedule.toISOString();
     }
 
     const parsed = parseInt(autoCountInput, 10);
-    const count = Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 30) : 6;
+    const count =
+      Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 30) : 6;
 
     setAutoGenerating(true);
 
@@ -620,7 +700,7 @@ function AdminPublicationsContent() {
         per_page: 1000,
       });
       const all = ((result?.data ?? result ?? []) as MotoLite[]).filter(
-        (m) => m.statut !== "vendu"
+        (m) => m.statut !== "vendu",
       );
       // Le serveur trie toujours par date de création décroissante (plus
       // récentes d'abord) : on inverse pour "ancienne", on tire au sort pour
@@ -641,7 +721,7 @@ function AdminPublicationsContent() {
     if (motos.length === 0) {
       return Alert.alert(
         "Aucune moto disponible",
-        "Aucune moto en stock ne correspond à ces critères pour générer une publicité."
+        "Aucune moto en stock ne correspond à ces critères pour générer une publicité.",
       );
     }
 
@@ -657,7 +737,9 @@ function AdminPublicationsContent() {
     form.append("enterprise_id", tenant.enterprise_id);
     form.append("texte", texte);
     images.forEach((url) => form.append("source_images[]", url));
-    autoSelectedPlatforms.forEach((p) => form.append("selected_platforms[]", p));
+    autoSelectedPlatforms.forEach((p) =>
+      form.append("selected_platforms[]", p),
+    );
     form.append("is_auto_generated", "1");
     if (scheduledAt) form.append("scheduled_at", scheduledAt);
 
@@ -668,7 +750,10 @@ function AdminPublicationsContent() {
       resetAutoForm();
       fetchPublications();
       if (autoPublishMode === "now" && platformsToPush.length > 0) {
-        Alert.alert("Diffusion sur les réseaux", summarizeDispatchResults(created, platformsToPush).join("\n"));
+        Alert.alert(
+          "Diffusion sur les réseaux",
+          summarizeDispatchResults(created, platformsToPush).join("\n"),
+        );
       }
     } catch (e: any) {
       Alert.alert("Erreur", e.message || "Échec de la génération.");
@@ -680,7 +765,12 @@ function AdminPublicationsContent() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
+      <View
+        style={[
+          styles.header,
+          { backgroundColor: theme.card, borderBottomColor: theme.border },
+        ]}
+      >
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={theme.primary} />
         </TouchableOpacity>
@@ -702,7 +792,15 @@ function AdminPublicationsContent() {
         <View style={styles.headerBtns}>
           {fbEnabled && (
             <TouchableOpacity
-              style={[styles.newBtn, { backgroundColor: theme.card, borderWidth: 1, borderColor: "#1877F2", paddingHorizontal: 8 }]}
+              style={[
+                styles.newBtn,
+                {
+                  backgroundColor: theme.card,
+                  borderWidth: 1,
+                  borderColor: "#1877F2",
+                  paddingHorizontal: 8,
+                },
+              ]}
               onPress={() => router.push("/admin/facebook")}
             >
               <Ionicons name="logo-facebook" size={16} color="#1877F2" />
@@ -710,7 +808,15 @@ function AdminPublicationsContent() {
           )}
           {tiktokEnabled && (
             <TouchableOpacity
-              style={[styles.newBtn, { backgroundColor: theme.card, borderWidth: 1, borderColor: "#000000", paddingHorizontal: 8 }]}
+              style={[
+                styles.newBtn,
+                {
+                  backgroundColor: theme.card,
+                  borderWidth: 1,
+                  borderColor: "#000000",
+                  paddingHorizontal: 8,
+                },
+              ]}
               onPress={() => router.push("/admin/tiktok")}
             >
               <Ionicons name="logo-tiktok" size={16} color={theme.text} />
@@ -718,11 +824,20 @@ function AdminPublicationsContent() {
           )}
           {autoGenEnabled && (
             <TouchableOpacity
-              style={[styles.newBtn, { backgroundColor: theme.card, borderWidth: 1, borderColor: theme.primary }]}
+              style={[
+                styles.newBtn,
+                {
+                  backgroundColor: theme.card,
+                  borderWidth: 1,
+                  borderColor: theme.primary,
+                },
+              ]}
               onPress={() => setShowAutoModal(true)}
             >
               <Ionicons name="sparkles" size={16} color={theme.primary} />
-              <Text style={[styles.newBtnText, { color: theme.primary }]}>Auto</Text>
+              <Text style={[styles.newBtnText, { color: theme.primary }]}>
+                Auto
+              </Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity
@@ -744,7 +859,11 @@ function AdminPublicationsContent() {
           contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons name="megaphone-outline" size={64} color={theme.border} />
+              <Ionicons
+                name="megaphone-outline"
+                size={64}
+                color={theme.border}
+              />
               <Text style={[styles.emptyTitle, { color: theme.text }]}>
                 Aucune publication
               </Text>
@@ -757,189 +876,227 @@ function AdminPublicationsContent() {
           renderItem={({ item }) => {
             const scheduled = isPublicationScheduled(item);
             return (
-            <View
-              style={[
-                styles.pubCard,
-                {
-                  backgroundColor: theme.card,
-                  borderColor: scheduled ? "#FF9500" : theme.border,
-                },
-                scheduled && styles.pubCardScheduled,
-              ]}
-            >
-              {/* Card header */}
-              <View style={styles.pubCardHeader}>
-                <Ionicons
-                  name={scheduled ? "alarm-outline" : "megaphone-outline"}
-                  size={15}
-                  color={scheduled ? "#FF9500" : theme.primary}
-                />
-                <Text
-                  style={[
-                    styles.pubDate,
-                    { color: scheduled ? "#FF9500" : theme.subText },
-                  ]}
-                >
-                  {scheduled
-                    ? `Programmée · ${formatScheduleLabel(item.scheduled_at!)}`
-                    : timeAgo(item.created_at)}
-                </Text>
-                {scheduled && (
-                  <TouchableOpacity
-                    onPress={() => handlePublishNow(item)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    style={{ marginRight: 4 }}
-                  >
-                    <Ionicons name="checkmark-circle-outline" size={20} color={theme.primary} />
-                  </TouchableOpacity>
-                )}
-                {fbEnabled && (
-                  <>
-                    {publishingFbId === item.id ? (
-                      <ActivityIndicator
-                        size="small"
-                        color="#1877F2"
-                        style={{ marginRight: 4 }}
-                      />
-                    ) : item.fb_publish_status === "published" ? (
-                      <TouchableOpacity
-                        onPress={() =>
-                          item.fb_post_id &&
-                          Linking.openURL(`https://facebook.com/${item.fb_post_id}`)
-                        }
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        style={{ marginRight: 4 }}
-                      >
-                        <Ionicons name="checkmark-circle" size={18} color="#34C759" />
-                      </TouchableOpacity>
-                    ) : item.fb_publish_status === "error" ? (
-                      <TouchableOpacity
-                        onPress={() =>
-                          Alert.alert(
-                            "Erreur Facebook",
-                            item.fb_publish_error ?? "Échec de la publication."
-                          )
-                        }
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        style={{ marginRight: 4 }}
-                      >
-                        <Ionicons name="alert-circle" size={18} color="#FF3B30" />
-                      </TouchableOpacity>
-                    ) : (
-                      <TouchableOpacity
-                        onPress={() => handlePublishToFacebook(item)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        style={{ marginRight: 4 }}
-                      >
-                        <Ionicons name="logo-facebook" size={18} color="#1877F2" />
-                      </TouchableOpacity>
-                    )}
-                  </>
-                )}
-                {tiktokEnabled && (
-                  <>
-                    {publishingTiktokId === item.id ? (
-                      <ActivityIndicator
-                        size="small"
-                        color={theme.text}
-                        style={{ marginRight: 4 }}
-                      />
-                    ) : tiktokStatus[item.id]?.status === "published" ? (
-                      <TouchableOpacity
-                        onPress={() =>
-                          Alert.alert(
-                            "Publié sur TikTok",
-                            "Cette publication a été poussée sur le compte TikTok connecté."
-                          )
-                        }
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        style={{ marginRight: 4 }}
-                      >
-                        <Ionicons name="checkmark-circle" size={18} color="#34C759" />
-                      </TouchableOpacity>
-                    ) : tiktokStatus[item.id]?.status === "error" ? (
-                      <TouchableOpacity
-                        onPress={() =>
-                          Alert.alert(
-                            "Erreur TikTok",
-                            tiktokStatus[item.id]?.error_message ?? "Échec de la publication."
-                          )
-                        }
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        style={{ marginRight: 4 }}
-                      >
-                        <Ionicons name="alert-circle" size={18} color="#FF3B30" />
-                      </TouchableOpacity>
-                    ) : (
-                      <TouchableOpacity
-                        onPress={() => handlePublishToTikTok(item)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        style={{ marginRight: 4 }}
-                      >
-                        <Ionicons name="logo-tiktok" size={18} color={theme.text} />
-                      </TouchableOpacity>
-                    )}
-                  </>
-                )}
-                <TouchableOpacity
-                  onPress={() => handleDelete(item)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Ionicons name="trash-outline" size={18} color="#FF3B30" />
-                </TouchableOpacity>
-              </View>
-
-              {/* Text */}
-              {item.texte ? (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() =>
-                    setExpandedIds((prev) => {
-                      const next = new Set(prev);
-                      next.has(item.id) ? next.delete(item.id) : next.add(item.id);
-                      return next;
-                    })
-                  }
-                >
+              <View
+                style={[
+                  styles.pubCard,
+                  {
+                    backgroundColor: theme.card,
+                    borderColor: scheduled ? "#FF9500" : theme.border,
+                  },
+                  scheduled && styles.pubCardScheduled,
+                ]}
+              >
+                {/* Card header */}
+                <View style={styles.pubCardHeader}>
+                  <Ionicons
+                    name={scheduled ? "alarm-outline" : "megaphone-outline"}
+                    size={15}
+                    color={scheduled ? "#FF9500" : theme.primary}
+                  />
                   <Text
-                    style={[styles.pubText, { color: theme.text }]}
-                    numberOfLines={expandedIds.has(item.id) ? undefined : 3}
+                    style={[
+                      styles.pubDate,
+                      { color: scheduled ? "#FF9500" : theme.subText },
+                    ]}
                   >
-                    {item.texte}
+                    {scheduled
+                      ? `Programmée · ${formatScheduleLabel(item.scheduled_at!)}`
+                      : timeAgo(item.created_at)}
                   </Text>
-                  {!expandedIds.has(item.id) && item.texte.length > 120 ? (
-                    <Text style={[styles.seeMore, { color: theme.primary }]}>
-                      Voir plus
-                    </Text>
-                  ) : expandedIds.has(item.id) ? (
-                    <Text style={[styles.seeMore, { color: theme.primary }]}>
-                      Voir moins
-                    </Text>
-                  ) : null}
-                </TouchableOpacity>
-              ) : null}
+                  {scheduled && (
+                    <TouchableOpacity
+                      onPress={() => handlePublishNow(item)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      style={{ marginRight: 4 }}
+                    >
+                      <Ionicons
+                        name="checkmark-circle-outline"
+                        size={20}
+                        color={theme.primary}
+                      />
+                    </TouchableOpacity>
+                  )}
+                  {fbEnabled && (
+                    <>
+                      {publishingFbId === item.id ? (
+                        <ActivityIndicator
+                          size="small"
+                          color="#1877F2"
+                          style={{ marginRight: 4 }}
+                        />
+                      ) : item.fb_publish_status === "published" ? (
+                        <TouchableOpacity
+                          onPress={() =>
+                            item.fb_post_id &&
+                            Linking.openURL(
+                              `https://facebook.com/${item.fb_post_id}`,
+                            )
+                          }
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          style={{ marginRight: 4 }}
+                        >
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={18}
+                            color="#34C759"
+                          />
+                        </TouchableOpacity>
+                      ) : item.fb_publish_status === "error" ? (
+                        <TouchableOpacity
+                          onPress={() =>
+                            Alert.alert(
+                              "Erreur Facebook",
+                              item.fb_publish_error ??
+                                "Échec de la publication.",
+                            )
+                          }
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          style={{ marginRight: 4 }}
+                        >
+                          <Ionicons
+                            name="alert-circle"
+                            size={18}
+                            color="#FF3B30"
+                          />
+                        </TouchableOpacity>
+                      ) : (
+                        <TouchableOpacity
+                          onPress={() => handlePublishToFacebook(item)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          style={{ marginRight: 4 }}
+                        >
+                          <Ionicons
+                            name="logo-facebook"
+                            size={18}
+                            color="#1877F2"
+                          />
+                        </TouchableOpacity>
+                      )}
+                    </>
+                  )}
+                  {tiktokEnabled && (
+                    <>
+                      {publishingTiktokId === item.id ? (
+                        <ActivityIndicator
+                          size="small"
+                          color={theme.text}
+                          style={{ marginRight: 4 }}
+                        />
+                      ) : tiktokStatus[item.id]?.status === "published" ? (
+                        <TouchableOpacity
+                          onPress={() =>
+                            Alert.alert(
+                              "Publié sur TikTok",
+                              "Cette publication a été poussée sur le compte TikTok connecté.",
+                            )
+                          }
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          style={{ marginRight: 4 }}
+                        >
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={18}
+                            color="#34C759"
+                          />
+                        </TouchableOpacity>
+                      ) : tiktokStatus[item.id]?.status === "error" ? (
+                        <TouchableOpacity
+                          onPress={() =>
+                            Alert.alert(
+                              "Erreur TikTok",
+                              tiktokStatus[item.id]?.error_message ??
+                                "Échec de la publication.",
+                            )
+                          }
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          style={{ marginRight: 4 }}
+                        >
+                          <Ionicons
+                            name="alert-circle"
+                            size={18}
+                            color="#FF3B30"
+                          />
+                        </TouchableOpacity>
+                      ) : (
+                        <TouchableOpacity
+                          onPress={() => handlePublishToTikTok(item)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          style={{ marginRight: 4 }}
+                        >
+                          <Ionicons
+                            name="logo-tiktok"
+                            size={18}
+                            color={theme.text}
+                          />
+                        </TouchableOpacity>
+                      )}
+                    </>
+                  )}
+                  <TouchableOpacity
+                    onPress={() => handleDelete(item)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+                  </TouchableOpacity>
+                </View>
 
-              {/* Vidéo ou vignettes images */}
-              {item.video_url ? (
-                <VideoThumb uri={item.video_url} style={styles.videoThumb} />
-              ) : item.image_urls && item.image_urls.length > 0 ? (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  style={styles.thumbRow}
-                >
-                  {item.image_urls.map((img, i) => (
-                    <Image key={i} source={{ uri: img }} style={styles.thumb} />
-                  ))}
-                </ScrollView>
-              ) : null}
+                {/* Text */}
+                {item.texte ? (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() =>
+                      setExpandedIds((prev) => {
+                        const next = new Set(prev);
+                        next.has(item.id)
+                          ? next.delete(item.id)
+                          : next.add(item.id);
+                        return next;
+                      })
+                    }
+                  >
+                    <Text
+                      style={[styles.pubText, { color: theme.text }]}
+                      numberOfLines={expandedIds.has(item.id) ? undefined : 3}
+                    >
+                      {item.texte}
+                    </Text>
+                    {!expandedIds.has(item.id) && item.texte.length > 120 ? (
+                      <Text style={[styles.seeMore, { color: theme.primary }]}>
+                        Voir plus
+                      </Text>
+                    ) : expandedIds.has(item.id) ? (
+                      <Text style={[styles.seeMore, { color: theme.primary }]}>
+                        Voir moins
+                      </Text>
+                    ) : null}
+                  </TouchableOpacity>
+                ) : null}
 
-              <Text style={[styles.imgCount, { color: theme.subText }]}>
-                {item.video_url
-                  ? "1 vidéo"
-                  : `${item.image_urls?.length ?? 0} image${(item.image_urls?.length ?? 0) !== 1 ? "s" : ""}`}
-              </Text>
-            </View>
+                {/* Vidéo ou vignettes images */}
+                {item.video_url ? (
+                  <VideoThumb uri={item.video_url} style={styles.videoThumb} />
+                ) : item.image_urls && item.image_urls.length > 0 ? (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.thumbRow}
+                  >
+                    {item.image_urls.map((img, i) => (
+                      <Image
+                        key={i}
+                        source={{ uri: img }}
+                        style={styles.thumb}
+                      />
+                    ))}
+                  </ScrollView>
+                ) : null}
+
+                <Text style={[styles.imgCount, { color: theme.subText }]}>
+                  {item.video_url
+                    ? "1 vidéo"
+                    : `${item.image_urls?.length ?? 0} image${(item.image_urls?.length ?? 0) !== 1 ? "s" : ""}`}
+                </Text>
+              </View>
             );
           }}
         />
@@ -955,9 +1112,7 @@ function AdminPublicationsContent() {
           style={{ flex: 1 }}
           behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
-          <View
-            style={[styles.createContainer, { backgroundColor: theme.bg }]}
-          >
+          <View style={[styles.createContainer, { backgroundColor: theme.bg }]}>
             {/* Header */}
             <View
               style={[
@@ -1024,7 +1179,7 @@ function AdminPublicationsContent() {
                         style={styles.removeImgBtn}
                         onPress={() =>
                           setFormImages((prev) =>
-                            prev.filter((_, idx) => idx !== i)
+                            prev.filter((_, idx) => idx !== i),
                           )
                         }
                         hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
@@ -1061,7 +1216,11 @@ function AdminPublicationsContent() {
                   onPress={handlePickImages}
                   activeOpacity={0.75}
                 >
-                  <Ionicons name="images-outline" size={20} color={theme.primary} />
+                  <Ionicons
+                    name="images-outline"
+                    size={20}
+                    color={theme.primary}
+                  />
                   <Text style={[styles.addImgText, { color: theme.primary }]}>
                     Ajouter des photos
                   </Text>
@@ -1071,21 +1230,35 @@ function AdminPublicationsContent() {
               {formImages.length === 0 && (
                 <View style={{ flexDirection: "row", gap: 10 }}>
                   <TouchableOpacity
-                    style={[styles.addImgBtn, { borderColor: theme.primary, flex: 1 }]}
+                    style={[
+                      styles.addImgBtn,
+                      { borderColor: theme.primary, flex: 1 },
+                    ]}
                     onPress={handlePickVideo}
                     activeOpacity={0.75}
                   >
-                    <Ionicons name="videocam-outline" size={20} color={theme.primary} />
+                    <Ionicons
+                      name="videocam-outline"
+                      size={20}
+                      color={theme.primary}
+                    />
                     <Text style={[styles.addImgText, { color: theme.primary }]}>
                       Ajouter une vidéo
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.addImgBtn, { borderColor: theme.primary, flex: 1 }]}
+                    style={[
+                      styles.addImgBtn,
+                      { borderColor: theme.primary, flex: 1 },
+                    ]}
                     onPress={handleRecordVideo}
                     activeOpacity={0.75}
                   >
-                    <Ionicons name="radio-button-on-outline" size={20} color={theme.primary} />
+                    <Ionicons
+                      name="radio-button-on-outline"
+                      size={20}
+                      color={theme.primary}
+                    />
                     <Text style={[styles.addImgText, { color: theme.primary }]}>
                       Filmer un reel
                     </Text>
@@ -1110,23 +1283,39 @@ function AdminPublicationsContent() {
                         style={[
                           styles.autoModeChip,
                           {
-                            borderColor: selectedPlatforms.includes("facebook") ? "#1877F2" : theme.border,
-                            backgroundColor: selectedPlatforms.includes("facebook") ? "#1877F2" : "transparent",
+                            borderColor: selectedPlatforms.includes("facebook")
+                              ? "#1877F2"
+                              : theme.border,
+                            backgroundColor: selectedPlatforms.includes(
+                              "facebook",
+                            )
+                              ? "#1877F2"
+                              : "transparent",
                             flexDirection: "row",
                             gap: 6,
                           },
                         ]}
-                        onPress={() => togglePlatform("facebook", setSelectedPlatforms)}
+                        onPress={() =>
+                          togglePlatform("facebook", setSelectedPlatforms)
+                        }
                       >
                         <Ionicons
                           name="logo-facebook"
                           size={14}
-                          color={selectedPlatforms.includes("facebook") ? "#fff" : theme.text}
+                          color={
+                            selectedPlatforms.includes("facebook")
+                              ? "#fff"
+                              : theme.text
+                          }
                         />
                         <Text
                           style={[
                             styles.autoModeChipText,
-                            { color: selectedPlatforms.includes("facebook") ? "#fff" : theme.text },
+                            {
+                              color: selectedPlatforms.includes("facebook")
+                                ? "#fff"
+                                : theme.text,
+                            },
                           ]}
                         >
                           Facebook
@@ -1138,23 +1327,39 @@ function AdminPublicationsContent() {
                         style={[
                           styles.autoModeChip,
                           {
-                            borderColor: selectedPlatforms.includes("tiktok") ? theme.text : theme.border,
-                            backgroundColor: selectedPlatforms.includes("tiktok") ? theme.text : "transparent",
+                            borderColor: selectedPlatforms.includes("tiktok")
+                              ? theme.text
+                              : theme.border,
+                            backgroundColor: selectedPlatforms.includes(
+                              "tiktok",
+                            )
+                              ? theme.text
+                              : "transparent",
                             flexDirection: "row",
                             gap: 6,
                           },
                         ]}
-                        onPress={() => togglePlatform("tiktok", setSelectedPlatforms)}
+                        onPress={() =>
+                          togglePlatform("tiktok", setSelectedPlatforms)
+                        }
                       >
                         <Ionicons
                           name="logo-tiktok"
                           size={14}
-                          color={selectedPlatforms.includes("tiktok") ? theme.bg : theme.text}
+                          color={
+                            selectedPlatforms.includes("tiktok")
+                              ? theme.bg
+                              : theme.text
+                          }
                         />
                         <Text
                           style={[
                             styles.autoModeChipText,
-                            { color: selectedPlatforms.includes("tiktok") ? theme.bg : theme.text },
+                            {
+                              color: selectedPlatforms.includes("tiktok")
+                                ? theme.bg
+                                : theme.text,
+                            },
                           ]}
                         >
                           TikTok
@@ -1163,8 +1368,9 @@ function AdminPublicationsContent() {
                     )}
                   </View>
                   <Text style={[styles.autoHint, { color: theme.subText }]}>
-                    Sélectionnez les réseaux sur lesquels diffuser cette publication en même temps
-                    que sur SenMoto. Vous pourrez aussi le faire plus tard depuis la liste.
+                    Sélectionnez les réseaux sur lesquels diffuser cette
+                    publication en même temps que sur SenMoto. Vous pourrez
+                    aussi le faire plus tard depuis la liste.
                   </Text>
                 </View>
               )}
@@ -1185,8 +1391,14 @@ function AdminPublicationsContent() {
                       style={[
                         styles.scheduleModeChip,
                         {
-                          borderColor: publishMode === "now" ? theme.primary : theme.border,
-                          backgroundColor: publishMode === "now" ? theme.primary : "transparent",
+                          borderColor:
+                            publishMode === "now"
+                              ? theme.primary
+                              : theme.border,
+                          backgroundColor:
+                            publishMode === "now"
+                              ? theme.primary
+                              : "transparent",
                         },
                       ]}
                       onPress={() => setPublishMode("now")}
@@ -1199,7 +1411,9 @@ function AdminPublicationsContent() {
                       <Text
                         style={[
                           styles.scheduleModeChipText,
-                          { color: publishMode === "now" ? "#fff" : theme.text },
+                          {
+                            color: publishMode === "now" ? "#fff" : theme.text,
+                          },
                         ]}
                       >
                         Maintenant
@@ -1209,8 +1423,14 @@ function AdminPublicationsContent() {
                       style={[
                         styles.scheduleModeChip,
                         {
-                          borderColor: publishMode === "schedule" ? theme.primary : theme.border,
-                          backgroundColor: publishMode === "schedule" ? theme.primary : "transparent",
+                          borderColor:
+                            publishMode === "schedule"
+                              ? theme.primary
+                              : theme.border,
+                          backgroundColor:
+                            publishMode === "schedule"
+                              ? theme.primary
+                              : "transparent",
                         },
                       ]}
                       onPress={() => {
@@ -1230,7 +1450,10 @@ function AdminPublicationsContent() {
                       <Text
                         style={[
                           styles.scheduleModeChipText,
-                          { color: publishMode === "schedule" ? "#fff" : theme.text },
+                          {
+                            color:
+                              publishMode === "schedule" ? "#fff" : theme.text,
+                          },
                         ]}
                       >
                         Programmer
@@ -1239,48 +1462,75 @@ function AdminPublicationsContent() {
                   </View>
 
                   {publishMode === "schedule" && (
-                    <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
+                    <View
+                      style={{ flexDirection: "row", gap: 10, marginTop: 12 }}
+                    >
                       <View style={{ flex: 1 }}>
-                        <Text style={[styles.scheduleLabel, { color: theme.subText }]}>
+                        <Text
+                          style={[
+                            styles.scheduleLabel,
+                            { color: theme.subText },
+                          ]}
+                        >
                           Date (JJ/MM/AAAA)
                         </Text>
                         <TextInput
                           style={[
                             styles.scheduleInput,
-                            { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border },
+                            {
+                              backgroundColor: theme.bg,
+                              color: theme.text,
+                              borderColor: theme.border,
+                            },
                           ]}
                           placeholder="31/12/2026"
                           placeholderTextColor={theme.subText}
                           keyboardType="numeric"
                           maxLength={10}
                           value={scheduleDate}
-                          onChangeText={(t) => setScheduleDate(formatDateInput(t))}
+                          onChangeText={(t) =>
+                            setScheduleDate(formatDateInput(t))
+                          }
                         />
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={[styles.scheduleLabel, { color: theme.subText }]}>
+                        <Text
+                          style={[
+                            styles.scheduleLabel,
+                            { color: theme.subText },
+                          ]}
+                        >
                           Heure (HH:MM)
                         </Text>
                         <TextInput
                           style={[
                             styles.scheduleInput,
-                            { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border },
+                            {
+                              backgroundColor: theme.bg,
+                              color: theme.text,
+                              borderColor: theme.border,
+                            },
                           ]}
                           placeholder="14:00"
                           placeholderTextColor={theme.subText}
                           keyboardType="numeric"
                           maxLength={5}
                           value={scheduleTime}
-                          onChangeText={(t) => setScheduleTime(formatTimeInput(t))}
+                          onChangeText={(t) =>
+                            setScheduleTime(formatTimeInput(t))
+                          }
                         />
                       </View>
                     </View>
                   )}
 
                   {publishMode === "schedule" && (
-                    <Text style={[styles.scheduleHint, { color: theme.subText }]}>
-                      La publication restera masquée puis deviendra automatiquement visible
-                      dans le fil d'actualité à la date et l'heure choisies.
+                    <Text
+                      style={[styles.scheduleHint, { color: theme.subText }]}
+                    >
+                      La publication restera masquée puis deviendra
+                      automatiquement visible dans le fil d'actualité à la date
+                      et l'heure choisies.
                     </Text>
                   )}
                 </View>
@@ -1337,7 +1587,11 @@ function AdminPublicationsContent() {
             <TextInput
               style={[
                 styles.autoInput,
-                { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border },
+                {
+                  backgroundColor: theme.bg,
+                  color: theme.text,
+                  borderColor: theme.border,
+                },
               ]}
               placeholder="Ex : 7"
               placeholderTextColor={theme.subText}
@@ -1346,7 +1600,12 @@ function AdminPublicationsContent() {
               onChangeText={setAutoCountInput}
             />
 
-            <Text style={[styles.autoLabel, { color: theme.subText, marginTop: 14 }]}>
+            <Text
+              style={[
+                styles.autoLabel,
+                { color: theme.subText, marginTop: 14 },
+              ]}
+            >
               Motos à mettre en avant
             </Text>
             <View style={styles.autoModeRow}>
@@ -1384,16 +1643,21 @@ function AdminPublicationsContent() {
             </View>
 
             <Text style={[styles.autoHint, { color: theme.subText }]}>
-              « Nouvelles » sélectionne les motos les plus récemment enregistrées, « Anciennes »
-              celles en stock depuis le plus longtemps (non vendues). Un texte promotionnel est
-              généré automatiquement.
+              « Nouvelles » sélectionne les motos les plus récemment
+              enregistrées, « Anciennes » celles en stock depuis le plus
+              longtemps (non vendues). Un texte promotionnel est généré
+              automatiquement.
             </Text>
 
             {(fbConnected || tiktokConnected) && (
               <View
                 style={[
                   styles.scheduleBox,
-                  { backgroundColor: theme.bg, borderColor: theme.border, marginTop: 14 },
+                  {
+                    backgroundColor: theme.bg,
+                    borderColor: theme.border,
+                    marginTop: 14,
+                  },
                 ]}
               >
                 <Text style={[styles.scheduleTitle, { color: theme.text }]}>
@@ -1405,23 +1669,41 @@ function AdminPublicationsContent() {
                       style={[
                         styles.autoModeChip,
                         {
-                          borderColor: autoSelectedPlatforms.includes("facebook") ? "#1877F2" : theme.border,
-                          backgroundColor: autoSelectedPlatforms.includes("facebook") ? "#1877F2" : "transparent",
+                          borderColor: autoSelectedPlatforms.includes(
+                            "facebook",
+                          )
+                            ? "#1877F2"
+                            : theme.border,
+                          backgroundColor: autoSelectedPlatforms.includes(
+                            "facebook",
+                          )
+                            ? "#1877F2"
+                            : "transparent",
                           flexDirection: "row",
                           gap: 6,
                         },
                       ]}
-                      onPress={() => togglePlatform("facebook", setAutoSelectedPlatforms)}
+                      onPress={() =>
+                        togglePlatform("facebook", setAutoSelectedPlatforms)
+                      }
                     >
                       <Ionicons
                         name="logo-facebook"
                         size={14}
-                        color={autoSelectedPlatforms.includes("facebook") ? "#fff" : theme.text}
+                        color={
+                          autoSelectedPlatforms.includes("facebook")
+                            ? "#fff"
+                            : theme.text
+                        }
                       />
                       <Text
                         style={[
                           styles.autoModeChipText,
-                          { color: autoSelectedPlatforms.includes("facebook") ? "#fff" : theme.text },
+                          {
+                            color: autoSelectedPlatforms.includes("facebook")
+                              ? "#fff"
+                              : theme.text,
+                          },
                         ]}
                       >
                         Facebook
@@ -1433,23 +1715,39 @@ function AdminPublicationsContent() {
                       style={[
                         styles.autoModeChip,
                         {
-                          borderColor: autoSelectedPlatforms.includes("tiktok") ? theme.text : theme.border,
-                          backgroundColor: autoSelectedPlatforms.includes("tiktok") ? theme.text : "transparent",
+                          borderColor: autoSelectedPlatforms.includes("tiktok")
+                            ? theme.text
+                            : theme.border,
+                          backgroundColor: autoSelectedPlatforms.includes(
+                            "tiktok",
+                          )
+                            ? theme.text
+                            : "transparent",
                           flexDirection: "row",
                           gap: 6,
                         },
                       ]}
-                      onPress={() => togglePlatform("tiktok", setAutoSelectedPlatforms)}
+                      onPress={() =>
+                        togglePlatform("tiktok", setAutoSelectedPlatforms)
+                      }
                     >
                       <Ionicons
                         name="logo-tiktok"
                         size={14}
-                        color={autoSelectedPlatforms.includes("tiktok") ? theme.bg : theme.text}
+                        color={
+                          autoSelectedPlatforms.includes("tiktok")
+                            ? theme.bg
+                            : theme.text
+                        }
                       />
                       <Text
                         style={[
                           styles.autoModeChipText,
-                          { color: autoSelectedPlatforms.includes("tiktok") ? theme.bg : theme.text },
+                          {
+                            color: autoSelectedPlatforms.includes("tiktok")
+                              ? theme.bg
+                              : theme.text,
+                          },
                         ]}
                       >
                         TikTok
@@ -1458,8 +1756,9 @@ function AdminPublicationsContent() {
                   )}
                 </View>
                 <Text style={[styles.autoHint, { color: theme.subText }]}>
-                  Sélectionnez les réseaux sur lesquels diffuser cette publicité en même temps que
-                  sur SenMoto. Vous pourrez aussi le faire plus tard depuis la liste.
+                  Sélectionnez les réseaux sur lesquels diffuser cette publicité
+                  en même temps que sur SenMoto. Vous pourrez aussi le faire
+                  plus tard depuis la liste.
                 </Text>
               </View>
             )}
@@ -1468,7 +1767,11 @@ function AdminPublicationsContent() {
               <View
                 style={[
                   styles.scheduleBox,
-                  { backgroundColor: theme.bg, borderColor: theme.border, marginTop: 14 },
+                  {
+                    backgroundColor: theme.bg,
+                    borderColor: theme.border,
+                    marginTop: 14,
+                  },
                 ]}
               >
                 <Text style={[styles.scheduleTitle, { color: theme.text }]}>
@@ -1479,8 +1782,14 @@ function AdminPublicationsContent() {
                     style={[
                       styles.scheduleModeChip,
                       {
-                        borderColor: autoPublishMode === "now" ? theme.primary : theme.border,
-                        backgroundColor: autoPublishMode === "now" ? theme.primary : "transparent",
+                        borderColor:
+                          autoPublishMode === "now"
+                            ? theme.primary
+                            : theme.border,
+                        backgroundColor:
+                          autoPublishMode === "now"
+                            ? theme.primary
+                            : "transparent",
                       },
                     ]}
                     onPress={() => setAutoPublishMode("now")}
@@ -1493,7 +1802,10 @@ function AdminPublicationsContent() {
                     <Text
                       style={[
                         styles.scheduleModeChipText,
-                        { color: autoPublishMode === "now" ? "#fff" : theme.text },
+                        {
+                          color:
+                            autoPublishMode === "now" ? "#fff" : theme.text,
+                        },
                       ]}
                     >
                       Maintenant
@@ -1503,8 +1815,14 @@ function AdminPublicationsContent() {
                     style={[
                       styles.scheduleModeChip,
                       {
-                        borderColor: autoPublishMode === "schedule" ? theme.primary : theme.border,
-                        backgroundColor: autoPublishMode === "schedule" ? theme.primary : "transparent",
+                        borderColor:
+                          autoPublishMode === "schedule"
+                            ? theme.primary
+                            : theme.border,
+                        backgroundColor:
+                          autoPublishMode === "schedule"
+                            ? theme.primary
+                            : "transparent",
                       },
                     ]}
                     onPress={() => {
@@ -1519,12 +1837,19 @@ function AdminPublicationsContent() {
                     <Ionicons
                       name="alarm-outline"
                       size={14}
-                      color={autoPublishMode === "schedule" ? "#fff" : theme.text}
+                      color={
+                        autoPublishMode === "schedule" ? "#fff" : theme.text
+                      }
                     />
                     <Text
                       style={[
                         styles.scheduleModeChipText,
-                        { color: autoPublishMode === "schedule" ? "#fff" : theme.text },
+                        {
+                          color:
+                            autoPublishMode === "schedule"
+                              ? "#fff"
+                              : theme.text,
+                        },
                       ]}
                     >
                       Programmer
@@ -1533,39 +1858,57 @@ function AdminPublicationsContent() {
                 </View>
 
                 {autoPublishMode === "schedule" && (
-                  <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
+                  <View
+                    style={{ flexDirection: "row", gap: 10, marginTop: 12 }}
+                  >
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.scheduleLabel, { color: theme.subText }]}>
+                      <Text
+                        style={[styles.scheduleLabel, { color: theme.subText }]}
+                      >
                         Date (JJ/MM/AAAA)
                       </Text>
                       <TextInput
                         style={[
                           styles.scheduleInput,
-                          { backgroundColor: theme.card, color: theme.text, borderColor: theme.border },
+                          {
+                            backgroundColor: theme.card,
+                            color: theme.text,
+                            borderColor: theme.border,
+                          },
                         ]}
                         placeholder="31/12/2026"
                         placeholderTextColor={theme.subText}
                         keyboardType="numeric"
                         maxLength={10}
                         value={autoScheduleDate}
-                        onChangeText={(t) => setAutoScheduleDate(formatDateInput(t))}
+                        onChangeText={(t) =>
+                          setAutoScheduleDate(formatDateInput(t))
+                        }
                       />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.scheduleLabel, { color: theme.subText }]}>
+                      <Text
+                        style={[styles.scheduleLabel, { color: theme.subText }]}
+                      >
                         Heure (HH:MM)
                       </Text>
                       <TextInput
                         style={[
                           styles.scheduleInput,
-                          { backgroundColor: theme.card, color: theme.text, borderColor: theme.border },
+                          {
+                            backgroundColor: theme.card,
+                            color: theme.text,
+                            borderColor: theme.border,
+                          },
                         ]}
                         placeholder="14:00"
                         placeholderTextColor={theme.subText}
                         keyboardType="numeric"
                         maxLength={5}
                         value={autoScheduleTime}
-                        onChangeText={(t) => setAutoScheduleTime(formatTimeInput(t))}
+                        onChangeText={(t) =>
+                          setAutoScheduleTime(formatTimeInput(t))
+                        }
                       />
                     </View>
                   </View>
@@ -1576,7 +1919,10 @@ function AdminPublicationsContent() {
             <TouchableOpacity
               style={[
                 styles.autoGenerateBtn,
-                { backgroundColor: autoGenerating || saving ? theme.border : theme.primary },
+                {
+                  backgroundColor:
+                    autoGenerating || saving ? theme.border : theme.primary,
+                },
               ]}
               onPress={handleAutoGenerate}
               disabled={autoGenerating || saving}
@@ -1586,12 +1932,18 @@ function AdminPublicationsContent() {
               ) : (
                 <>
                   <Ionicons
-                    name={autoPublishMode === "schedule" ? "alarm-outline" : "sparkles"}
+                    name={
+                      autoPublishMode === "schedule"
+                        ? "alarm-outline"
+                        : "sparkles"
+                    }
                     size={16}
                     color="#fff"
                   />
                   <Text style={styles.publishBtnText}>
-                    {autoPublishMode === "schedule" ? "Programmer la publicité" : "Générer la publicité"}
+                    {autoPublishMode === "schedule"
+                      ? "Programmer la publicité"
+                      : "Générer la publicité"}
                   </Text>
                 </>
               )}
@@ -1636,7 +1988,12 @@ const styles = StyleSheet.create({
   },
   newBtnText: { color: "#fff", fontWeight: "700", fontSize: 13 },
 
-  empty: { alignItems: "center", paddingTop: 80, gap: 12, paddingHorizontal: 24 },
+  empty: {
+    alignItems: "center",
+    paddingTop: 80,
+    gap: 12,
+    paddingHorizontal: 24,
+  },
   emptyTitle: { fontSize: 18, fontWeight: "700" },
   emptyText: {
     fontSize: 14,

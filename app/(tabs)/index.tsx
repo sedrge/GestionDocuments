@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
 import * as LocalAuthentication from "expo-local-authentication";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useEffect, useRef, useState } from "react";
@@ -1374,6 +1374,12 @@ function PubContactModal({
                       params: {
                         enterprise_id: pub.enterprise_id,
                         enterprise_name: pub.enterprise?.name ?? "Entreprise",
+                        context_type: "publication",
+                        context_id: pub.id,
+                        context_title: (
+                          pub.texte ?? "Publication sans texte"
+                        ).slice(0, 255),
+                        context_image_url: pub.image_urls?.[0] ?? "",
                       },
                     } as any);
                   }}
@@ -1453,6 +1459,9 @@ function PubContactModal({
 
 // ─── COMPOSANT PRINCIPAL ─────────────────────────────────────────────────────
 export default function FeedScreen() {
+  const { publication_id } = useLocalSearchParams<{
+    publication_id?: string;
+  }>();
   const { C } = useColors();
   const {
     tenant,
@@ -1486,6 +1495,12 @@ export default function FeedScreen() {
   const [storedPin, setStoredPin] = useState<string | null>(null);
   const [likedMotos, setLikedMotos] = useState<Set<string>>(new Set());
   const [likedPubs, setLikedPubs] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!publication_id) return;
+    const publication = publications.find((item) => item.id === publication_id);
+    if (publication) setPubContact(publication);
+  }, [publication_id, publications]);
 
   useEffect(() => {
     fetchFeed();
@@ -2378,6 +2393,9 @@ function ContactModal({
                         moto_etat: moto.etat ?? "",
                         moto_image: principalImg?.image_uri ?? "",
                         moto_couleur: moto.couleur ?? "",
+                        context_type: "moto",
+                        context_id: moto.id,
+                        context_title: `${moto.marque} ${moto.modele}`.trim(),
                       },
                     } as any);
                   }}

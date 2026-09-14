@@ -46,7 +46,7 @@ export function genererPrefix(nom: string): string {
 
 export default function ParametresEntrepriseScreen() {
   const router = useRouter();
-  const { tenant, isEnterpriseAdmin } = useTenant();
+  const { tenant, isEnterpriseAdmin, refreshTenant } = useTenant();
   const [saving, setSaving] = useState(false);
 
   const [nomEntreprise, setNomEntreprise] = useState("");
@@ -63,6 +63,8 @@ export default function ParametresEntrepriseScreen() {
   const [hasExistingLogo, setHasExistingLogo] = useState(false);
   const [newLogoUri, setNewLogoUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [enterpriseCode, setEnterpriseCode] = useState("");
+  const [regeneratingCode, setRegeneratingCode] = useState(false);
 
   useEffect(() => {
     if (tenant?.enterprise_id) fetchParametres();
@@ -74,6 +76,7 @@ export default function ParametresEntrepriseScreen() {
     try {
       const data = await api.getEnterpriseSettings(tenant.enterprise_id);
       if (data) {
+        setEnterpriseCode(data.code || tenant.enterprise_code || "");
         setNomEntreprise(data.nom_entreprise || "");
         setPrefixFacture(data.prefix_facture || "");
         setPrefixAuto(false); // l'utilisateur a déjà choisi
@@ -91,6 +94,39 @@ export default function ParametresEntrepriseScreen() {
       );
     }
     setLoading(false);
+  };
+
+  const handleRegenerateCode = () => {
+    if (!tenant?.enterprise_id) return;
+    Alert.alert(
+      "Régénérer le code ?",
+      "L'ancien code ne permettra plus de rejoindre cette entreprise. Communiquez le nouveau code aux utilisateurs concernés.",
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Régénérer",
+          style: "destructive",
+          onPress: async () => {
+            setRegeneratingCode(true);
+            try {
+              const result = await api.regenerateEnterpriseCode(
+                tenant.enterprise_id,
+              );
+              setEnterpriseCode(result.code);
+              await refreshTenant();
+              Alert.alert("Code renouvelé", `Nouveau code : ${result.code}`);
+            } catch (e: any) {
+              Alert.alert(
+                "Erreur",
+                e.message || "Impossible de régénérer le code.",
+              );
+            } finally {
+              setRegeneratingCode(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const handleNomChange = (val: string) => {
@@ -207,6 +243,30 @@ export default function ParametresEntrepriseScreen() {
           contentContainerStyle={styles.container}
           keyboardShouldPersistTaps="handled"
         >
+          {isEnterpriseAdmin && (
+            <View style={styles.codeCard}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.codeLabel}>Code entreprise</Text>
+                <Text style={styles.codeValue}>{enterpriseCode || "-"}</Text>
+                <Text style={styles.codeHint}>
+                  À communiquer uniquement aux personnes autorisées.
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.codeButton}
+                onPress={handleRegenerateCode}
+                disabled={regeneratingCode}
+              >
+                {regeneratingCode ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Ionicons name="refresh" size={18} color="#fff" />
+                )}
+                <Text style={styles.codeButtonText}>Régénérer</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* Aperçu */}
           <View style={styles.previewCard}>
             <Text style={styles.previewTitle}>Aperçu de l'entête</Text>
@@ -398,6 +458,36 @@ export default function ParametresEntrepriseScreen() {
 }
 
 const styles = StyleSheet.create({
+  codeCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#E5E5EA",
+  },
+  codeLabel: { color: "#6B7280", fontSize: 12, fontWeight: "600" },
+  codeValue: {
+    color: "#007AFF",
+    fontSize: 22,
+    fontWeight: "800",
+    letterSpacing: 2,
+    marginTop: 3,
+  },
+  codeHint: { color: "#8E8E93", fontSize: 10, marginTop: 3 },
+  codeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "#FF3B30",
+    borderRadius: 9,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+  },
+  codeButtonText: { color: "#fff", fontSize: 12, fontWeight: "700" },
   container: { padding: 20, paddingBottom: 60 },
   previewCard: {
     backgroundColor: "#fff",

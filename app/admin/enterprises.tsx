@@ -8,6 +8,7 @@ import {
     getActiveUsers,
     getPendingEnterprises,
     getPendingUsers,
+    regenerateEnterpriseCode,
 } from "@/lib/multitenant";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -154,6 +155,30 @@ export default function SuperAdminEnterprisesScreen() {
             const result = await deleteEnterprise(enterpriseId);
             if (result.success) {
               Alert.alert("Succès", "Entreprise supprimée.");
+              loadEnterprises();
+            } else Alert.alert("Erreur", result.error);
+          },
+        },
+      ],
+    );
+  };
+
+  const handleRegenerateCode = (
+    enterpriseId: string,
+    enterpriseName: string,
+  ) => {
+    Alert.alert(
+      "Régénérer le code ?",
+      `L'ancien code de "${enterpriseName}" sera immédiatement invalidé. Le nouvel identifiant sera communiqué à ses admins.`,
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Régénérer",
+          style: "destructive",
+          onPress: async () => {
+            const result = await regenerateEnterpriseCode(enterpriseId);
+            if (result.success) {
+              Alert.alert("Code renouvelé", `Nouveau code : ${result.code}`);
               loadEnterprises();
             } else Alert.alert("Erreur", result.error);
           },
@@ -319,6 +344,9 @@ export default function SuperAdminEnterprisesScreen() {
                 handleDeactivate(enterprise.id, enterprise.name)
               }
               onDelete={() => handleDelete(enterprise.id, enterprise.name)}
+              onRegenerateCode={() =>
+                handleRegenerateCode(enterprise.id, enterprise.name)
+              }
               onViewUsers={() => setSelectedEnterprise(enterprise)}
               onFeatures={() =>
                 router.push({
@@ -364,6 +392,7 @@ function EnterpriseCard({
   onActivate,
   onDeactivate,
   onDelete,
+  onRegenerateCode,
   onViewUsers,
   onFeatures,
   onSubscription,
@@ -513,6 +542,31 @@ function EnterpriseCard({
           name="chevron-forward"
           size={14}
           color="#8E1B13"
+          style={{ marginLeft: "auto" }}
+        />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[
+          styles.depannageBtn,
+          {
+            backgroundColor: isDark ? "#102A43" : "#EEF6FF",
+            borderColor: theme.primary,
+            marginHorizontal: 16,
+            marginBottom: 8,
+          },
+        ]}
+        onPress={onRegenerateCode}
+        activeOpacity={0.75}
+      >
+        <Ionicons name="refresh-outline" size={16} color={theme.primary} />
+        <Text style={[styles.depannageBtnText, { color: theme.primary }]}>
+          Régénérer le code entreprise
+        </Text>
+        <Ionicons
+          name="chevron-forward"
+          size={14}
+          color={theme.primary}
           style={{ marginLeft: "auto" }}
         />
       </TouchableOpacity>

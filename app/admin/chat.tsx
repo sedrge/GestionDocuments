@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { File, UploadType } from "expo-file-system";
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
@@ -37,6 +37,10 @@ interface Chat {
   last_message_at: string | null;
   unread_admin: number;
   assigned_to: string | null;
+  context_type?: "moto" | "publication" | null;
+  context_id?: string | null;
+  context_title?: string | null;
+  context_image_url?: string | null;
 }
 
 interface Message {
@@ -226,6 +230,17 @@ function AdminChatContent() {
     fetchChats();
   };
 
+  const openContext = (chat: Chat) => {
+    if (chat.context_type === "moto" && chat.context_id) {
+      router.push({ pathname: "/moto/[id]", params: { id: chat.context_id } });
+    } else if (chat.context_type === "publication") {
+      router.push({
+        pathname: "/admin/publications",
+        params: { publication_id: chat.context_id ?? "" },
+      });
+    }
+  };
+
   const fmtTime = (s: string | null) => {
     if (!s) return "";
     const d = new Date(s);
@@ -269,6 +284,40 @@ function AdminChatContent() {
               <Text style={[styles.chatHeaderPhone, { color: theme.subText }]}>
                 {selectedChat.client_phone}
               </Text>
+            )}
+            {selectedChat.context_title && (
+              <TouchableOpacity
+                style={styles.contextHeader}
+                onPress={() => openContext(selectedChat)}
+                disabled={!selectedChat.context_type}
+              >
+                {selectedChat.context_image_url ? (
+                  <Image
+                    source={{ uri: selectedChat.context_image_url }}
+                    style={styles.contextHeaderImage}
+                  />
+                ) : (
+                  <Ionicons
+                    name={
+                      selectedChat.context_type === "moto"
+                        ? "bicycle-outline"
+                        : "newspaper-outline"
+                    }
+                    size={16}
+                    color={theme.primary}
+                  />
+                )}
+                <Text
+                  style={[styles.contextHeaderText, { color: theme.primary }]}
+                  numberOfLines={1}
+                >
+                  {selectedChat.context_type === "moto"
+                    ? "Moto"
+                    : "Publication"}
+                  : {selectedChat.context_title}
+                </Text>
+                <Ionicons name="open-outline" size={14} color={theme.primary} />
+              </TouchableOpacity>
             )}
           </View>
           <TouchableOpacity
@@ -556,6 +605,37 @@ function AdminChatContent() {
                     {item.client_phone}
                   </Text>
                 )}
+                {item.context_title && (
+                  <TouchableOpacity
+                    style={styles.contextListRow}
+                    onPress={() => openContext(item)}
+                    disabled={!item.context_type}
+                  >
+                    {item.context_image_url ? (
+                      <Image
+                        source={{ uri: item.context_image_url }}
+                        style={styles.contextListImage}
+                      />
+                    ) : (
+                      <Ionicons
+                        name={
+                          item.context_type === "moto"
+                            ? "bicycle-outline"
+                            : "newspaper-outline"
+                        }
+                        size={14}
+                        color={theme.primary}
+                      />
+                    )}
+                    <Text
+                      style={[styles.contextListText, { color: theme.primary }]}
+                      numberOfLines={1}
+                    >
+                      {item.context_type === "moto" ? "Moto" : "Publication"}:{" "}
+                      {item.context_title}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
               <View
                 style={[
@@ -671,6 +751,24 @@ const styles = StyleSheet.create({
   },
   chatHeaderName: { fontSize: 16, fontWeight: "700" },
   chatHeaderPhone: { fontSize: 12, marginTop: 1 },
+  contextHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 4,
+    maxWidth: "95%",
+  },
+  contextHeaderImage: { width: 22, height: 22, borderRadius: 4 },
+  contextHeaderText: { fontSize: 11, fontWeight: "600", flex: 1 },
+  contextListRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 4,
+    maxWidth: "90%",
+  },
+  contextListImage: { width: 24, height: 24, borderRadius: 4 },
+  contextListText: { fontSize: 11, fontWeight: "600", flex: 1 },
   closeBtn: {
     flexDirection: "row",
     alignItems: "center",
