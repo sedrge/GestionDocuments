@@ -3,25 +3,28 @@ import { File, UploadType } from "expo-file-system";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { api, getToken } from "../../lib/api";
-import { useTenant } from "../../context/TenantContext";
-import { useTheme } from "../../context/ThemeContext";
+import {
+    SafeAreaView,
+    useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { FeatureGate } from "../../components/FeatureGate";
 import { VoiceMessageBubble } from "../../components/chat/VoiceMessageBubble";
 import { VoiceRecorderButton } from "../../components/chat/VoiceRecorderButton";
+import { useTenant } from "../../context/TenantContext";
+import { useTheme } from "../../context/ThemeContext";
+import { api, getToken } from "../../lib/api";
 
 const GREEN = "#34C759";
 
@@ -71,7 +74,8 @@ function AdminChatContent() {
         if (!a.last_message_at) return 1;
         if (!b.last_message_at) return -1;
         return (
-          new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+          new Date(b.last_message_at).getTime() -
+          new Date(a.last_message_at).getTime()
         );
       });
       setChats(rows);
@@ -82,10 +86,16 @@ function AdminChatContent() {
   };
 
   // Charge quand tenant devient disponible (même si l'écran est déjà focalisé)
-  useEffect(() => { fetchChats(); }, [tenant?.enterprise_id]);
+  useEffect(() => {
+    fetchChats();
+  }, [tenant?.enterprise_id]);
 
   // Recharge à chaque fois que l'écran reprend le focus (navigation)
-  useFocusEffect(useCallback(() => { fetchChats(); }, [tenant?.enterprise_id]));
+  useFocusEffect(
+    useCallback(() => {
+      fetchChats();
+    }, [tenant?.enterprise_id]),
+  );
 
   // Pas de canal temps réel côté client pour l'instant : on scrute la liste
   // périodiquement (seulement quand aucune conversation n'est ouverte, pour
@@ -130,14 +140,19 @@ function AdminChatContent() {
     if (!selectedChat.assigned_to) {
       try {
         await api.updateChat(selectedChat.id, { assigned_to: tenant.user_id });
-        setSelectedChat((prev) => (prev ? { ...prev, assigned_to: tenant.user_id } : prev));
+        setSelectedChat((prev) =>
+          prev ? { ...prev, assigned_to: tenant.user_id } : prev,
+        );
       } catch {
         // Non bloquant pour l'envoi du message
       }
     }
 
     try {
-      const saved = (await api.sendAdminMessage(selectedChat.id, text)) as Message;
+      const saved = (await api.sendAdminMessage(
+        selectedChat.id,
+        text,
+      )) as Message;
       setMessages((prev) => [...prev, saved]);
     } catch (e: any) {
       Alert.alert("Erreur", e.message || "Message non envoyé.");
@@ -162,7 +177,9 @@ function AdminChatContent() {
     if (!selectedChat.assigned_to) {
       try {
         await api.updateChat(selectedChat.id, { assigned_to: tenant.user_id });
-        setSelectedChat((prev) => (prev ? { ...prev, assigned_to: tenant.user_id } : prev));
+        setSelectedChat((prev) =>
+          prev ? { ...prev, assigned_to: tenant.user_id } : prev,
+        );
       } catch {
         // Non bloquant pour l'envoi du message
       }
@@ -171,17 +188,22 @@ function AdminChatContent() {
     try {
       const token = await getToken();
       const file = new File(uri);
-      const task = file.createUploadTask(api.chatMessageUploadUrl(selectedChat.id), {
-        httpMethod: "POST",
-        uploadType: UploadType.MULTIPART,
-        fieldName: "voice",
-        mimeType: "audio/m4a",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        parameters: { voice_duration: String(Math.round(durationMillis / 1000)) },
-      });
+      const task = file.createUploadTask(
+        api.chatMessageUploadUrl(selectedChat.id),
+        {
+          httpMethod: "POST",
+          uploadType: UploadType.MULTIPART,
+          fieldName: "voice",
+          mimeType: "audio/m4a",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          parameters: {
+            voice_duration: String(Math.round(durationMillis / 1000)),
+          },
+        },
+      );
       const result = await task.uploadAsync();
       if (!result || result.status < 200 || result.status >= 300) {
-        throw new Error("Échec de l'envoi.");
+        throw new Error(`Échec de l'envoi (${result?.status ?? "réseau"}).`);
       }
       const saved = JSON.parse(result.body) as Message;
       setMessages((prev) => [...prev, saved]);
@@ -211,7 +233,11 @@ function AdminChatContent() {
     const diff = now.getTime() - d.getTime();
     if (diff < 60_000) return "À l'instant";
     if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} min`;
-    if (diff < 86_400_000) return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    if (diff < 86_400_000)
+      return d.toLocaleTimeString("fr-FR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
     return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
   };
 
@@ -223,8 +249,16 @@ function AdminChatContent() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         {/* Header conversation */}
-        <View style={[styles.chatHeader, { borderBottomColor: theme.border, paddingTop: insets.top + 12 }]}>
-          <TouchableOpacity onPress={() => setSelectedChat(null)} style={{ padding: 4 }}>
+        <View
+          style={[
+            styles.chatHeader,
+            { borderBottomColor: theme.border, paddingTop: insets.top + 12 },
+          ]}
+        >
+          <TouchableOpacity
+            onPress={() => setSelectedChat(null)}
+            style={{ padding: 4 }}
+          >
             <Ionicons name="arrow-back" size={24} color={theme.primary} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
@@ -242,7 +276,9 @@ function AdminChatContent() {
             style={[styles.closeBtn, { backgroundColor: "#FF3B3020" }]}
           >
             <Ionicons name="close-circle-outline" size={18} color="#FF3B30" />
-            <Text style={{ color: "#FF3B30", fontSize: 13, fontWeight: "600" }}>Fermer</Text>
+            <Text style={{ color: "#FF3B30", fontSize: 13, fontWeight: "600" }}>
+              Fermer
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -253,7 +289,9 @@ function AdminChatContent() {
           keyExtractor={(m) => m.id}
           style={{ flex: 1 }}
           contentContainerStyle={styles.messagesList}
-          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+          onContentSizeChange={() =>
+            listRef.current?.scrollToEnd({ animated: false })
+          }
           renderItem={({ item }) => {
             const isAdmin = item.sender_type === "admin";
             // Séparer les lignes image (📸 URL) du texte normal
@@ -269,10 +307,22 @@ function AdminChatContent() {
             }
             const displayText = textLines.join("\n").trim();
             return (
-              <View style={[styles.msgRow, isAdmin ? styles.msgRowRight : styles.msgRowLeft]}>
+              <View
+                style={[
+                  styles.msgRow,
+                  isAdmin ? styles.msgRowRight : styles.msgRowLeft,
+                ]}
+              >
                 {!isAdmin && (
-                  <View style={[styles.clientInitial, { backgroundColor: theme.border }]}>
-                    <Text style={[styles.clientInitialText, { color: theme.text }]}>
+                  <View
+                    style={[
+                      styles.clientInitial,
+                      { backgroundColor: theme.border },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.clientInitialText, { color: theme.text }]}
+                    >
                       {item.sender_name.charAt(0).toUpperCase()}
                     </Text>
                   </View>
@@ -301,12 +351,31 @@ function AdminChatContent() {
                         />
                       ))}
                       {displayText ? (
-                        <Text style={[styles.msgText, { color: isAdmin ? "#fff" : theme.text }]}>{displayText}</Text>
+                        <Text
+                          style={[
+                            styles.msgText,
+                            { color: isAdmin ? "#fff" : theme.text },
+                          ]}
+                        >
+                          {displayText}
+                        </Text>
                       ) : null}
                     </>
                   )}
-                  <Text style={[styles.msgTime, { color: isAdmin ? "rgba(255,255,255,0.6)" : theme.subText }]}>
-                    {new Date(item.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                  <Text
+                    style={[
+                      styles.msgTime,
+                      {
+                        color: isAdmin
+                          ? "rgba(255,255,255,0.6)"
+                          : theme.subText,
+                      },
+                    ]}
+                  >
+                    {new Date(item.created_at).toLocaleTimeString("fr-FR", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </Text>
                 </View>
               </View>
@@ -316,9 +385,25 @@ function AdminChatContent() {
 
         {/* Zone de saisie */}
         {selectedChat.status === "open" ? (
-          <View style={[styles.inputBar, { borderTopColor: theme.border, backgroundColor: theme.card, paddingBottom: Math.max(insets.bottom, 10) }]}>
+          <View
+            style={[
+              styles.inputBar,
+              {
+                borderTopColor: theme.border,
+                backgroundColor: theme.card,
+                paddingBottom: Math.max(insets.bottom, 10),
+              },
+            ]}
+          >
             <TextInput
-              style={[styles.msgInput, { color: theme.text, backgroundColor: theme.bg, borderColor: theme.border }]}
+              style={[
+                styles.msgInput,
+                {
+                  color: theme.text,
+                  backgroundColor: theme.bg,
+                  borderColor: theme.border,
+                },
+              ]}
               placeholder="Répondre..."
               placeholderTextColor={theme.subText}
               value={inputMsg}
@@ -347,9 +432,16 @@ function AdminChatContent() {
             )}
           </View>
         ) : (
-          <View style={[styles.closedBanner, { backgroundColor: theme.card, borderTopColor: theme.border }]}>
+          <View
+            style={[
+              styles.closedBanner,
+              { backgroundColor: theme.card, borderTopColor: theme.border },
+            ]}
+          >
             <Ionicons name="lock-closed" size={16} color={theme.subText} />
-            <Text style={[styles.closedText, { color: theme.subText }]}>Conversation fermée</Text>
+            <Text style={[styles.closedText, { color: theme.subText }]}>
+              Conversation fermée
+            </Text>
           </View>
         )}
       </KeyboardAvoidingView>
@@ -361,7 +453,9 @@ function AdminChatContent() {
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <View style={[styles.listHeader, { borderBottomColor: theme.border }]}>
         <Ionicons name="chatbubbles" size={22} color={theme.primary} />
-        <Text style={[styles.listTitle, { color: theme.text }]}>Messages clients</Text>
+        <Text style={[styles.listTitle, { color: theme.text }]}>
+          Messages clients
+        </Text>
         {chats.filter((c) => c.unread_admin > 0).length > 0 && (
           <View style={styles.unreadBadge}>
             <Text style={styles.unreadBadgeText}>
@@ -389,12 +483,34 @@ function AdminChatContent() {
           contentContainerStyle={{ paddingBottom: 20 }}
           renderItem={({ item }) => (
             <TouchableOpacity
-              style={[styles.chatItem, { borderBottomColor: theme.border, backgroundColor: theme.card }]}
+              style={[
+                styles.chatItem,
+                {
+                  borderBottomColor: theme.border,
+                  backgroundColor: theme.card,
+                },
+              ]}
               onPress={() => setSelectedChat(item)}
               activeOpacity={0.8}
             >
-              <View style={[styles.chatAvatar, { backgroundColor: item.status === "open" ? theme.primary + "30" : theme.nav }]}>
-                <Text style={[styles.chatAvatarText, { color: item.status === "open" ? theme.primary : theme.subText }]}>
+              <View
+                style={[
+                  styles.chatAvatar,
+                  {
+                    backgroundColor:
+                      item.status === "open" ? theme.primary + "30" : theme.nav,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.chatAvatarText,
+                    {
+                      color:
+                        item.status === "open" ? theme.primary : theme.subText,
+                    },
+                  ]}
+                >
                   {item.client_name.charAt(0).toUpperCase()}
                 </Text>
               </View>
@@ -403,7 +519,13 @@ function AdminChatContent() {
                   <Text style={[styles.chatClientName, { color: theme.text }]}>
                     {item.client_name}
                   </Text>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
                     {!item.assigned_to && item.status === "open" && (
                       <View style={styles.newBadge}>
                         <Text style={styles.newBadgeText}>Disponible</Text>
@@ -415,12 +537,17 @@ function AdminChatContent() {
                   </View>
                 </View>
                 <View style={styles.chatItemBottom}>
-                  <Text style={[styles.chatLastMsg, { color: theme.subText }]} numberOfLines={1}>
+                  <Text
+                    style={[styles.chatLastMsg, { color: theme.subText }]}
+                    numberOfLines={1}
+                  >
                     {item.last_message || "Nouvelle conversation"}
                   </Text>
                   {item.unread_admin > 0 && (
                     <View style={styles.msgBadge}>
-                      <Text style={styles.msgBadgeText}>{item.unread_admin}</Text>
+                      <Text style={styles.msgBadgeText}>
+                        {item.unread_admin}
+                      </Text>
                     </View>
                   )}
                 </View>
@@ -430,7 +557,15 @@ function AdminChatContent() {
                   </Text>
                 )}
               </View>
-              <View style={[styles.statusDot, { backgroundColor: item.status === "open" ? GREEN : theme.subText }]} />
+              <View
+                style={[
+                  styles.statusDot,
+                  {
+                    backgroundColor:
+                      item.status === "open" ? GREEN : theme.subText,
+                  },
+                ]}
+              />
             </TouchableOpacity>
           )}
         />
@@ -467,7 +602,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
   },
   unreadBadgeText: { color: "#fff", fontSize: 12, fontWeight: "700" },
-  centered: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12 },
+  centered: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 12,
+  },
   emptyText: { fontSize: 15, textAlign: "center" },
 
   chatItem: {
@@ -486,10 +626,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   chatAvatarText: { fontSize: 20, fontWeight: "700" },
-  chatItemTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  chatItemTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   chatClientName: { fontSize: 15, fontWeight: "700" },
   chatTime: { fontSize: 12 },
-  chatItemBottom: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
+  chatItemBottom: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 2,
+  },
   chatLastMsg: { fontSize: 13, flex: 1 },
   chatPhone: { fontSize: 11, marginTop: 2 },
   msgBadge: {
@@ -532,7 +681,12 @@ const styles = StyleSheet.create({
   },
 
   messagesList: { padding: 16, gap: 10, paddingBottom: 8 },
-  msgRow: { flexDirection: "row", alignItems: "flex-end", gap: 6, marginBottom: 8 },
+  msgRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 6,
+    marginBottom: 8,
+  },
   msgRowLeft: { justifyContent: "flex-start" },
   msgRowRight: { justifyContent: "flex-end" },
   clientInitial: {
@@ -543,7 +697,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   clientInitialText: { fontSize: 13, fontWeight: "700" },
-  msgBubble: { maxWidth: "75%", borderRadius: 16, padding: 12, paddingBottom: 8 },
+  msgBubble: {
+    maxWidth: "75%",
+    borderRadius: 16,
+    padding: 12,
+    paddingBottom: 8,
+  },
   msgSender: { fontSize: 11, marginBottom: 4, fontWeight: "600" },
   msgImage: { width: 200, height: 150, borderRadius: 10, marginBottom: 6 },
   msgText: { fontSize: 15, lineHeight: 21 },

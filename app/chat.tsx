@@ -1,26 +1,26 @@
+import { VoiceMessageBubble } from "@/components/chat/VoiceMessageBubble";
+import { VoiceRecorderButton } from "@/components/chat/VoiceRecorderButton";
+import { useTheme } from "@/context/ThemeContext";
+import { api } from "@/lib/api";
 import { Ionicons } from "@expo/vector-icons";
 import { File, UploadType } from "expo-file-system";
 import { router, useLocalSearchParams } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { VoiceMessageBubble } from "@/components/chat/VoiceMessageBubble";
-import { VoiceRecorderButton } from "@/components/chat/VoiceRecorderButton";
-import { api } from "@/lib/api";
-import { useTheme } from "@/context/ThemeContext";
 
 const GREEN = "#34C759";
 
@@ -71,9 +71,15 @@ export default function ChatScreen() {
   useEffect(() => {
     const restore = async () => {
       if (!enterprise_id) return;
-      const savedId = await SecureStore.getItemAsync(`chat_id_${enterprise_id}`);
-      const savedToken = await SecureStore.getItemAsync(`chat_token_${enterprise_id}`);
-      const savedName = await SecureStore.getItemAsync(`chat_name_${enterprise_id}`);
+      const savedId = await SecureStore.getItemAsync(
+        `chat_id_${enterprise_id}`,
+      );
+      const savedToken = await SecureStore.getItemAsync(
+        `chat_token_${enterprise_id}`,
+      );
+      const savedName = await SecureStore.getItemAsync(
+        `chat_name_${enterprise_id}`,
+      );
       if (savedId && savedToken && savedName) {
         try {
           const data = await api.getPublicChat(savedId, savedToken);
@@ -104,10 +110,15 @@ export default function ChatScreen() {
           const temps = prev.filter(
             (m) =>
               m.id.startsWith("temp_") &&
-              !db.find((d) => d.message === m.message && d.sender_type === m.sender_type),
+              !db.find(
+                (d) =>
+                  d.message === m.message && d.sender_type === m.sender_type,
+              ),
           );
           return [...db, ...temps].sort(
-            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+            (a, b) =>
+              new Date(a.created_at).getTime() -
+              new Date(b.created_at).getTime(),
           );
         });
       } catch {
@@ -139,11 +150,14 @@ export default function ChatScreen() {
         `🏍️ ${moto_name}`,
         moto_etat || null,
         moto_couleur || null,
-        moto_price ? `${Number(moto_price).toLocaleString("fr-FR")} FCFA` : null,
+        moto_price
+          ? `${Number(moto_price).toLocaleString("fr-FR")} FCFA`
+          : null,
       ]
         .filter(Boolean)
         .join(" · ");
-      const imgLine = moto_image && moto_image.startsWith("http") ? `\n📸 ${moto_image}` : "";
+      const imgLine =
+        moto_image && moto_image.startsWith("http") ? `\n📸 ${moto_image}` : "";
       introMsg = `Je suis intéressé(e) par votre moto :\n${parts}${imgLine}`;
     }
 
@@ -162,8 +176,14 @@ export default function ChatScreen() {
 
     setLoading(false);
     await SecureStore.setItemAsync(`chat_id_${enterprise_id}`, data.id);
-    await SecureStore.setItemAsync(`chat_token_${enterprise_id}`, data.client_token);
-    await SecureStore.setItemAsync(`chat_name_${enterprise_id}`, clientName.trim());
+    await SecureStore.setItemAsync(
+      `chat_token_${enterprise_id}`,
+      data.client_token,
+    );
+    await SecureStore.setItemAsync(
+      `chat_name_${enterprise_id}`,
+      clientName.trim(),
+    );
     setChatId(data.id);
     setClientToken(data.client_token);
     setMessages((data.messages ?? []) as Message[]);
@@ -189,7 +209,11 @@ export default function ChatScreen() {
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
 
     try {
-      const saved = (await api.sendClientMessage(chatId, clientToken, text)) as Message;
+      const saved = (await api.sendClientMessage(
+        chatId,
+        clientToken,
+        text,
+      )) as Message;
       setMessages((prev) => prev.map((m) => (m.id === tempId ? saved : m)));
     } catch {
       Alert.alert("Erreur", "Message non envoyé.");
@@ -213,17 +237,22 @@ export default function ChatScreen() {
 
     try {
       const file = new File(uri);
-      const task = file.createUploadTask(api.publicChatMessageUploadUrl(chatId), {
-        httpMethod: "POST",
-        uploadType: UploadType.MULTIPART,
-        fieldName: "voice",
-        mimeType: "audio/m4a",
-        headers: { "X-Client-Token": clientToken },
-        parameters: { voice_duration: String(Math.round(durationMillis / 1000)) },
-      });
+      const task = file.createUploadTask(
+        api.publicChatMessageUploadUrl(chatId),
+        {
+          httpMethod: "POST",
+          uploadType: UploadType.MULTIPART,
+          fieldName: "voice",
+          mimeType: "audio/m4a",
+          headers: { "X-Client-Token": clientToken },
+          parameters: {
+            voice_duration: String(Math.round(durationMillis / 1000)),
+          },
+        },
+      );
       const result = await task.uploadAsync();
       if (!result || result.status < 200 || result.status >= 300) {
-        throw new Error("Échec de l'envoi.");
+        throw new Error(`Échec de l'envoi (${result?.status ?? "réseau"}).`);
       }
       const saved = JSON.parse(result.body) as Message;
       setMessages((prev) => [...prev, saved]);
@@ -236,7 +265,10 @@ export default function ChatScreen() {
   };
 
   const fmtTime = (s: string) =>
-    new Date(s).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    new Date(s).toLocaleTimeString("fr-FR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
 
   // ─── ÉTAPE : SAISIE DU NOM ─────────────────────────────────────────────────
   if (step === "name") {
@@ -247,7 +279,10 @@ export default function ChatScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <View style={[styles.nameHeader, { paddingTop: insets.top || 14 }]}>
-          <TouchableOpacity onPress={() => router.back()} style={{ padding: 4 }}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{ padding: 4 }}
+          >
             <Ionicons name="arrow-back" size={24} color={theme.primary} />
           </TouchableOpacity>
           <Text style={[styles.nameTitle, { color: theme.text }]}>
@@ -258,7 +293,12 @@ export default function ChatScreen() {
         <View style={styles.nameContent}>
           {/* Carte moto si contexte disponible */}
           {hasMoto ? (
-            <View style={[styles.motoCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <View
+              style={[
+                styles.motoCard,
+                { backgroundColor: theme.card, borderColor: theme.border },
+              ]}
+            >
               {moto_image ? (
                 <Image
                   source={{ uri: moto_image }}
@@ -266,20 +306,34 @@ export default function ChatScreen() {
                   resizeMode="cover"
                 />
               ) : (
-                <View style={[styles.motoCardImgPlaceholder, { backgroundColor: theme.bg }]}>
+                <View
+                  style={[
+                    styles.motoCardImgPlaceholder,
+                    { backgroundColor: theme.bg },
+                  ]}
+                >
                   <Ionicons name="bicycle" size={34} color={theme.subText} />
                 </View>
               )}
               <View style={{ flex: 1, gap: 4 }}>
-                <Text style={[styles.motoCardName, { color: theme.text }]} numberOfLines={1}>
+                <Text
+                  style={[styles.motoCardName, { color: theme.text }]}
+                  numberOfLines={1}
+                >
                   {moto_name}
                 </Text>
-                <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+                <View
+                  style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}
+                >
                   {moto_etat ? (
-                    <Text style={[styles.motoCardBadge, { color: GREEN }]}>{moto_etat}</Text>
+                    <Text style={[styles.motoCardBadge, { color: GREEN }]}>
+                      {moto_etat}
+                    </Text>
                   ) : null}
                   {moto_couleur ? (
-                    <Text style={[styles.motoCardBadge, { color: theme.subText }]}>
+                    <Text
+                      style={[styles.motoCardBadge, { color: theme.subText }]}
+                    >
                       {moto_couleur}
                     </Text>
                   ) : null}
@@ -303,7 +357,10 @@ export default function ChatScreen() {
             <View style={styles.fieldRow}>
               <Ionicons name="person-outline" size={18} color={theme.subText} />
               <TextInput
-                style={[styles.nameInput, { color: theme.text, borderColor: theme.border }]}
+                style={[
+                  styles.nameInput,
+                  { color: theme.text, borderColor: theme.border },
+                ]}
                 placeholder="Votre nom *"
                 placeholderTextColor={theme.subText}
                 value={clientName}
@@ -314,7 +371,10 @@ export default function ChatScreen() {
             <View style={[styles.fieldRow, { marginTop: 12 }]}>
               <Ionicons name="call-outline" size={18} color={theme.subText} />
               <TextInput
-                style={[styles.nameInput, { color: theme.text, borderColor: theme.border }]}
+                style={[
+                  styles.nameInput,
+                  { color: theme.text, borderColor: theme.border },
+                ]}
                 placeholder="Votre téléphone (optionnel)"
                 placeholderTextColor={theme.subText}
                 value={clientPhone}
@@ -336,7 +396,11 @@ export default function ChatScreen() {
               <ActivityIndicator color="#fff" />
             ) : (
               <>
-                <Ionicons name="chatbubble-ellipses-outline" size={20} color="#fff" />
+                <Ionicons
+                  name="chatbubble-ellipses-outline"
+                  size={20}
+                  color="#fff"
+                />
                 <Text style={styles.startBtnText}>Démarrer le chat</Text>
               </>
             )}
@@ -377,7 +441,9 @@ export default function ChatScreen() {
                 🏍️ {moto_name}
               </Text>
             ) : (
-              <Text style={[styles.chatHeaderSub, { color: GREEN }]}>En ligne</Text>
+              <Text style={[styles.chatHeaderSub, { color: GREEN }]}>
+                En ligne
+              </Text>
             )}
           </View>
         </View>
@@ -398,15 +464,26 @@ export default function ChatScreen() {
         keyExtractor={(m) => m.id}
         style={{ flex: 1 }}
         contentContainerStyle={styles.messagesList}
-        onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+        onContentSizeChange={() =>
+          listRef.current?.scrollToEnd({ animated: false })
+        }
         renderItem={({ item }) => {
           const isMe = item.sender_type === "client";
           const isTemp = item.id.startsWith("temp_");
           return (
-            <View style={[styles.msgRow, isMe ? styles.msgRowRight : styles.msgRowLeft]}>
+            <View
+              style={[
+                styles.msgRow,
+                isMe ? styles.msgRowRight : styles.msgRowLeft,
+              ]}
+            >
               {!isMe && (
                 <View style={styles.msgAvatar}>
-                  <Ionicons name="person-circle" size={28} color={theme.subText} />
+                  <Ionicons
+                    name="person-circle"
+                    size={28}
+                    color={theme.subText}
+                  />
                 </View>
               )}
               <View
@@ -424,7 +501,12 @@ export default function ChatScreen() {
                 {item.voice_url ? (
                   <VoiceMessageBubble uri={item.voice_url} isMine={isMe} />
                 ) : (
-                  <Text style={[styles.msgText, { color: isMe ? "#fff" : theme.text }]}>
+                  <Text
+                    style={[
+                      styles.msgText,
+                      { color: isMe ? "#fff" : theme.text },
+                    ]}
+                  >
                     {item.message}
                   </Text>
                 )}
@@ -456,7 +538,11 @@ export default function ChatScreen() {
         <TextInput
           style={[
             styles.msgInput,
-            { color: theme.text, backgroundColor: theme.bg, borderColor: theme.border },
+            {
+              color: theme.text,
+              backgroundColor: theme.bg,
+              borderColor: theme.border,
+            },
           ]}
           placeholder="Votre message..."
           placeholderTextColor={theme.subText}
@@ -504,7 +590,12 @@ const styles = StyleSheet.create({
   nameTitle: { fontSize: 18, fontWeight: "700", flex: 1 },
   nameContent: { flex: 1, paddingHorizontal: 24, justifyContent: "center" },
   nameEmoji: { fontSize: 56, textAlign: "center", marginBottom: 16 },
-  nameSubtitle: { fontSize: 14, textAlign: "center", marginBottom: 28, lineHeight: 20 },
+  nameSubtitle: {
+    fontSize: 14,
+    textAlign: "center",
+    marginBottom: 28,
+    lineHeight: 20,
+  },
 
   // Carte moto (étape nom)
   motoCard: {
@@ -558,14 +649,24 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
   },
-  chatHeaderInfo: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
+  chatHeaderInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+  },
   onlineDot: { width: 10, height: 10, borderRadius: 5 },
   chatHeaderName: { fontSize: 16, fontWeight: "700" },
   chatHeaderSub: { fontSize: 12 },
   chatHeaderThumb: { width: 40, height: 40, borderRadius: 8 },
 
   messagesList: { padding: 16, gap: 10, paddingBottom: 8 },
-  msgRow: { flexDirection: "row", alignItems: "flex-end", gap: 6, marginBottom: 8 },
+  msgRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 6,
+    marginBottom: 8,
+  },
   msgRowLeft: { justifyContent: "flex-start" },
   msgRowRight: { justifyContent: "flex-end" },
   msgAvatar: {},

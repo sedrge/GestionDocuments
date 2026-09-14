@@ -166,6 +166,16 @@ export async function deactivateEnterprise(enterpriseId: string) {
   }
 }
 
+/** Supprime une entreprise et ses ressources (super-admin only). */
+export async function deleteEnterprise(enterpriseId: string) {
+  try {
+    await api.deleteEnterprise(enterpriseId);
+    return { success: true, message: "Entreprise supprimée" };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
 /**
  * Récupère les users en attente d'activation pour une entreprise
  */
