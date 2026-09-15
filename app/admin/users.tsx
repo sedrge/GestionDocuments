@@ -21,7 +21,9 @@ import {
     activateUser,
     createUserInEnterprise,
     deactivateUser,
+    deleteUserAccount,
     getActiveUsers,
+    getAllUsers,
     getPendingUsers,
     removeUserFromEnterprise,
 } from "../../lib/multitenant";
@@ -32,11 +34,20 @@ interface UserItem {
   full_name: string;
   email: string;
   phone?: string;
+  created_at?: string;
+  is_super_admin?: boolean;
+  email_verified_at?: string | null;
+  enterprises?: {
+    id: string;
+    name: string;
+    role: string;
+    is_active: boolean;
+  }[];
 }
 
 export default function EnterpriseAdminUsersScreen() {
   const { theme } = useTheme();
-  const { tenant, isEnterpriseAdmin } = useTenant();
+  const { tenant, isEnterpriseAdmin, isSuperAdmin } = useTenant();
   const [tab, setTab] = useState<"pending" | "active">("pending");
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<UserItem[]>([]);
@@ -50,21 +61,25 @@ export default function EnterpriseAdminUsersScreen() {
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    if (!isEnterpriseAdmin || !tenant?.enterprise_id) {
+    if (
+      (!isEnterpriseAdmin && !isSuperAdmin) ||
+      (!isSuperAdmin && !tenant?.enterprise_id)
+    ) {
       router.replace("/home");
       return;
     }
     loadUsers();
-  }, [tab, isEnterpriseAdmin]);
+  }, [tab, isEnterpriseAdmin, isSuperAdmin]);
 
   const loadUsers = async () => {
-    if (!tenant?.enterprise_id) return;
+    if (!isSuperAdmin && !tenant?.enterprise_id) return;
     setLoading(true);
     try {
-      const result =
-        tab === "pending"
-          ? await getPendingUsers(tenant.enterprise_id)
-          : await getActiveUsers(tenant.enterprise_id);
+      const result = isSuperAdmin
+        ? await getAllUsers()
+        : tab === "pending"
+          ? await getPendingUsers(tenant!.enterprise_id)
+          : await getActiveUsers(tenant!.enterprise_id);
 
       if (result.success) {
         setUsers(result.users);
@@ -74,6 +89,27 @@ export default function EnterpriseAdminUsersScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDeleteAccount = (userId: string, name: string) => {
+    Alert.alert(
+      "Supprimer définitivement le compte",
+      `Le compte "${name}" et ses données seront supprimés. Cette action est irréversible.`,
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Supprimer",
+          style: "destructive",
+          onPress: async () => {
+            const result = await deleteUserAccount(userId);
+            if (result.success) {
+              Alert.alert("Succès", "Compte utilisateur supprimé.");
+              loadUsers();
+            } else Alert.alert("Erreur", result.error);
+          },
+        },
+      ],
+    );
   };
 
   const handleApprove = async (userId: string) => {
@@ -108,12 +144,12 @@ export default function EnterpriseAdminUsersScreen() {
 
   const handleRemove = (userId: string, name: string) => {
     Alert.alert(
-      "Retirer l'utilisateur",
-      `Retirer "${name}" de l'entreprise ? Son compte restera actif.`,
+      "Supprimer de l'entreprise",
+      `Supprimer "${name}" de l'entreprise ? Son compte restera disponible dans les autres entreprises auxquelles il appartient.`,
       [
         { text: "Annuler", style: "cancel" },
         {
-          text: "Retirer",
+          text: "Supprimer",
           style: "destructive",
           onPress: async () => {
             if (!tenant?.enterprise_id) return;
@@ -122,7 +158,7 @@ export default function EnterpriseAdminUsersScreen() {
               tenant.enterprise_id,
             );
             if (result.success) {
-              Alert.alert("Succès", "Utilisateur retiré de l'entreprise.");
+              Alert.alert("Succès", "Utilisateur supprimé de l'entreprise.");
               loadUsers();
             } else {
               Alert.alert("Erreur", result.error);
@@ -192,39 +228,43 @@ export default function EnterpriseAdminUsersScreen() {
             Gestion des Utilisateurs
           </Text>
           <Text style={[styles.headerSub, { color: theme.subText }]}>
-            {tenant?.enterprise_name}
+            {isSuperAdmin
+              ? "Tous les comptes inscrits"
+              : tenant?.enterprise_name}
           </Text>
         </View>
       </View>
 
       {/* Onglets */}
-      <View style={[styles.tabs, { borderBottomColor: theme.border }]}>
-        {(["pending", "active"] as const).map((t) => (
-          <TouchableOpacity
-            key={t}
-            style={[
-              styles.tab,
-              tab === t && {
-                borderBottomColor: theme.primary,
-                borderBottomWidth: 3,
-              },
-            ]}
-            onPress={() => setTab(t)}
-          >
-            <Text
+      {!isSuperAdmin && (
+        <View style={[styles.tabs, { borderBottomColor: theme.border }]}>
+          {(["pending", "active"] as const).map((t) => (
+            <TouchableOpacity
+              key={t}
               style={[
-                styles.tabText,
-                {
-                  color: tab === t ? theme.primary : theme.subText,
-                  fontWeight: tab === t ? "600" : "400",
+                styles.tab,
+                tab === t && {
+                  borderBottomColor: theme.primary,
+                  borderBottomWidth: 3,
                 },
               ]}
+              onPress={() => setTab(t)}
             >
-              {t === "pending" ? "En Attente" : "Actifs"}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+              <Text
+                style={[
+                  styles.tabText,
+                  {
+                    color: tab === t ? theme.primary : theme.subText,
+                    fontWeight: tab === t ? "600" : "400",
+                  },
+                ]}
+              >
+                {t === "pending" ? "En Attente" : "Actifs"}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
       {/* Contenu */}
       {loading ? (
@@ -234,7 +274,9 @@ export default function EnterpriseAdminUsersScreen() {
       ) : users.length === 0 ? (
         <View style={styles.center}>
           <Text style={{ color: theme.subText, fontSize: 14 }}>
-            Aucun utilisateur {tab === "pending" ? "en attente" : "actif"}
+            {isSuperAdmin
+              ? "Aucun compte inscrit"
+              : `Aucun utilisateur ${tab === "pending" ? "en attente" : "actif"}`}
           </Text>
         </View>
       ) : (
@@ -262,79 +304,116 @@ export default function EnterpriseAdminUsersScreen() {
                       {item.phone}
                     </Text>
                   ) : null}
+                  {isSuperAdmin && (
+                    <Text style={[styles.userEmail, { color: theme.subText }]}>
+                      {item.enterprises?.length
+                        ? item.enterprises
+                            .map((enterprise) => enterprise.name)
+                            .join(", ")
+                        : "Aucune entreprise affiliée"}
+                    </Text>
+                  )}
                 </View>
                 {/* Bouton supprimer */}
-                <TouchableOpacity
-                  style={styles.removeBtn}
-                  onPress={() =>
-                    handleRemove(item.user_id, item.full_name || item.email)
-                  }
-                >
-                  <Ionicons
-                    name="trash-outline"
-                    size={18}
-                    color={theme.danger}
-                  />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.actions}>
-                {tab === "pending" ? (
-                  <TouchableOpacity
-                    style={[
-                      styles.actionBtn,
-                      { backgroundColor: theme.success },
-                    ]}
-                    onPress={() => handleApprove(item.user_id)}
-                  >
-                    <Ionicons name="checkmark-circle" size={16} color="#fff" />
-                    <Text style={styles.actionText}>Approuver</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <>
+                {isSuperAdmin ? (
+                  !item.is_super_admin && (
                     <TouchableOpacity
-                      style={[
-                        styles.actionBtn,
-                        { backgroundColor: theme.primary },
-                      ]}
+                      style={styles.removeBtn}
                       onPress={() =>
-                        router.push(
-                          `/admin/user_permissions?userId=${item.user_id}&userName=${encodeURIComponent(item.full_name || "")}&userEmail=${encodeURIComponent(item.email)}` as any,
+                        handleDeleteAccount(
+                          item.id,
+                          item.full_name || item.email,
                         )
                       }
                     >
                       <Ionicons
-                        name="shield-checkmark-outline"
-                        size={16}
-                        color="#fff"
+                        name="trash-outline"
+                        size={18}
+                        color={theme.danger}
                       />
-                      <Text style={styles.actionText}>Permissions</Text>
                     </TouchableOpacity>
+                  )
+                ) : (
+                  <TouchableOpacity
+                    style={styles.removeBtn}
+                    onPress={() =>
+                      handleRemove(item.user_id, item.full_name || item.email)
+                    }
+                  >
+                    <Ionicons
+                      name="trash-outline"
+                      size={18}
+                      color={theme.danger}
+                    />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {!isSuperAdmin && (
+                <View style={styles.actions}>
+                  {tab === "pending" ? (
                     <TouchableOpacity
                       style={[
                         styles.actionBtn,
-                        { backgroundColor: theme.danger },
+                        { backgroundColor: theme.success },
                       ]}
-                      onPress={() => handleDeactivate(item.user_id)}
+                      onPress={() => handleApprove(item.user_id)}
                     >
-                      <Ionicons name="close-circle" size={16} color="#fff" />
-                      <Text style={styles.actionText}>Désactiver</Text>
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={16}
+                        color="#fff"
+                      />
+                      <Text style={styles.actionText}>Approuver</Text>
                     </TouchableOpacity>
-                  </>
-                )}
-              </View>
+                  ) : (
+                    <>
+                      <TouchableOpacity
+                        style={[
+                          styles.actionBtn,
+                          { backgroundColor: theme.primary },
+                        ]}
+                        onPress={() =>
+                          router.push(
+                            `/admin/user_permissions?userId=${item.user_id}&userName=${encodeURIComponent(item.full_name || "")}&userEmail=${encodeURIComponent(item.email)}` as any,
+                          )
+                        }
+                      >
+                        <Ionicons
+                          name="shield-checkmark-outline"
+                          size={16}
+                          color="#fff"
+                        />
+                        <Text style={styles.actionText}>Permissions</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.actionBtn,
+                          { backgroundColor: theme.danger },
+                        ]}
+                        onPress={() => handleDeactivate(item.user_id)}
+                      >
+                        <Ionicons name="close-circle" size={16} color="#fff" />
+                        <Text style={styles.actionText}>Désactiver</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
+              )}
             </View>
           )}
         />
       )}
 
       {/* FAB — Créer un utilisateur */}
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: theme.primary }]}
-        onPress={() => setShowCreateModal(true)}
-      >
-        <Ionicons name="person-add" size={24} color="#fff" />
-      </TouchableOpacity>
+      {!isSuperAdmin && (
+        <TouchableOpacity
+          style={[styles.fab, { backgroundColor: theme.primary }]}
+          onPress={() => setShowCreateModal(true)}
+        >
+          <Ionicons name="person-add" size={24} color="#fff" />
+        </TouchableOpacity>
+      )}
 
       {/* Modal créer utilisateur */}
       <Modal

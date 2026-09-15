@@ -209,6 +209,26 @@ export async function getActiveUsers(enterpriseId: string) {
   }
 }
 
+/** Récupère tous les comptes inscrits (super-admin uniquement). */
+export async function getAllUsers() {
+  try {
+    const users = await api.listAllUsers();
+    return { success: true, users: users || [] };
+  } catch (error: any) {
+    return { success: false, error: error.message, users: [] };
+  }
+}
+
+/** Supprime définitivement un compte (super-admin uniquement). */
+export async function deleteUserAccount(userId: string) {
+  try {
+    await api.deleteUserAccount(userId);
+    return { success: true, message: "Compte utilisateur supprimé." };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
 /**
  * Active un user (enterprise admin only)
  */

@@ -9,6 +9,7 @@ import {
     getPendingEnterprises,
     getPendingUsers,
     regenerateEnterpriseCode,
+    removeUserFromEnterprise,
 } from "@/lib/multitenant";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -708,6 +709,27 @@ function EnterpriseUsersView({
     } else Alert.alert("Erreur", result.error);
   };
 
+  const handleRemove = (userId: string, name: string) => {
+    Alert.alert(
+      "Supprimer de l'entreprise",
+      `Supprimer "${name}" de "${enterpriseName}" ? Son compte restera disponible dans les autres entreprises auxquelles il appartient.`,
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Supprimer",
+          style: "destructive",
+          onPress: async () => {
+            const result = await removeUserFromEnterprise(userId, enterpriseId);
+            if (result.success) {
+              Alert.alert("Succès", "Utilisateur supprimé de l'entreprise.");
+              loadUsers();
+            } else Alert.alert("Erreur", result.error);
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <View
@@ -814,23 +836,40 @@ function EnterpriseUsersView({
                   {item.email}
                 </Text>
               </View>
-              {tab === "pending" ? (
+              <View style={styles.userActions}>
+                {tab === "pending" ? (
+                  <TouchableOpacity
+                    style={[
+                      styles.userActionBtn,
+                      { backgroundColor: "#34C759" },
+                    ]}
+                    onPress={() => handleActivate(item.user_id)}
+                  >
+                    <Ionicons name="checkmark" size={14} color="#fff" />
+                    <Text style={styles.userActionText}>Accepter</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={[
+                      styles.userActionBtn,
+                      { backgroundColor: "#FF3B30" },
+                    ]}
+                    onPress={() => handleDeactivate(item.user_id)}
+                  >
+                    <Ionicons name="close" size={14} color="#fff" />
+                    <Text style={styles.userActionText}>Désactiver</Text>
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity
-                  style={[styles.userActionBtn, { backgroundColor: "#34C759" }]}
-                  onPress={() => handleActivate(item.user_id)}
+                  style={[styles.userActionBtn, { backgroundColor: "#8E1B13" }]}
+                  onPress={() =>
+                    handleRemove(item.user_id, item.full_name || item.email)
+                  }
                 >
-                  <Ionicons name="checkmark" size={14} color="#fff" />
-                  <Text style={styles.userActionText}>Accepter</Text>
+                  <Ionicons name="trash-outline" size={14} color="#fff" />
+                  <Text style={styles.userActionText}>Supprimer</Text>
                 </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={[styles.userActionBtn, { backgroundColor: "#FF3B30" }]}
-                  onPress={() => handleDeactivate(item.user_id)}
-                >
-                  <Ionicons name="close" size={14} color="#fff" />
-                  <Text style={styles.userActionText}>Désactiver</Text>
-                </TouchableOpacity>
-              )}
+              </View>
             </View>
           ))}
         </ScrollView>
@@ -971,6 +1010,7 @@ const styles = StyleSheet.create({
   },
   userName: { fontSize: 14, fontWeight: "600" },
   userEmail: { fontSize: 12, marginTop: 2 },
+  userActions: { alignItems: "flex-end", gap: 6 },
   userActionBtn: {
     flexDirection: "row",
     alignItems: "center",

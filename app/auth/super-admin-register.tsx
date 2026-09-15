@@ -72,16 +72,10 @@ export default function SuperAdminRegisterScreen() {
         password,
       });
 
-      Alert.alert(
-        "Compte créé !",
-        "Votre compte Super Admin a été créé avec succès. Connectez-vous maintenant.",
-        [
-          {
-            text: "Se connecter",
-            onPress: () => router.replace("/auth/login"),
-          },
-        ],
-      );
+      router.replace({
+        pathname: "/auth/verify-email",
+        params: { email: email.trim().toLowerCase() },
+      });
     } catch (error: any) {
       Alert.alert(
         "Erreur d'inscription",

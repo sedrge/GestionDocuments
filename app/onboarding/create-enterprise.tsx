@@ -71,27 +71,13 @@ export default function CreateEnterpriseScreen() {
       });
 
       if (result.success && result.code) {
-        Alert.alert(
-          "✅ Entreprise créée !",
-          `Votre code unique est : ${result.code}\n\nPartagez ce code avec vos employés.\n\nVotre entreprise sera active une fois approuvée par le super-admin.`,
-          [
-            {
-              text: "Copier le code",
-              onPress: () => {
-                // TODO: Copy to clipboard
-                Alert.alert("Code copié", result.code);
-              },
-            },
-            {
-              text: "Confirmer mon email",
-              onPress: () =>
-                router.replace({
-                  pathname: "/auth/verify-email",
-                  params: { email: result.adminEmail },
-                }),
-            },
-          ],
-        );
+        router.replace({
+          pathname: "/auth/verify-email",
+          params: {
+            email: result.adminEmail,
+            enterpriseCode: result.code,
+          },
+        });
       } else {
         Alert.alert(
           "Erreur",

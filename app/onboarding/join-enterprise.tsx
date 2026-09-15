@@ -4,14 +4,14 @@ import { joinEnterprise } from "@/lib/multitenant";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -67,16 +67,10 @@ export default function JoinEnterpriseScreen() {
       });
 
       if (result.success) {
-        Alert.alert("✅ Compte créé !", result.message, [
-          {
-            text: "Confirmer mon email",
-            onPress: () =>
-              router.replace({
-                pathname: "/auth/verify-email",
-                params: { email: formData.email.trim() },
-              } as never),
-          },
-        ]);
+        router.replace({
+          pathname: "/auth/verify-email",
+          params: { email: formData.email.trim().toLowerCase() },
+        } as never);
       } else {
         Alert.alert(
           "Erreur",

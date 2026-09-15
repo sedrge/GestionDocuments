@@ -2,16 +2,16 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    SafeAreaView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import PasswordInput from "../../components/PasswordInput";
@@ -42,6 +42,21 @@ export default function LoginScreen() {
       await refreshTenant();
       router.replace("/(tabs)");
     } catch (error: any) {
+      const validationEmail = error?.data?.errors?.email;
+      const isUnverified = Array.isArray(validationEmail)
+        ? validationEmail.some((message: string) =>
+            message.toLowerCase().includes("confirmez"),
+          )
+        : error?.message?.toLowerCase?.().includes("confirmez");
+
+      if (isUnverified) {
+        router.replace({
+          pathname: "/auth/verify-email",
+          params: { email: email.trim().toLowerCase() },
+        });
+        return;
+      }
+
       Alert.alert(
         "Erreur de connexion",
         error.message || "Identifiants invalides",

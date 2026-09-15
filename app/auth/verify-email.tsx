@@ -16,6 +16,7 @@ export default function VerifyEmailScreen() {
   const [email, setEmail] = useState(params.email ?? "");
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
 
   const verify = async () => {
     if (!email.includes("@") || !/^\d{6}$/.test(code)) {
@@ -36,11 +37,19 @@ export default function VerifyEmailScreen() {
   };
 
   const resend = async () => {
+    if (!email.includes("@")) {
+      Alert.alert("Erreur", "Saisissez d'abord une adresse email valide.");
+      return;
+    }
+
+    setResending(true);
     try {
       await api.resendVerification({ email: email.trim() });
       Alert.alert("Code envoyé", "Vérifiez votre boîte email.");
     } catch (error: any) {
       Alert.alert("Erreur", error.message || "Impossible d'envoyer le code.");
+    } finally {
+      setResending(false);
     }
   };
 
@@ -76,7 +85,7 @@ export default function VerifyEmailScreen() {
             {loading ? "Confirmation..." : "Confirmer"}
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={resend}>
+        <TouchableOpacity onPress={resend} disabled={loading || resending}>
           <Text style={styles.link}>Renvoyer le code</Text>
         </TouchableOpacity>
       </View>
