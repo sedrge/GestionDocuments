@@ -14,6 +14,7 @@ import {
     View,
 } from "react-native";
 import { WebView } from "react-native-webview";
+import { AuthImage } from "../../components/AuthImage";
 import { api } from "../../lib/api";
 import { resolveAuthImages } from "../../lib/authImageDataUri";
 import { printAndSharePdf } from "../../lib/sharePdf";
@@ -267,7 +268,7 @@ ${single ? "" : `<div class="face"><div class="label">Verso</div>${versoUri ? `<
                 <Text style={styles.sigTitle}>Récupération moto</Text>
                 {registre.signature_uri ? (
                   <AuthImage
-                    source={{ uri: imageData.signature_uri || undefined }}
+                    uri={api.fileUrl("registres", String(id), "signature_uri")}
                     style={styles.sigImage}
                     resizeMode="contain"
                   />
@@ -281,9 +282,11 @@ ${single ? "" : `<div class="face"><div class="label">Verso</div>${versoUri ? `<
                 <Text style={styles.sigTitle}>Récupération documents</Text>
                 {registre.signature_documents_uri ? (
                   <AuthImage
-                    source={{
-                      uri: imageData.signature_documents_uri || undefined,
-                    }}
+                    uri={api.fileUrl(
+                      "registres",
+                      String(id),
+                      "signature_documents_uri",
+                    )}
                     style={styles.sigImage}
                     resizeMode="contain"
                   />
